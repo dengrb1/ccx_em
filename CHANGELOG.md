@@ -6,6 +6,10 @@
 - **导出 `ConvertRawToolsToOpenAI` 函数** - converters 包新增导出包装，供透传分支复用已有的工具转换逻辑
 - **前端渠道编辑新增开关** - AddChannelModal 中在 Codex 工具兼容开关前新增 "Codex 原生工具透传" 开关，含英文/印尼语/中文三语翻译
 
+### 修复
+
+- **修复 Codex apply_patch proxy 调用回写不可执行** - 当 Codex 以字符串数组形式暴露 `apply_patch_add_file` / `apply_patch_batch` 等 proxy 工具时，ccx 现在会在响应回写阶段将上游 function_call 反向映射为 Codex 客户端可执行的 `custom_tool_call name=apply_patch`，避免客户端报 `unsupported call`。
+
 ## [v2.6.89] - 2026-05-13
 
 ### 修复

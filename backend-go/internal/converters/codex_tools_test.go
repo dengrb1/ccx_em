@@ -691,3 +691,34 @@ func TestWrapOpenAIChatResponseToResponsesWithContext_NamespaceStreaming(t *test
 		t.Fatalf("arguments = %q", item.Arguments)
 	}
 }
+
+func TestRemapCustomToolCallsInResponse_StringToolsApplyPatch(t *testing.T) {
+	// Codex sends tools as string array: ["apply_patch_add_file", "apply_patch_batch", "exec_command"]
+	rawTools := []interface{}{"apply_patch_add_file", "apply_patch_batch", "exec_command"}
+	ctx := BuildCodexToolContextFromRaw(rawTools)
+
+	resp := &types.ResponsesResponse{
+		Output: []types.ResponsesItem{{
+			Type:      "function_call",
+			CallID:    "call_1",
+			Name:      "apply_patch_add_file",
+			Arguments: `{"path":"/tmp/test.txt","content":"hello world"}`,
+		}},
+	}
+
+	ctx.RemapCustomToolCallsInResponse(resp)
+
+	if len(resp.Output) != 1 {
+		t.Fatalf("output len = %d", len(resp.Output))
+	}
+	item := resp.Output[0]
+	if item.Type != "custom_tool_call" {
+		t.Fatalf("expected custom_tool_call, got %s", item.Type)
+	}
+	if item.Name != "apply_patch" {
+		t.Fatalf("expected name=apply_patch, got %s", item.Name)
+	}
+	if !strings.Contains(item.Input, "*** Begin Patch") {
+		t.Fatalf("expected patch format input, got %q", item.Input)
+	}
+}

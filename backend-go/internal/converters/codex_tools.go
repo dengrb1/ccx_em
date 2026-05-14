@@ -57,7 +57,11 @@ func BuildCodexToolContextFromRaw(tools []interface{}) CodexToolContext {
 
 	for _, rawTool := range tools {
 		if name, ok := rawTool.(string); ok && name != "" {
-			ctx.CustomTools[name] = CodexCustomToolSpec{OpenAIName: name, Kind: CodexCustomToolRaw}
+			if action := proxyActionFromUpstreamName(name); strings.HasPrefix(name, "apply_patch_") && action != "" {
+				ctx.CustomTools[name] = CodexCustomToolSpec{OpenAIName: "apply_patch", Kind: CodexCustomToolApplyPatch, ProxyAction: action}
+			} else {
+				ctx.CustomTools[name] = CodexCustomToolSpec{OpenAIName: name, Kind: CodexCustomToolRaw}
+			}
 			ctx.HasCustomTools = true
 			continue
 		}
@@ -650,6 +654,17 @@ func ApplyPatchInputFromProxyArguments(rawArguments string, action string) strin
 }
 
 func applyPatchInputFromParsedArgs(args map[string]interface{}, action, rawArguments string) string {
+	if input, ok := args["input"].(string); ok && action != "" {
+		var nested map[string]interface{}
+		if err := json.Unmarshal([]byte(input), &nested); err == nil {
+			for key, value := range nested {
+				if _, exists := args[key]; !exists {
+					args[key] = value
+				}
+			}
+		}
+	}
+
 	var ops []ApplyPatchOperation
 
 	switch action {

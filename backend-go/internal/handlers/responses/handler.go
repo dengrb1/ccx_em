@@ -56,6 +56,7 @@ func Handler(
 		var responsesReq types.ResponsesRequest
 		if len(bodyBytes) > 0 {
 			_ = json.Unmarshal(bodyBytes, &responsesReq)
+			responsesReq.RawTools = extractRawToolsFromRequestBody(bodyBytes)
 		}
 
 		// 提取统一会话标识用于 Trace 亲和性（保持 metadata.user_id 默认规范化后的既有路由语义）
@@ -77,6 +78,15 @@ func Handler(
 }
 
 // handleMultiChannel 处理多渠道 Responses 请求
+func extractRawToolsFromRequestBody(bodyBytes []byte) []interface{} {
+	var reqMap map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &reqMap); err != nil {
+		return nil
+	}
+	rawTools, _ := reqMap["tools"].([]interface{})
+	return rawTools
+}
+
 func handleMultiChannel(
 	c *gin.Context,
 	envCfg *config.EnvConfig,
@@ -143,7 +153,7 @@ func handleMultiChannel(
 					if responsesReq.TransformerMetadata == nil {
 						responsesReq.TransformerMetadata = make(map[string]interface{})
 					}
-					responsesReq.TransformerMetadata["codex_tool_compat_enabled"] = upstreamCopy.IsCodexToolCompatEnabled()
+					responsesReq.TransformerMetadata["codex_tool_compat_enabled"] = upstreamCopy.IsCodexToolCompatEnabled() || upstreamCopy.CodexNativeToolPassthrough
 					return handleSuccess(c, resp, provider, upstream.ServiceType, envCfg, sessionManager, startTime, &responsesReq, actualRequestBody, cfgManager.GetFuzzyModeEnabled())
 				},
 				responsesReq.Model,
@@ -235,7 +245,7 @@ func handleSingleChannel(
 			if responsesReq.TransformerMetadata == nil {
 				responsesReq.TransformerMetadata = make(map[string]interface{})
 			}
-			responsesReq.TransformerMetadata["codex_tool_compat_enabled"] = upstreamCopy.IsCodexToolCompatEnabled()
+			responsesReq.TransformerMetadata["codex_tool_compat_enabled"] = upstreamCopy.IsCodexToolCompatEnabled() || upstreamCopy.CodexNativeToolPassthrough
 			return handleSuccess(c, resp, provider, upstream.ServiceType, envCfg, sessionManager, startTime, &responsesReq, actualRequestBody, cfgManager.GetFuzzyModeEnabled())
 		},
 		responsesReq.Model,
@@ -330,6 +340,9 @@ func handleSuccess(
 		}
 		if codexEnabled {
 			codexCtx := converters.BuildCodexToolContext(originalReq.Tools)
+			if len(originalReq.RawTools) > 0 {
+				codexCtx = converters.BuildCodexToolContextFromRaw(originalReq.RawTools)
+			}
 			codexCtx.RemapCustomToolCallsInResponse(responsesResp)
 			codexCtx.RemapNamespaceFunctionCallsInResponse(responsesResp)
 		}
