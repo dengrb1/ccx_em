@@ -174,6 +174,9 @@ func (cm *ConfigManager) UpdateUpstream(index int, updates UpstreamUpdate) (shou
 	if updates.ReasoningMapping != nil {
 		upstream.ReasoningMapping = updates.ReasoningMapping
 	}
+	if updates.ReasoningParamStyle != nil {
+		upstream.ReasoningParamStyle = *updates.ReasoningParamStyle
+	}
 	if updates.TextVerbosity != nil {
 		upstream.TextVerbosity = *updates.TextVerbosity
 	}

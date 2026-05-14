@@ -182,6 +182,42 @@ func TestUpdateResponsesUpstream_BaseURLConsistency(t *testing.T) {
 	})
 }
 
+func TestUpdateResponsesUpstream_ReasoningParamStyle(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	initialConfig := `{
+		"upstream": [],
+		"responsesUpstream": [{
+			"name": "responses-channel",
+			"baseUrl": "https://responses.example.com",
+			"apiKeys": ["test-key"],
+			"serviceType": "responses"
+		}]
+	}`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("写入初始配置失败: %v", err)
+	}
+
+	cm, err := NewConfigManager(configPath)
+	if err != nil {
+		t.Fatalf("初始化配置管理器失败: %v", err)
+	}
+	defer cm.Close()
+
+	style := "reasoning_effort"
+	_, err = cm.UpdateResponsesUpstream(0, UpstreamUpdate{
+		ReasoningParamStyle: &style,
+	})
+	if err != nil {
+		t.Fatalf("UpdateResponsesUpstream 失败: %v", err)
+	}
+
+	cfg := cm.GetConfig()
+	if got := cfg.ResponsesUpstream[0].ReasoningParamStyle; got != style {
+		t.Fatalf("ReasoningParamStyle = %q, want %q", got, style)
+	}
+}
+
 // TestUpdateGeminiUpstream_BaseURLConsistency 测试 Gemini 渠道的 baseUrl 一致性
 func TestUpdateGeminiUpstream_BaseURLConsistency(t *testing.T) {
 	tempDir := t.TempDir()

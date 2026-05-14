@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### 修复
+
+- **修复编辑渠道时思考参数风格（reasoningParamStyle）未正确保存** - Messages、Responses、Gemini、Images 四类渠道的更新函数缺少对 `reasoningParamStyle` 字段的赋值，导致前端编辑后该配置被静默丢弃；仅 Chat 渠道此前已正确处理
+
 ## [v2.6.91] - 2026-05-14
 
 ### 修复
