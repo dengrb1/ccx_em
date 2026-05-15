@@ -86,7 +86,7 @@
             <v-list-item
               v-for="tab in translatedApiTabOptions"
               :key="tab.value"
-              :active="tab.value === 'conversations' ? $route.path === '/conversations' : channelStore.activeTab === tab.value"
+              :active="tab.value === 'conversations' ? route.path === '/conversations' : channelStore.activeTab === tab.value"
               :to="tab.route"
             >
               <v-list-item-title>{{ tab.label }}</v-list-item-title>
@@ -116,7 +116,7 @@
             {{ t('app.tabs.gemini') }}
           </router-link>
           <span class="api-type-text separator">/</span>
-          <router-link to="/conversations" class="api-type-text" :class="{ active: $route.path === '/conversations' }">
+          <router-link to="/conversations" class="api-type-text" :class="{ active: route.path === '/conversations' }">
             {{ t('app.tabs.conversations') }}
           </router-link>
           <span class="brand-text d-none d-md-inline">API Proxy - CCX</span>
@@ -441,6 +441,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, defineAsyncComponent } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { api, fetchHealth, ApiError, type Channel, type CapabilityTestJob, type CapabilityTestJobStartResponse, type CapabilityProtocolJobResult, type CapabilityModelJobResult, type CapabilitySnapshot } from './services/api'
 import { versionService } from './services/version'
@@ -456,6 +457,9 @@ import CapabilityTestDialog from './components/CapabilityTestDialog.vue'
 // 异步加载图表组件，减少首屏 JS 体积
 const GlobalStatsChart = defineAsyncComponent(() => import('./components/GlobalStatsChart.vue'))
 import { useAppTheme } from './composables/useTheme'
+
+// 路由
+const route = useRoute()
 
 // Vuetify主题
 const theme = useTheme()

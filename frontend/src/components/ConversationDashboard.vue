@@ -26,7 +26,7 @@
     <v-card v-else-if="!filteredConversations.length" variant="outlined" class="text-center pa-12">
       <v-icon size="48" color="grey">mdi-chat-outline</v-icon>
       <div class="text-body-1 mt-4 text-medium-emphasis">
-        No active sessions. Sessions will appear when requests pass through the gateway.
+        No active flights. Conversations will appear on radar when requests pass through the gateway.
       </div>
     </v-card>
 
