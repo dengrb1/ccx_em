@@ -14,7 +14,7 @@
           </div>
         </div>
         <div v-if="isEditing && props.channelType !== 'images'" class="header-capability-actions">
-          <v-tooltip location="bottom" :text="form.noVision ? t('addChannel.noVisionHint') : t('addChannel.visionChannelEnabled')" :open-delay="150" content-class="key-tooltip">
+          <v-tooltip location="bottom" :text="form.noVision ? t('channelCard.noVision') : t('channelCard.hasVision')" :open-delay="150" content-class="key-tooltip">
             <template #activator="{ props: tip }">
               <v-btn
                 v-bind="tip"
