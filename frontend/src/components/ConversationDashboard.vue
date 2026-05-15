@@ -48,18 +48,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { api, type ConversationInfo, type SequenceOverrideInfo, type ChannelSequenceEntry } from '@/services/api'
 import { useGlobalTick } from '@/composables/useGlobalTick'
-import { useChannelStore } from '@/stores/channel'
 import ConversationCard from './ConversationCard.vue'
 
-const channelStore = useChannelStore()
 const loading = ref(true)
 const conversations = ref<ConversationInfo[]>([])
 const overrides = ref<Record<string, SequenceOverrideInfo>>({})
 const kindFilter = ref('')
 const expandedCards = ref(new Set<string>())
+const channelsByKind = ref<Record<string, { index: number; name: string; status: string }[]>>({})
 
 const filteredConversations = computed(() => {
   const filter = kindFilter.value
@@ -70,23 +69,27 @@ const filteredConversations = computed(() => {
 const overrideCount = computed(() => Object.keys(overrides.value).length)
 
 function getChannelsForKind(kind: string): { index: number; name: string; status: string }[] {
-  const data = getChannelDataForKind(kind)
-  if (!data?.channels) return []
-  return data.channels.map((ch: any) => ({
-    index: ch.index ?? 0,
-    name: ch.name || `Channel ${ch.index}`,
-    status: ch.status || 'active'
-  }))
+  return channelsByKind.value[kind] || []
 }
 
-function getChannelDataForKind(kind: string) {
-  switch (kind) {
-    case 'messages': return channelStore.currentChannelsData
-    case 'chat': return (channelStore as any).chatChannelsData
-    case 'responses': return (channelStore as any).responsesChannelsData
-    case 'gemini': return (channelStore as any).geminiChannelsData
-    case 'images': return (channelStore as any).imagesChannelsData
-    default: return channelStore.currentChannelsData
+async function fetchAllChannels() {
+  const kinds = ['messages', 'chat', 'responses', 'gemini', 'images'] as const
+  const fetchers: Record<string, () => Promise<any>> = {
+    messages: () => api.getChannels(),
+    chat: () => api.getChatChannels(),
+    responses: () => api.getResponsesChannels(),
+    gemini: () => api.getGeminiChannels(),
+    images: () => api.getImagesChannels(),
+  }
+  for (const kind of kinds) {
+    try {
+      const resp = await fetchers[kind]()
+      channelsByKind.value[kind] = (resp.channels || []).map((ch: any) => ({
+        index: ch.index ?? 0,
+        name: ch.name || `Channel ${ch.index}`,
+        status: ch.status || 'active'
+      }))
+    } catch { /* ignore */ }
   }
 }
 
@@ -132,6 +135,7 @@ async function handleRemoveOverride(convId: string) {
 const tick = useGlobalTick(3000, 'ConversationDashboard')
 tick.onTick(() => fetchConversations())
 fetchConversations()
+fetchAllChannels()
 </script>
 
 <style scoped>
