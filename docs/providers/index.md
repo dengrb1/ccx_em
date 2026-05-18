@@ -33,7 +33,7 @@
 | MiniMax | `openai` / `https://api.minimax.io/v1` | `claude` / `https://api.minimax.io/anthropic` | 同时支持两种协议 |
 | Kimi | `openai` / `https://api.moonshot.ai/v1` | `claude` / `https://api.kimi.com/coding/` | 编码专用端点 |
 | OpenAI GPT | `openai` / `https://api.openai.com/v1` | — | 仅 OpenAI 协议 |
-| 小米 MiMo | `openai` / `https://api.siliconflow.cn/v1` | — | 通过硅基流动访问 |
+| 小米 MiMo | `openai` / `https://api.mimo.xiaomi.com/v1` | — | MiMo 官方 API |
 | Claude | `claude`（协议转换） | `claude` / `https://api.anthropic.com` | 原生 Messages 协议 |
 | Gemini | `openai` 或 `gemini` | — | 支持 OpenAI 兼容和原生协议 |
 
