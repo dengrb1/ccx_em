@@ -109,6 +109,14 @@ func (s *DesktopService) ShowStatusTab() error {
 	return nil
 }
 
+func (s *DesktopService) ShowAgentTab() error {
+	s.showWindow()
+	if s.app != nil {
+		s.app.Event.Emit("desktop:show-tab", "agent")
+	}
+	return nil
+}
+
 func (s *DesktopService) ShowWebUITab() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

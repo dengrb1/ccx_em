@@ -119,6 +119,10 @@ func main() {
 		showMainWindow(true)
 		app.Event.Emit("desktop:show-tab", "status")
 	})
+	trayMenu.Add("显示 Agent 配置").OnClick(func(ctx *application.Context) {
+		showMainWindow(true)
+		app.Event.Emit("desktop:show-tab", "agent")
+	})
 	trayMenu.Add("启动服务").OnClick(func(ctx *application.Context) {
 		trayAction("启动服务", desktopService.StartService)
 	})
