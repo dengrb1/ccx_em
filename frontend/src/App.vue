@@ -2670,13 +2670,7 @@ a.api-type-text {
 /* ----- 响应式调整 ----- */
 @media (min-width: 768px) {
   .app-header {
-    padding: 0 24px !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  .app-header {
-    padding: 0 32px !important;
+    padding: 0 24px !important; /* 使平板/桌面端的 Header 左右间距恒定为 24px，与下方主内容的 pa-md-6 (24px) 保持 100% 像素级对齐 */
   }
 }
 
