@@ -1,0 +1,343 @@
+package channelpreset
+
+import (
+	"fmt"
+	"strings"
+)
+
+const (
+	ProviderDeepSeek = "deepseek"
+	ProviderMiMo     = "mimo"
+	ProviderKimi     = "kimi"
+	ProviderGLM      = "glm"
+	ProviderMiniMax  = "minimax"
+
+	TargetMessages  = "messages"
+	TargetChat      = "chat"
+	TargetResponses = "responses"
+)
+
+type ProviderPreset struct {
+	ID                  string          `json:"id"`
+	Label               string          `json:"label"`
+	Description         string          `json:"description"`
+	DirectAgent         bool            `json:"directAgent"`
+	NativeMessages      bool            `json:"nativeMessages"`
+	ChatCompatible      bool            `json:"chatCompatible"`
+	ResponsesCompatible bool            `json:"responsesCompatible"`
+	Plans               []ProviderPlan  `json:"plans"`
+	Targets             []ChannelTarget `json:"targets"`
+	DefaultTarget       string          `json:"defaultTarget"`
+}
+
+type ProviderPlan struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	BaseURL     string `json:"baseUrl"`
+	Description string `json:"description"`
+	Recommended bool   `json:"recommended"`
+	Custom      bool   `json:"custom"`
+}
+
+type ChannelTarget struct {
+	Type        string `json:"type"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Recommended bool   `json:"recommended"`
+}
+
+type CreateChannelRequest struct {
+	Provider    string `json:"provider"`
+	Target      string `json:"target"`
+	PlanID      string `json:"planId"`
+	BaseURL     string `json:"baseUrl"`
+	APIKey      string `json:"apiKey"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type CreateChannelResult struct {
+	Provider string `json:"provider"`
+	Target   string `json:"target"`
+	Name     string `json:"name"`
+	BaseURL  string `json:"baseUrl"`
+	Message  string `json:"message"`
+}
+
+type ChannelPayload struct {
+	Name                          string            `json:"name"`
+	Description                   string            `json:"description,omitempty"`
+	Website                       string            `json:"website,omitempty"`
+	ServiceType                   string            `json:"serviceType"`
+	BaseURL                       string            `json:"baseUrl"`
+	APIKeys                       []string          `json:"apiKeys"`
+	ModelMapping                  map[string]string `json:"modelMapping,omitempty"`
+	ReasoningMapping              map[string]string `json:"reasoningMapping,omitempty"`
+	ReasoningParamStyle           string            `json:"reasoningParamStyle,omitempty"`
+	PassbackReasoningContent      bool              `json:"passbackReasoningContent,omitempty"`
+	NoVision                      bool              `json:"noVision,omitempty"`
+	NoVisionModels                []string          `json:"noVisionModels,omitempty"`
+	VisionFallbackModel           string            `json:"visionFallbackModel,omitempty"`
+	SupportedModels               []string          `json:"supportedModels,omitempty"`
+	StripEmptyTextBlocks          bool              `json:"stripEmptyTextBlocks,omitempty"`
+	InjectDummyThoughtSignature   bool              `json:"injectDummyThoughtSignature,omitempty"`
+	StripThoughtSignature         bool              `json:"stripThoughtSignature,omitempty"`
+	CodexNativeToolPassthrough    bool              `json:"codexNativeToolPassthrough,omitempty"`
+	CodexToolCompat               bool              `json:"codexToolCompat,omitempty"`
+	StripCodexClientTools         bool              `json:"stripCodexClientTools,omitempty"`
+	NormalizeNonstandardChatRoles bool              `json:"normalizeNonstandardChatRoles,omitempty"`
+	Priority                      int               `json:"priority,omitempty"`
+	Status                        string            `json:"status,omitempty"`
+}
+
+func Presets() []ProviderPreset {
+	return []ProviderPreset{
+		{
+			ID:             ProviderDeepSeek,
+			Label:          "DeepSeek",
+			Description:    "支持 Claude Code 直连，也可加入 CCX messages 统一调度；默认关闭视觉。",
+			DirectAgent:    true,
+			NativeMessages: true,
+			Plans: []ProviderPlan{{
+				ID:          "anthropic",
+				Label:       "Anthropic-compatible",
+				BaseURL:     "https://api.deepseek.com/anthropic",
+				Description: "Claude Messages 兼容入口",
+				Recommended: true,
+			}},
+			Targets: []ChannelTarget{{
+				Type:        TargetMessages,
+				Label:       "CCX messages 渠道",
+				Description: "供 Claude Code / Claude Messages 客户端统一使用",
+				Recommended: true,
+			}},
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:             ProviderMiMo,
+			Label:          "MiMo",
+			Description:    "支持 Claude Code 直连和 CCX messages；内置按量与 token plan 入口。",
+			DirectAgent:    true,
+			NativeMessages: true,
+			Plans: []ProviderPlan{
+				{ID: "default", Label: "按量计费", BaseURL: "https://api.mimo.xiaomi.com/v1", Description: "MiMo 默认 API 入口", Recommended: true},
+				{ID: "token-cn", Label: "Token Plan - 中国", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Description: "中国区订阅套餐入口"},
+				{ID: "token-sgp", Label: "Token Plan - 新加坡", BaseURL: "https://token-plan-sgp.xiaomimimo.com/v1", Description: "新加坡区订阅套餐入口"},
+				{ID: "token-ams", Label: "Token Plan - 欧洲", BaseURL: "https://token-plan-ams.xiaomimimo.com/v1", Description: "欧洲区订阅套餐入口"},
+				{ID: "custom", Label: "自定义", Description: "手动填写 MiMo 兼容入口", Custom: true},
+			},
+			Targets: []ChannelTarget{{
+				Type:        TargetMessages,
+				Label:       "CCX messages 渠道",
+				Description: "自动开启 reasoning passback 兼容",
+				Recommended: true,
+			}},
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:             ProviderKimi,
+			Label:          "Kimi / Moonshot",
+			Description:    "OpenAI-compatible Chat 渠道，适合加入 CCX chat 池。",
+			ChatCompatible: true,
+			Plans: []ProviderPlan{{
+				ID:          "openai-chat",
+				Label:       "OpenAI-compatible",
+				BaseURL:     "https://api.moonshot.cn/v1",
+				Description: "Moonshot OpenAI 兼容入口",
+				Recommended: true,
+			}},
+			Targets: []ChannelTarget{{
+				Type:        TargetChat,
+				Label:       "CCX chat 渠道",
+				Description: "供 OpenAI Chat 协议客户端统一使用",
+				Recommended: true,
+			}},
+			DefaultTarget: TargetChat,
+		},
+		{
+			ID:             ProviderGLM,
+			Label:          "GLM / BigModel",
+			Description:    "OpenAI-compatible Chat 渠道，适合加入 CCX chat 池。",
+			ChatCompatible: true,
+			Plans: []ProviderPlan{{
+				ID:          "openai-chat",
+				Label:       "OpenAI-compatible",
+				BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
+				Description: "智谱 OpenAI 兼容入口",
+				Recommended: true,
+			}},
+			Targets: []ChannelTarget{{
+				Type:        TargetChat,
+				Label:       "CCX chat 渠道",
+				Description: "供 OpenAI Chat 协议客户端统一使用",
+				Recommended: true,
+			}},
+			DefaultTarget: TargetChat,
+		},
+		{
+			ID:             ProviderMiniMax,
+			Label:          "MiniMax",
+			Description:    "OpenAI-compatible Chat 渠道，适合加入 CCX chat 池。",
+			ChatCompatible: true,
+			Plans: []ProviderPlan{{
+				ID:          "openai-chat",
+				Label:       "OpenAI-compatible",
+				BaseURL:     "https://api.minimax.chat/v1",
+				Description: "MiniMax OpenAI 兼容入口",
+				Recommended: true,
+			}},
+			Targets: []ChannelTarget{{
+				Type:        TargetChat,
+				Label:       "CCX chat 渠道",
+				Description: "供 OpenAI Chat 协议客户端统一使用",
+				Recommended: true,
+			}},
+			DefaultTarget: TargetChat,
+		},
+	}
+}
+
+func BuildPayload(req CreateChannelRequest) (ChannelPayload, error) {
+	preset, ok := FindPreset(req.Provider)
+	if !ok {
+		return ChannelPayload{}, fmt.Errorf("不支持的 provider: %s", req.Provider)
+	}
+	target := strings.TrimSpace(req.Target)
+	if target == "" {
+		target = preset.DefaultTarget
+	}
+	if !supportsTarget(preset, target) {
+		return ChannelPayload{}, fmt.Errorf("%s 不支持添加到 %s 渠道", preset.Label, target)
+	}
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey == "" {
+		return ChannelPayload{}, fmt.Errorf("API Key 不能为空")
+	}
+	baseURL, err := ResolveBaseURL(preset, req.PlanID, req.BaseURL)
+	if err != nil {
+		return ChannelPayload{}, err
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = defaultChannelName(preset.ID, target)
+	}
+	description := strings.TrimSpace(req.Description)
+	if description == "" {
+		description = preset.Description
+	}
+
+	payload := ChannelPayload{
+		Name:        name,
+		Description: description,
+		BaseURL:     baseURL,
+		APIKeys:     []string{apiKey},
+		Priority:    1,
+		Status:      "active",
+	}
+	applyTargetDefaults(&payload, preset.ID, target)
+	return payload, nil
+}
+
+func FindPreset(provider string) (ProviderPreset, bool) {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	for _, preset := range Presets() {
+		if preset.ID == provider {
+			return preset, true
+		}
+	}
+	return ProviderPreset{}, false
+}
+
+func ResolveBaseURL(preset ProviderPreset, planID string, customBaseURL string) (string, error) {
+	customBaseURL = strings.TrimSpace(customBaseURL)
+	planID = strings.TrimSpace(planID)
+	if planID == "" {
+		for _, plan := range preset.Plans {
+			if plan.Recommended {
+				planID = plan.ID
+				break
+			}
+		}
+	}
+	if planID == "" && len(preset.Plans) > 0 {
+		planID = preset.Plans[0].ID
+	}
+	for _, plan := range preset.Plans {
+		if plan.ID != planID {
+			continue
+		}
+		if plan.Custom {
+			if customBaseURL == "" {
+				return "", fmt.Errorf("自定义 plan 需要填写 Base URL")
+			}
+			return customBaseURL, nil
+		}
+		if customBaseURL != "" {
+			return customBaseURL, nil
+		}
+		if plan.BaseURL == "" {
+			return "", fmt.Errorf("plan %s 缺少 Base URL", plan.ID)
+		}
+		return plan.BaseURL, nil
+	}
+	if customBaseURL != "" {
+		return customBaseURL, nil
+	}
+	return "", fmt.Errorf("未找到 provider %s 的 plan: %s", preset.ID, planID)
+}
+
+func supportsTarget(preset ProviderPreset, target string) bool {
+	for _, item := range preset.Targets {
+		if item.Type == target {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultChannelName(provider string, target string) string {
+	return fmt.Sprintf("desktop-%s-%s", provider, target)
+}
+
+func applyTargetDefaults(payload *ChannelPayload, provider string, target string) {
+	switch target {
+	case TargetMessages:
+		payload.ServiceType = "claude"
+		payload.StripEmptyTextBlocks = true
+		payload.StripThoughtSignature = true
+		if provider == ProviderDeepSeek {
+			payload.NoVision = true
+			payload.SupportedModels = []string{"deepseek-chat", "deepseek-reasoner"}
+		}
+		if provider == ProviderMiMo {
+			payload.PassbackReasoningContent = true
+			payload.StripEmptyTextBlocks = true
+			payload.InjectDummyThoughtSignature = true
+			payload.ModelMapping = map[string]string{
+				"claude-3-5-haiku-latest":  "mimo-v2.5-pro",
+				"claude-3-5-sonnet-latest": "mimo-v2.5-pro",
+				"claude-3-7-sonnet-latest": "mimo-v2.5-pro",
+				"claude-sonnet-4-5":        "mimo-v2.5-pro",
+				"claude-opus-4-5":          "mimo-v2.5-pro",
+			}
+			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
+			payload.VisionFallbackModel = "MiMo-V2.5"
+			payload.SupportedModels = []string{"mimo-v2.5-pro", "MiMo-V2.5"}
+		}
+	case TargetChat:
+		payload.ServiceType = "openai"
+		payload.NormalizeNonstandardChatRoles = true
+		switch provider {
+		case ProviderKimi:
+			payload.SupportedModels = []string{"moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k", "kimi-k2-0711-preview"}
+		case ProviderGLM:
+			payload.SupportedModels = []string{"glm-4.5", "glm-4.5-air", "glm-4.1v-thinking-flash"}
+		case ProviderMiniMax:
+			payload.SupportedModels = []string{"MiniMax-M1", "MiniMax-Text-01"}
+		}
+	case TargetResponses:
+		payload.ServiceType = "openai"
+		payload.CodexToolCompat = true
+		payload.StripCodexClientTools = true
+	}
+}

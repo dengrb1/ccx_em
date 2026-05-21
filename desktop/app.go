@@ -1,14 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/BenedictKing/ccx/desktop/internal/backend"
+	"github.com/BenedictKing/ccx/desktop/internal/channelpreset"
 	"github.com/BenedictKing/ccx/desktop/internal/configservice"
 	"github.com/BenedictKing/ccx/desktop/internal/updater"
 	"github.com/pkg/browser"
@@ -208,6 +214,131 @@ func (s *DesktopService) GetSavedProviderKeys() map[string]string {
 		return map[string]string{}
 	}
 	return s.configService.GetSavedProviderKeys()
+}
+
+func (s *DesktopService) GetProviderPresets() []channelpreset.ProviderPreset {
+	return channelpreset.Presets()
+}
+
+func (s *DesktopService) GetProviderKeyAssets() []configservice.ProviderKeyAsset {
+	if s.configService == nil {
+		return []configservice.ProviderKeyAsset{}
+	}
+	return s.configService.GetProviderKeyAssets()
+}
+
+func (s *DesktopService) CreateCCXChannelFromPreset(req channelpreset.CreateChannelRequest) (channelpreset.CreateChannelResult, error) {
+	if s.configService == nil {
+		return channelpreset.CreateChannelResult{}, fmt.Errorf("配置服务未初始化")
+	}
+	if preset, ok := channelpreset.FindPreset(req.Provider); ok {
+		req.Provider = preset.ID
+		if strings.TrimSpace(req.Target) == "" {
+			req.Target = preset.DefaultTarget
+		}
+	}
+	if strings.TrimSpace(req.APIKey) == "" {
+		for _, asset := range s.configService.GetProviderKeyAssets() {
+			if asset.Provider == strings.TrimSpace(req.Provider) && asset.APIKey != "" {
+				req.APIKey = asset.APIKey
+				break
+			}
+		}
+	}
+	payload, err := channelpreset.BuildPayload(req)
+	if err != nil {
+		return channelpreset.CreateChannelResult{}, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := s.manager.Start(ctx); err != nil {
+		return channelpreset.CreateChannelResult{}, err
+	}
+	if err := s.manager.WaitHealthy(ctx, 15*time.Second); err != nil {
+		return channelpreset.CreateChannelResult{}, err
+	}
+	adminKey, err := s.adminAccessKey()
+	if err != nil {
+		return channelpreset.CreateChannelResult{}, err
+	}
+	if err := s.createChannel(ctx, req.Target, payload, adminKey); err != nil {
+		return channelpreset.CreateChannelResult{}, err
+	}
+	if err := s.configService.SaveProviderKeyAsset(configservice.ProviderKeyAsset{
+		Provider: req.Provider,
+		APIKey:   payload.APIKeys[0],
+		BaseURL:  payload.BaseURL,
+		PlanID:   req.PlanID,
+		Usages:   []string{req.Target + "-channel"},
+	}); err != nil {
+		return channelpreset.CreateChannelResult{}, err
+	}
+	return channelpreset.CreateChannelResult{
+		Provider: req.Provider,
+		Target:   req.Target,
+		Name:     payload.Name,
+		BaseURL:  payload.BaseURL,
+		Message:  "渠道已添加到 CCX",
+	}, nil
+}
+
+func (s *DesktopService) adminAccessKey() (string, error) {
+	env, err := s.GetEnvFile()
+	if err != nil {
+		return "", err
+	}
+	values := parseEnvContent(env.Content)
+	if key := strings.TrimSpace(values["ADMIN_ACCESS_KEY"]); key != "" {
+		return key, nil
+	}
+	if key := strings.TrimSpace(values["PROXY_ACCESS_KEY"]); key != "" {
+		return key, nil
+	}
+	return s.manager.EnsureProxyAccessKey()
+}
+
+func (s *DesktopService) createChannel(ctx context.Context, target string, payload channelpreset.ChannelPayload, adminKey string) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	path := "/api/" + strings.TrimSpace(target) + "/channels"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.manager.WebURL()+path, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", adminKey)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	message := strings.TrimSpace(string(data))
+	if message == "" {
+		message = resp.Status
+	}
+	return fmt.Errorf("创建 CCX %s 渠道失败: %s", target, message)
+}
+
+func parseEnvContent(content string) map[string]string {
+	values := map[string]string{}
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		key := strings.TrimSpace(parts[0])
+		value := strings.Trim(strings.TrimSpace(parts[1]), `"'`)
+		values[key] = value
+	}
+	return values
 }
 
 func (s *DesktopService) ShowStatusTab() error {
