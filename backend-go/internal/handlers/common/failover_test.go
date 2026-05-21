@@ -480,6 +480,19 @@ func TestShouldRetryWithNextKey(t *testing.T) {
 			wantFailover: false,
 			wantQuota:    false,
 		},
+		{
+			name:       "400 thinking mode reasoning_content must be passed back in param should not failover",
+			statusCode: 400,
+			body: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":    "400",
+					"message": "Param Incorrect",
+					"param":   "The reasoning_content in the thinking mode must be passed back to the API.",
+				},
+			},
+			wantFailover: false,
+			wantQuota:    false,
+		},
 		// 404 不应 failover
 		{
 			name:         "404 never failover",
@@ -990,6 +1003,10 @@ func TestShouldRetryWithNextKey_FuzzyMode_InvalidRequestShouldNotFailover(t *tes
 		{
 			name: "anthropic thinking field required",
 			body: []byte(`{"error":{"type":"invalid_request_error","message":"messages.1213.content.0.thinking.thinking: Field required"},"type":"error"}`),
+		},
+		{
+			name: "thinking mode reasoning_content must be passed back in param",
+			body: []byte(`{"error":{"code":"400","message":"Param Incorrect","param":"The reasoning_content in the thinking mode must be passed back to the API.","type":""}}`),
 		},
 	}
 

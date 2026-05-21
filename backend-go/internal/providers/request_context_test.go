@@ -25,6 +25,38 @@ func newGinContext(method, url string, body []byte, ctx context.Context) *gin.Co
 	return c
 }
 
+func TestClaudeProvider_ConvertToProviderRequest_PassbackConvertsRealThinking(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	body := []byte(`{
+		"model": "mimo-v2.5-pro",
+		"messages": [
+			{"role": "assistant", "content": [
+				{"type": "thinking", "thinking": "real reasoning"},
+				{"type": "text", "text": "answer"}
+			]}
+		]
+	}`)
+	c := newGinContext(http.MethodPost, "/v1/messages", body, context.Background())
+	upstream := &config.UpstreamConfig{
+		BaseURL:                  "https://api.example.com",
+		ServiceType:              "claude",
+		PassbackReasoningContent: true,
+	}
+
+	p := &ClaudeProvider{}
+	_, reqBody, err := p.ConvertToProviderRequest(c, upstream, "sk-ant-test")
+	if err != nil {
+		t.Fatalf("ConvertToProviderRequest() err = %v", err)
+	}
+	if !bytes.Contains(reqBody, []byte(`"reasoning_content":"real reasoning"`)) {
+		t.Fatalf("request body missing reasoning_content: %s", string(reqBody))
+	}
+	if !bytes.Contains(reqBody, []byte(`"type":"thinking"`)) {
+		t.Fatalf("request body should keep real thinking block for compatibility: %s", string(reqBody))
+	}
+}
+
 func TestConvertToProviderRequest_PropagatesContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

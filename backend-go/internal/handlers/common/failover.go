@@ -241,7 +241,7 @@ func classifyByErrorMessage(bodyBytes []byte, apiType string) (bool, bool) {
 }
 
 func classifyMessageFromMap(m map[string]interface{}) (bool, bool, string) {
-	messageFields := []string{"message", "upstream_error", "detail", "error_description", "msg"}
+	messageFields := []string{"message", "param", "upstream_error", "detail", "error_description", "msg"}
 	for _, field := range messageFields {
 		if msg, ok := m[field].(string); ok {
 			if failover, quota := classifyMessage(msg); failover {
@@ -374,7 +374,7 @@ func isSchemaValidationError(errObj map[string]interface{}) bool {
 	}
 
 	// 检查消息内容
-	for _, field := range []string{"message", "upstream_error", "detail"} {
+	for _, field := range []string{"message", "param", "upstream_error", "detail"} {
 		if msg, ok := errObj[field].(string); ok && isSchemaValidationMessage(strings.ToLower(msg)) {
 			return true
 		}
@@ -416,6 +416,8 @@ func isSchemaValidationMessage(msgLower string) bool {
 		"messages.",
 		".content.",
 		".thinking.",
+		"reasoning_content in the thinking mode",
+		"must be passed back to the api",
 	}
 	for _, keyword := range nonRetryableKeywords {
 		if strings.Contains(msgLower, keyword) {

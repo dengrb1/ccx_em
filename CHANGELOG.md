@@ -3,8 +3,11 @@
 ### 修复
 
 - **MiMo Messages 渠道流式响应只输出 thinking 的问题**：
-  - 停止为缺少真实思考内容的历史 assistant 消息注入 `"(no prior reasoning recorded)"` 占位 `thinking` 块，改为补顶层 `reasoning_content` 占位，避免 MiMo 将正式回答续写进假 thinking block，导致下游没有 text content block。
-  - 将历史真实 `thinking` 块转换为 MiMo 要求的 `reasoning_content` 字段回传，并移除历史请求中旧版本已经注入的占位 `thinking` 块；若历史 assistant 仅剩占位 thinking，则转为中性非空 text，避免空 content 或轮次丢失触发上游校验问题。
+  - 停止为缺少真实思考内容的历史 assistant 消息注入 `"(no prior reasoning recorded)"` 占位 `thinking` 或 `reasoning_content`，避免 MiMo 将正式回答续写进假 thinking block，或继续因假回传返回 `reasoning_content ... must be passed back` 400。
+  - 为历史 assistant 消息补齐 MiMo 要求的顶层 `reasoning_content` 字段：保留真实 `thinking` 块原文并同步回传到顶层字段，仅移除历史请求中旧版本注入的占位/空 `thinking` 块；若 assistant 历史没有真实思考内容，则补空字符串 `reasoning_content: ""`（保持顶层字段存在）；若历史 assistant 仅剩占位 thinking，则转为中性非空 text，避免空 content 或轮次丢失触发上游校验问题。
+  - `thinking -> reasoning_content` 转换改为“保真搬运”：不再对真实思考文本做 trim/拼接改写；当消息已含顶层 `reasoning_content` 时保持原值，避免内容被改写后触发上游回传一致性校验失败。
+  - 修复请求预处理误删真实 thinking 的问题：`thinking` 块里 `signature` 为空/null 时仅移除 `signature` 字段，不再删除整块 `thinking`，避免后续 `reasoning_content` 回传被掏空。
+  - 增强 failover 非重试判定：当上游 400 的 `error.param`/`error.message` 命中 `reasoning_content in the thinking mode must be passed back` 时，判定为 schema 参数错误，不再继续 Key/渠道级 failover，避免请求漂移到其他渠道与错误熔断。
   - 流式预检测改为只有正式 text 或工具语义内容才视为有效响应；thinking-only 流会被判定为空响应并触发重试/失败，避免静默返回 200。
 
 ## [v2.7.9] - 2026-05-20

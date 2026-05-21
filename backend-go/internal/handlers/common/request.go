@@ -415,9 +415,11 @@ func removeEmptySignaturesInMessages(data map[string]interface{}) (bool, int) {
 
 // SanitizeMalformedThinkingBlocks 清理 messages[*].content[*] 中的 thinking 相关字段
 // 策略：
-// 1) 仅移除畸形的 type=thinking 内容块（避免上游严格校验导致 400）
-// 2) 保留合法的 thinking 内容块（兼容 Claude extended thinking 回传）
-// 3) 移除非 thinking 块里的残留 thinking 字段
+//  1. 仅移除畸形的 type=thinking 内容块（避免上游严格校验导致 400）
+//  2. 保留合法的 thinking 内容块（兼容 Claude extended thinking 回传）
+//     对 signature 为空/null 的合法 thinking，仅删除 signature 字段，不删除思考内容
+//  3. 移除非 thinking 块里的残留 thinking 字段
+//
 // 返回 (新字节, 是否修改)
 func SanitizeMalformedThinkingBlocks(bodyBytes []byte, enableLog bool, apiType string) ([]byte, bool) {
 	decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
@@ -536,7 +538,6 @@ func sanitizeThinkingInContentBlock(block map[string]interface{}) (modified bool
 		// 仅移除畸形 thinking block：
 		// - 缺少 thinking 字段
 		// - thinking 不是非空字符串
-		// - signature 显式为空或 null
 		thinking, hasThinking := block["thinking"]
 		if !hasThinking {
 			return true, true
@@ -545,12 +546,17 @@ func sanitizeThinkingInContentBlock(block map[string]interface{}) (modified bool
 		if !ok || strings.TrimSpace(thinkingText) == "" {
 			return true, true
 		}
+
+		// signature 为空/null 不应删除整块 thinking（否则会丢失真实可回传思考）；
+		// 只删除无效 signature 字段，保留 thinking 内容。
 		if sig, exists := block["signature"]; exists {
 			if sig == nil {
-				return true, true
+				delete(block, "signature")
+				return true, false
 			}
 			if str, isStr := sig.(string); isStr && strings.TrimSpace(str) == "" {
-				return true, true
+				delete(block, "signature")
+				return true, false
 			}
 		}
 

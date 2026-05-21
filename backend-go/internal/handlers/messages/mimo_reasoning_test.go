@@ -59,7 +59,7 @@ func TestMessagesHandler_MimoReasoningContentPassback(t *testing.T) {
 					t.Fatalf("assistant message shape invalid: %s", string(body))
 				}
 
-				// 应将 thinking 块转成 mimo 要求的 reasoning_content 字段
+				// 应补充 mimo 要求的顶层 reasoning_content 字段
 				if reasoning, _ := assistant["reasoning_content"].(string); reasoning != "previous reasoning" {
 					t.Fatalf("reasoning_content = %q, want 'previous reasoning'; body=%s", reasoning, string(body))
 				}
@@ -68,11 +68,15 @@ func TestMessagesHandler_MimoReasoningContentPassback(t *testing.T) {
 				if !ok {
 					t.Fatalf("assistant content invalid: %s", string(body))
 				}
+				foundThinking := false
 				for _, block := range content {
 					blockMap, _ := block.(map[string]interface{})
 					if blockType, _ := blockMap["type"].(string); blockType == "thinking" {
-						t.Fatalf("thinking block should be removed after conversion; body=%s", string(body))
+						foundThinking = true
 					}
+				}
+				if !foundThinking {
+					t.Fatalf("real thinking block should be kept for compatibility; body=%s", string(body))
 				}
 			},
 			wantDownstream: func(t *testing.T, body []byte) {

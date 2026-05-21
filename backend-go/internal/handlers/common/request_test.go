@@ -388,20 +388,20 @@ func TestRemoveEmptySignatures_DoesNotStripThinkingSignatures(t *testing.T) {
 	}
 }
 
-func TestSanitizeMalformedThinkingBlocks_RemovesEmptySignatureThinking(t *testing.T) {
+func TestSanitizeMalformedThinkingBlocks_StripsEmptySignatureButKeepsThinking(t *testing.T) {
 	input := `{
 		"messages": [
 			{
 				"role": "assistant",
 				"content": [
-					{"type": "thinking", "thinking": "drop", "signature": ""},
+					{"type": "thinking", "thinking": "keep", "signature": ""},
 					{"type": "text", "text": "ok"}
 				]
 			},
 			{
 				"role": "assistant",
 				"content": [
-					{"type": "thinking", "thinking": "drop", "signature": null},
+					{"type": "thinking", "thinking": "keep-null-signature", "signature": null},
 					{"type": "thinking", "thinking": "keep"},
 					{"type": "thinking", "thinking": "keep signed", "signature": "sig_123"}
 				]
@@ -422,24 +422,28 @@ func TestSanitizeMalformedThinkingBlocks_RemovesEmptySignatureThinking(t *testin
 	messages, _ := got["messages"].([]interface{})
 	firstMsg, _ := messages[0].(map[string]interface{})
 	firstContent, _ := firstMsg["content"].([]interface{})
-	if len(firstContent) != 1 {
-		t.Fatalf("first content len = %d, want 1", len(firstContent))
+	if len(firstContent) != 2 {
+		t.Fatalf("first content len = %d, want 2", len(firstContent))
 	}
-	firstBlock, _ := firstContent[0].(map[string]interface{})
-	if firstBlock["type"] != "text" {
-		t.Fatalf("first remaining block type = %v, want text", firstBlock["type"])
+	firstThinking, _ := firstContent[0].(map[string]interface{})
+	if firstThinking["type"] != "thinking" || firstThinking["thinking"] != "keep" {
+		t.Fatalf("first thinking block = %v, want preserved non-empty thinking", firstThinking)
+	}
+	if _, exists := firstThinking["signature"]; exists {
+		t.Fatalf("first thinking signature should be removed, got %v", firstThinking["signature"])
 	}
 
 	secondMsg, _ := messages[1].(map[string]interface{})
 	secondContent, _ := secondMsg["content"].([]interface{})
-	if len(secondContent) != 2 {
-		t.Fatalf("second content len = %d, want 2", len(secondContent))
+	if len(secondContent) != 3 {
+		t.Fatalf("second content len = %d, want 3", len(secondContent))
 	}
-	for i, block := range secondContent {
-		blockMap, _ := block.(map[string]interface{})
-		if blockMap["thinking"] == "drop" {
-			t.Fatalf("content[%d] retained invalid thinking block", i)
-		}
+	firstSecondThinking, _ := secondContent[0].(map[string]interface{})
+	if firstSecondThinking["thinking"] != "keep-null-signature" {
+		t.Fatalf("first second thinking = %v, want keep-null-signature", firstSecondThinking["thinking"])
+	}
+	if _, exists := firstSecondThinking["signature"]; exists {
+		t.Fatalf("null signature should be removed from thinking block")
 	}
 }
 
