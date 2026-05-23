@@ -31,11 +31,23 @@ type Config struct {
 // rawFileLog 仅写文件的 logger，用于向日志文件写入原始 JSON 输出
 var rawFileLog *log.Logger
 
+// consoleLog 仅写控制台的 logger，用于精简格式输出（不写入文件，避免与 raw 日志重复）
+var consoleLog *log.Logger
+
 // RawFileLog 返回仅写文件的 logger。
 // 未初始化时回退到全局 logger。
 func RawFileLog() *log.Logger {
 	if rawFileLog != nil {
 		return rawFileLog
+	}
+	return log.Default()
+}
+
+// ConsoleLog 返回仅写控制台的 logger。
+// 未初始化时回退到全局 logger。
+func ConsoleLog() *log.Logger {
+	if consoleLog != nil {
+		return consoleLog
 	}
 	return log.Default()
 }
@@ -78,7 +90,7 @@ func Setup(cfg *Config) error {
 
 	flags := log.Ldate | log.Ltime | log.Lmicroseconds
 
-	// log.Printf 写入 stdout + 文件（精简格式，确保文件记录全量日志）
+	// log.Printf 写入 stdout + 文件（普通日志，如初始化、调度信息等）
 	if cfg.Console {
 		log.SetOutput(io.MultiWriter(os.Stdout, lumberLogger))
 	} else {
@@ -86,6 +98,14 @@ func Setup(cfg *Config) error {
 	}
 	// rawFileLog 始终仅写文件（原始 JSON），用于双通道输出
 	rawFileLog = log.New(lumberLogger, "", flags)
+	// consoleLog 始终仅写控制台（精简格式），用于请求/响应日志的控制台通道
+	// 避免精简格式重复写入文件
+	if cfg.Console {
+		consoleLog = log.New(os.Stdout, "", flags)
+	} else {
+		// 无控制台模式下，consoleLog 回退到 rawFileLog（仅文件）
+		consoleLog = rawFileLog
+	}
 
 	log.SetFlags(flags)
 
