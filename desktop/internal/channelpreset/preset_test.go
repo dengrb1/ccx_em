@@ -44,8 +44,17 @@ func TestBuildPayload(t *testing.T) {
 		},
 		{
 			name:         "mimo messages (token plan)",
-			req:          CreateChannelRequest{Provider: ProviderMiMo, Target: TargetMessages, PlanID: "token-sgp", APIKey: "tp-test"},
-			wantBaseURL:  "https://token-plan-sgp.xiaomimimo.com/v1",
+			req:          CreateChannelRequest{Provider: ProviderMiMo, Target: TargetMessages, PlanID: "token-sgp-anthropic", APIKey: "tp-test"},
+			wantBaseURL:  "https://token-plan-sgp.xiaomimimo.com/anthropic",
+			wantService:  "claude",
+			wantPassback: true,
+			wantModelMap: true,
+			wantFallback: "MiMo-V2.5",
+		},
+		{
+			name:         "mimo messages (auto plan)",
+			req:          CreateChannelRequest{Provider: ProviderMiMo, Target: TargetMessages, APIKey: "tp-test"},
+			wantBaseURL:  "https://api.xiaomimimo.com/anthropic",
 			wantService:  "claude",
 			wantPassback: true,
 			wantModelMap: true,
@@ -54,7 +63,7 @@ func TestBuildPayload(t *testing.T) {
 		{
 			name:         "mimo chat",
 			req:          CreateChannelRequest{Provider: ProviderMiMo, Target: TargetChat, APIKey: "tp-test"},
-			wantBaseURL:  "https://api.mimo.xiaomi.com/v1",
+			wantBaseURL:  "https://api.xiaomimimo.com/v1",
 			wantService:  "openai",
 			wantModels:   []string{"mimo-v2.5-pro", "MiMo-V2.5"},
 			wantFallback: "MiMo-V2.5",
@@ -62,7 +71,7 @@ func TestBuildPayload(t *testing.T) {
 		{
 			name:         "mimo responses",
 			req:          CreateChannelRequest{Provider: ProviderMiMo, Target: TargetResponses, APIKey: "tp-test"},
-			wantBaseURL:  "https://api.mimo.xiaomi.com/v1",
+			wantBaseURL:  "https://api.xiaomimimo.com/v1",
 			wantService:  "openai",
 			wantCodex:    true,
 			wantModels:   []string{"mimo-v2.5-pro", "MiMo-V2.5"},

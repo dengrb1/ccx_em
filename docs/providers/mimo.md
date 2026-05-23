@@ -51,7 +51,7 @@ Base URL 按集群和协议分类，以 [订阅管理](https://platform.xiaomimi
 | 字段 | 值 |
 |------|-----|
 | 服务类型 | `openai` |
-| Base URL | `https://api.mimo.xiaomi.com/v1` |
+| Base URL | `https://api.xiaomimimo.com/v1` |
 | API Keys | 你在 [API Keys](https://platform.xiaomimimo.com/console/api-keys) 页面创建的 Key |
 
 ### 配置步骤（以订阅套餐 OpenAI 协议中国集群为例）

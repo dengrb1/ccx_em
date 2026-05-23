@@ -20,7 +20,7 @@ const (
 	ProviderOpenAI   = "openai"
 
 	deepSeekClaudeBaseURL = "https://api.deepseek.com/anthropic"
-	defaultMiMoBaseURL    = "https://api.mimo.xiaomi.com/v1"
+	defaultMiMoBaseURL    = "https://api.xiaomimimo.com/anthropic"
 	stateVersion          = 1
 )
 
