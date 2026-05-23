@@ -358,7 +358,17 @@ func main() {
 		}
 	}()
 
-	tray.AttachWindow(mainWindow)
+	// 自定义托盘左键行为：手动 toggle 窗口可见性。
+	// 不使用 AttachWindow 的默认 ToggleWindow，因为它会通过 PositionWindow
+	// 将窗口定位到托盘图标旁（macOS 右上角），覆盖用户保存的窗口位置。
+	tray.OnClick(func() {
+		if mainWindow.IsVisible() {
+			saveWindowState()
+			mainWindow.Hide()
+		} else {
+			showMainWindow(true)
+		}
+	})
 
 	// 启动 5s 后首次检查更新，之后每 30 分钟轮询一次
 	go func() {
