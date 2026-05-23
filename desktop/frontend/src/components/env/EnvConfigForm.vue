@@ -39,6 +39,14 @@ const booleanOptions = [
 
 const envGroups: EnvGroup[] = [
   {
+    title: '访问控制',
+    description: '代理入口与管理入口的访问密钥。',
+    fields: [
+      { key: 'PROXY_ACCESS_KEY', label: '代理访问密钥', type: 'password', defaultValue: '', required: true, disallow: ['your-proxy-access-key'], placeholder: '请输入强随机密钥' },
+      { key: 'ADMIN_ACCESS_KEY', label: '管理 API 独立密钥', type: 'password', defaultValue: '', placeholder: '留空则回退到 PROXY_ACCESS_KEY', description: '用于管理界面和 /api/* 端点。' },
+    ],
+  },
+  {
     title: '服务器配置',
     description: 'Desktop 会在启动时注入部分运行参数；这里仍完整覆盖 .env.example。',
     fields: [
@@ -52,14 +60,6 @@ const envGroups: EnvGroup[] = [
     fields: [
       { key: 'ENABLE_WEB_UI', label: '启用 Web UI', type: 'select', defaultValue: 'true', options: booleanOptions, description: 'Desktop 模式通常会强制启用。' },
       { key: 'APP_UI_LANGUAGE', label: '默认语言', type: 'select', defaultValue: 'en', options: [{ label: 'English', value: 'en' }, { label: 'Bahasa Indonesia', value: 'id' }, { label: '简体中文', value: 'zh-CN' }] },
-    ],
-  },
-  {
-    title: '访问控制',
-    description: '代理入口与管理入口的访问密钥。',
-    fields: [
-      { key: 'PROXY_ACCESS_KEY', label: '代理访问密钥', type: 'password', defaultValue: '', required: true, disallow: ['your-proxy-access-key'], placeholder: '请输入强随机密钥' },
-      { key: 'ADMIN_ACCESS_KEY', label: '管理 API 独立密钥', type: 'password', defaultValue: '', placeholder: '留空则回退到 PROXY_ACCESS_KEY', description: '用于管理界面和 /api/* 端点。' },
     ],
   },
   {
