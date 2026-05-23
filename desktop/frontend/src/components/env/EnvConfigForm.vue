@@ -137,6 +137,16 @@ const clearMessages = () => {
 const entries = ref<EnvEntry[]>([])
 const newline = ref('\n')
 const showSecret = reactive<Record<string, boolean>>({})
+const copiedKey = ref('')
+let copiedTimer: ReturnType<typeof setTimeout> | null = null
+const copyToClipboard = async (key: string) => {
+  try {
+    await navigator.clipboard.writeText(form[key])
+    copiedKey.value = key
+    if (copiedTimer) clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => { copiedKey.value = '' }, 1500)
+  } catch { /* ignore */ }
+}
 const form = reactive<Record<string, string>>(Object.fromEntries(allFields.map((field) => [field.key, field.defaultValue])))
 
 const fieldErrors = computed(() => {
@@ -303,6 +313,10 @@ onUnmounted(() => {
     clearTimeout(saveResetTimer)
     saveResetTimer = null
   }
+  if (copiedTimer) {
+    clearTimeout(copiedTimer)
+    copiedTimer = null
+  }
 })
 </script>
 
@@ -370,6 +384,9 @@ onUnmounted(() => {
               <Input v-model="form[field.key]" :type="inputType(field)" :placeholder="field.placeholder" />
               <Button type="button" variant="secondary" size="sm" @click="showSecret[field.key] = !showSecret[field.key]">
                 {{ showSecret[field.key] ? '隐藏' : '显示' }}
+              </Button>
+              <Button type="button" variant="outline" size="sm" @click="copyToClipboard(field.key)">
+                {{ copiedKey === field.key ? '已复制' : '复制' }}
               </Button>
             </div>
 
