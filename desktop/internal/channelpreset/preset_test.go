@@ -18,6 +18,7 @@ func TestBuildPayload(t *testing.T) {
 		wantNativeTool bool
 		wantModels     []string
 		wantModelMap   map[string]string
+		wantReasoning  map[string]string
 		wantFallback   string
 		wantNormalize  bool
 	}{
@@ -88,7 +89,7 @@ func TestBuildPayload(t *testing.T) {
 			wantService:   "openai",
 			wantNormalize: true,
 			wantModelMap: map[string]string{
-				"gpt": "mimo-v2.5-pro",
+				"gpt-5": "mimo-v2.5-pro",
 			},
 			wantFallback: "mimo-v2.5",
 		},
@@ -98,7 +99,7 @@ func TestBuildPayload(t *testing.T) {
 			wantBaseURL: "https://api.xiaomimimo.com/v1",
 			wantService: "openai",
 			wantModelMap: map[string]string{
-				"gpt": "mimo-v2.5-pro",
+				"gpt-5": "mimo-v2.5-pro",
 			},
 			wantFallback: "mimo-v2.5",
 		},
@@ -138,6 +139,7 @@ func TestBuildPayload(t *testing.T) {
 			wantBaseURL:   "https://api.minimax.chat/v1",
 			wantService:   "openai",
 			wantNormalize: true,
+			wantModelMap:  map[string]string{"gpt-5": "MiniMax-M2.7"},
 		},
 		{
 			name:           "minimax responses",
@@ -149,6 +151,79 @@ func TestBuildPayload(t *testing.T) {
 			wantNativeTool: true,
 			wantModelMap:   map[string]string{"gpt-5": "MiniMax-M2.7"},
 			wantNormalize:  true,
+		},
+		{
+			name:          "dashscope chat",
+			req:           CreateChannelRequest{Provider: ProviderDashScope, Target: TargetChat, APIKey: "sk-test"},
+			wantBaseURL:   "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			wantService:   "openai",
+			wantNormalize: true,
+			wantModelMap: map[string]string{
+				"gpt-5.5":       "glm-5.1",
+				"gpt-5.4":       "deepseek-v4-pro",
+				"gpt-5.4-mini":  "deepseek-v4-flash",
+				"gpt-5.3-codex": "deepseek-v4-flash",
+			},
+			wantReasoning: map[string]string{
+				"gpt-5.5":       "high",
+				"gpt-5.4":       "max",
+				"gpt-5.4-mini":  "high",
+				"gpt-5.3-codex": "high",
+			},
+		},
+		{
+			name:           "dashscope responses",
+			req:            CreateChannelRequest{Provider: ProviderDashScope, Target: TargetResponses, APIKey: "sk-test"},
+			wantBaseURL:    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			wantService:    "openai",
+			wantCodex:      true,
+			wantStripCodex: true,
+			wantModelMap: map[string]string{
+				"gpt-5.5":       "glm-5.1",
+				"gpt-5.4":       "deepseek-v4-pro",
+				"gpt-5.4-mini":  "deepseek-v4-flash",
+				"gpt-5.3-codex": "deepseek-v4-flash",
+			},
+			wantReasoning: map[string]string{
+				"gpt-5.5":       "high",
+				"gpt-5.4":       "max",
+				"gpt-5.4-mini":  "high",
+				"gpt-5.3-codex": "high",
+			},
+		},
+		{
+			name:          "opencode zen chat",
+			req:           CreateChannelRequest{Provider: ProviderOpenCodeZen, Target: TargetChat, APIKey: "sk-test"},
+			wantBaseURL:   "https://opencode.ai/zen/v1",
+			wantService:   "openai",
+			wantNormalize: true,
+			wantModelMap:  map[string]string{"gpt-5": "glm-5.1"},
+		},
+		{
+			name:          "opencode go chat",
+			req:           CreateChannelRequest{Provider: ProviderOpenCodeGo, Target: TargetChat, APIKey: "sk-test"},
+			wantBaseURL:   "https://opencode.ai/zen/go/v1",
+			wantService:   "openai",
+			wantNormalize: true,
+			wantModelMap:  map[string]string{"gpt-5": "glm-5.1"},
+		},
+		{
+			name:           "opencode zen responses",
+			req:            CreateChannelRequest{Provider: ProviderOpenCodeZen, Target: TargetResponses, APIKey: "sk-test"},
+			wantBaseURL:    "https://opencode.ai/zen/v1",
+			wantService:    "openai",
+			wantCodex:      true,
+			wantStripCodex: true,
+			wantModelMap:   map[string]string{"gpt-5": "glm-5.1"},
+		},
+		{
+			name:           "opencode go responses",
+			req:            CreateChannelRequest{Provider: ProviderOpenCodeGo, Target: TargetResponses, APIKey: "sk-test"},
+			wantBaseURL:    "https://opencode.ai/zen/go/v1",
+			wantService:    "openai",
+			wantCodex:      true,
+			wantStripCodex: true,
+			wantModelMap:   map[string]string{"gpt-5": "glm-5.1"},
 		},
 	}
 	for _, tt := range tests {
@@ -189,6 +264,11 @@ func TestBuildPayload(t *testing.T) {
 			for source, target := range tt.wantModelMap {
 				if got.ModelMapping[source] != target {
 					t.Fatalf("ModelMapping[%q] = %q, want %q; all mappings: %#v", source, got.ModelMapping[source], target, got.ModelMapping)
+				}
+			}
+			for source, target := range tt.wantReasoning {
+				if got.ReasoningMapping[source] != target {
+					t.Fatalf("ReasoningMapping[%q] = %q, want %q; all mappings: %#v", source, got.ReasoningMapping[source], target, got.ReasoningMapping)
 				}
 			}
 			if tt.wantFallback != "" {

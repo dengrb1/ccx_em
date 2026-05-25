@@ -2,6 +2,8 @@ package channelpreset
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -44,7 +46,8 @@ type ProviderPlan struct {
 
 // Protocol 返回 plan 所属的协议类型。
 func (p ProviderPlan) Protocol() string {
-	if strings.Contains(p.BaseURL, "anthropic") {
+	baseURL := strings.TrimRight(strings.ToLower(p.BaseURL), "/")
+	if strings.Contains(baseURL, "anthropic") || strings.HasSuffix(baseURL, "/messages") {
 		return "anthropic"
 	}
 	return "openai"
@@ -327,7 +330,7 @@ func bestPlanForTarget(preset ProviderPreset, target string) string {
 	}
 	for _, plan := range preset.Plans {
 		if !plan.Custom {
-			isAnthropic := strings.Contains(plan.BaseURL, "anthropic")
+			isAnthropic := plan.Protocol() == "anthropic"
 			if target == TargetMessages && isAnthropic {
 				return plan.ID
 			}
@@ -430,147 +433,218 @@ func defaultChannelName(provider string, target string) string {
 	return fmt.Sprintf("desktop-%s-%s", provider, target)
 }
 
+type channelTargetConfig struct {
+	ModelMapping                  map[string]string
+	ReasoningMapping              map[string]string
+	ReasoningParamStyle           string
+	PassbackReasoningContent      bool
+	NoVision                      bool
+	NoVisionModels                []string
+	VisionFallbackModel           string
+	CodexNativeToolPassthrough    bool
+	CodexToolCompat               *bool
+	StripCodexClientTools         *bool
+	NormalizeNonstandardChatRoles bool
+}
+
+var channelTargetConfigs = map[string]map[string]channelTargetConfig{
+	TargetMessages: {
+		ProviderDeepSeek: {
+			ModelMapping: map[string]string{
+				"haiku":  "deepseek-v4-flash",
+				"opus":   "deepseek-v4-pro",
+				"sonnet": "deepseek-v4-pro",
+			},
+			ReasoningParamStyle:      "reasoning",
+			PassbackReasoningContent: true,
+			NoVision:                 true,
+		},
+		ProviderMiMo: {
+			ModelMapping: map[string]string{
+				"haiku":  "mimo-v2.5-pro",
+				"opus":   "mimo-v2.5-pro",
+				"sonnet": "mimo-v2.5-pro",
+			},
+			ReasoningParamStyle:      "reasoning",
+			PassbackReasoningContent: true,
+			NoVisionModels:           []string{"mimo-v2.5-pro"},
+			VisionFallbackModel:      "mimo-v2.5",
+		},
+		ProviderKimi: {
+			ModelMapping: map[string]string{
+				"haiku":  "kimi-k2.6",
+				"opus":   "kimi-k2.6",
+				"sonnet": "kimi-k2.6",
+			},
+		},
+		ProviderGLM: {
+			ModelMapping: map[string]string{
+				"haiku":  "glm-5.1",
+				"opus":   "glm-5.1",
+				"sonnet": "glm-5.1",
+			},
+		},
+		ProviderMiniMax: {
+			ModelMapping: map[string]string{
+				"haiku":  "MiniMax-M2.7",
+				"opus":   "MiniMax-M2.7",
+				"sonnet": "MiniMax-M2.7",
+			},
+			PassbackReasoningContent: true,
+		},
+		ProviderDashScope: {
+			ModelMapping: map[string]string{
+				"haiku":  "glm-5.1",
+				"opus":   "glm-5.1",
+				"sonnet": "glm-5.1",
+			},
+		},
+		ProviderOpenCodeZen: {
+			ModelMapping: map[string]string{
+				"haiku":  "glm-5.1",
+				"opus":   "glm-5.1",
+				"sonnet": "glm-5.1",
+			},
+		},
+		ProviderOpenCodeGo: {
+			ModelMapping: map[string]string{
+				"haiku":  "glm-5.1",
+				"opus":   "glm-5.1",
+				"sonnet": "glm-5.1",
+			},
+		},
+	},
+	TargetChat: {
+		ProviderDeepSeek: {
+			ReasoningParamStyle: "reasoning",
+			NoVision:            true,
+		},
+		ProviderMiMo: {
+			ModelMapping:        map[string]string{"gpt-5": "mimo-v2.5-pro"},
+			ReasoningParamStyle: "reasoning",
+			NoVisionModels:      []string{"mimo-v2.5-pro"},
+			VisionFallbackModel: "mimo-v2.5",
+		},
+		ProviderMiniMax: {
+			ModelMapping: map[string]string{"gpt-5": "MiniMax-M2.7"},
+		},
+		ProviderDashScope: {
+			ModelMapping: map[string]string{
+				"gpt-5.5":       "glm-5.1",
+				"gpt-5.4":       "deepseek-v4-pro",
+				"gpt-5.4-mini":  "deepseek-v4-flash",
+				"gpt-5.3-codex": "deepseek-v4-flash",
+			},
+			ReasoningMapping: map[string]string{
+				"gpt-5.5":       "high",
+				"gpt-5.4":       "max",
+				"gpt-5.4-mini":  "high",
+				"gpt-5.3-codex": "high",
+			},
+		},
+		ProviderOpenCodeZen: {
+			ModelMapping: map[string]string{"gpt-5": "glm-5.1"},
+		},
+		ProviderOpenCodeGo: {
+			ModelMapping: map[string]string{"gpt-5": "glm-5.1"},
+		},
+	},
+	TargetResponses: {
+		ProviderDeepSeek: {
+			ModelMapping: map[string]string{
+				"gpt":  "deepseek-v4-pro",
+				"mini": "deepseek-v4-flash",
+			},
+			ReasoningMapping:              map[string]string{"gpt": "max"},
+			ReasoningParamStyle:           "reasoning",
+			CodexToolCompat:               boolRef(false),
+			StripCodexClientTools:         boolRef(false),
+			CodexNativeToolPassthrough:    true,
+			NormalizeNonstandardChatRoles: true,
+			NoVision:                      true,
+		},
+		ProviderMiMo: {
+			ModelMapping:          map[string]string{"gpt-5": "mimo-v2.5-pro"},
+			ReasoningParamStyle:   "reasoning",
+			CodexToolCompat:       boolRef(false),
+			StripCodexClientTools: boolRef(false),
+			NoVisionModels:        []string{"mimo-v2.5-pro"},
+			VisionFallbackModel:   "mimo-v2.5",
+		},
+		ProviderMiniMax: {
+			ModelMapping:                  map[string]string{"gpt-5": "MiniMax-M2.7"},
+			CodexToolCompat:               boolRef(false),
+			StripCodexClientTools:         boolRef(false),
+			CodexNativeToolPassthrough:    true,
+			NormalizeNonstandardChatRoles: true,
+		},
+		ProviderDashScope: {
+			ModelMapping: map[string]string{
+				"gpt-5.5":       "glm-5.1",
+				"gpt-5.4":       "deepseek-v4-pro",
+				"gpt-5.4-mini":  "deepseek-v4-flash",
+				"gpt-5.3-codex": "deepseek-v4-flash",
+			},
+			ReasoningMapping: map[string]string{
+				"gpt-5.5":       "high",
+				"gpt-5.4":       "max",
+				"gpt-5.4-mini":  "high",
+				"gpt-5.3-codex": "high",
+			},
+		},
+		ProviderOpenCodeZen: {
+			ModelMapping: map[string]string{"gpt-5": "glm-5.1"},
+		},
+		ProviderOpenCodeGo: {
+			ModelMapping: map[string]string{"gpt-5": "glm-5.1"},
+		},
+	},
+}
+
+func boolRef(value bool) *bool {
+	return &value
+}
+
+func applyChannelTargetConfig(payload *ChannelPayload, config channelTargetConfig) {
+	payload.ModelMapping = maps.Clone(config.ModelMapping)
+	payload.ReasoningMapping = maps.Clone(config.ReasoningMapping)
+	payload.NoVisionModels = slices.Clone(config.NoVisionModels)
+	payload.ReasoningParamStyle = config.ReasoningParamStyle
+	payload.PassbackReasoningContent = payload.PassbackReasoningContent || config.PassbackReasoningContent
+	payload.NoVision = payload.NoVision || config.NoVision
+	payload.VisionFallbackModel = config.VisionFallbackModel
+	payload.CodexNativeToolPassthrough = payload.CodexNativeToolPassthrough || config.CodexNativeToolPassthrough
+	payload.NormalizeNonstandardChatRoles = payload.NormalizeNonstandardChatRoles || config.NormalizeNonstandardChatRoles
+	if config.CodexToolCompat != nil {
+		payload.CodexToolCompat = *config.CodexToolCompat
+	}
+	if config.StripCodexClientTools != nil {
+		payload.StripCodexClientTools = *config.StripCodexClientTools
+	}
+}
+
 func applyTargetDefaults(payload *ChannelPayload, provider string, target string) {
 	switch target {
 	case TargetMessages:
 		payload.ServiceType = "claude"
 		payload.StripEmptyTextBlocks = true
 		payload.StripThoughtSignature = true
-		switch provider {
-		case ProviderDeepSeek:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "deepseek-v4-flash",
-				"opus":   "deepseek-v4-pro",
-				"sonnet": "deepseek-v4-pro",
-			}
-			payload.ReasoningParamStyle = "reasoning"
-			payload.PassbackReasoningContent = true
-			payload.NoVision = true
-			payload.CodexToolCompat = false
-		case ProviderMiMo:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "mimo-v2.5-pro",
-				"opus":   "mimo-v2.5-pro",
-				"sonnet": "mimo-v2.5-pro",
-			}
-			payload.ReasoningParamStyle = "reasoning"
-			payload.PassbackReasoningContent = true
-			payload.CodexToolCompat = false
-			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
-			payload.VisionFallbackModel = "mimo-v2.5"
-		case ProviderKimi:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "kimi-k2.6",
-				"opus":   "kimi-k2.6",
-				"sonnet": "kimi-k2.6",
-			}
-		case ProviderGLM:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "glm-5.1",
-				"opus":   "glm-5.1",
-				"sonnet": "glm-5.1",
-			}
-		case ProviderMiniMax:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "MiniMax-M2.7",
-				"opus":   "MiniMax-M2.7",
-				"sonnet": "MiniMax-M2.7",
-			}
-			payload.PassbackReasoningContent = true
-		case ProviderDashScope:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "glm-5.1",
-				"opus":   "glm-5.1",
-				"sonnet": "glm-5.1",
-			}
-		case ProviderOpenCodeZen, ProviderOpenCodeGo:
-			payload.ModelMapping = map[string]string{
-				"haiku":  "glm-5.1",
-				"opus":   "glm-5.1",
-				"sonnet": "glm-5.1",
-			}
-		}
 	case TargetChat:
 		payload.ServiceType = "openai"
 		payload.NormalizeNonstandardChatRoles = true
-		switch provider {
-		case ProviderDeepSeek:
-			payload.ReasoningParamStyle = "reasoning"
-			payload.CodexToolCompat = false
-			payload.NoVision = true
-		case ProviderMiMo:
-			payload.ModelMapping = map[string]string{"gpt": "mimo-v2.5-pro"}
-			payload.ReasoningParamStyle = "reasoning"
-			payload.CodexToolCompat = false
-			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
-			payload.VisionFallbackModel = "mimo-v2.5"
-		case ProviderKimi:
-		case ProviderGLM:
-		case ProviderMiniMax:
-			payload.ModelMapping = map[string]string{"gpt": "MiniMax-M2.7"}
-		case ProviderDashScope:
-			payload.ModelMapping = map[string]string{
-				"gpt-5.5":       "glm-5.1",
-				"gpt-5.4":       "deepseek-v4-pro",
-				"gpt-5.4-mini":  "deepseek-v4-flash",
-				"gpt-5.3-codex": "deepseek-v4-flash",
-			}
-			payload.ReasoningMapping = map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
-			}
-		case ProviderOpenCodeZen, ProviderOpenCodeGo:
-			payload.ModelMapping = map[string]string{"gpt": "glm-5.1"}
-		}
 	case TargetResponses:
 		payload.ServiceType = "openai"
 		payload.CodexToolCompat = true
 		payload.StripCodexClientTools = true
-		switch provider {
-		case ProviderDeepSeek:
-			payload.ModelMapping = map[string]string{
-				"gpt":  "deepseek-v4-pro",
-				"mini": "deepseek-v4-flash",
-			}
-			payload.ReasoningMapping = map[string]string{"gpt": "max"}
-			payload.ReasoningParamStyle = "reasoning"
-			payload.CodexToolCompat = false
-			payload.StripCodexClientTools = false
-			payload.CodexNativeToolPassthrough = true
-			payload.NormalizeNonstandardChatRoles = true
-			payload.NoVision = true
-		case ProviderMiMo:
-			payload.ModelMapping = map[string]string{"gpt": "mimo-v2.5-pro"}
-			payload.ReasoningParamStyle = "reasoning"
-			payload.CodexToolCompat = false
-			payload.StripCodexClientTools = false
-			payload.NoVisionModels = []string{"mimo-v2.5-pro"}
-			payload.VisionFallbackModel = "mimo-v2.5"
-		case ProviderKimi:
-		case ProviderGLM:
-		case ProviderMiniMax:
-			payload.ModelMapping = map[string]string{"gpt-5": "MiniMax-M2.7"}
-			payload.CodexToolCompat = false
-			payload.StripCodexClientTools = false
-			payload.CodexNativeToolPassthrough = true
-			payload.NormalizeNonstandardChatRoles = true
-		case ProviderDashScope:
-			payload.ModelMapping = map[string]string{
-				"gpt-5.5":       "glm-5.1",
-				"gpt-5.4":       "deepseek-v4-pro",
-				"gpt-5.4-mini":  "deepseek-v4-flash",
-				"gpt-5.3-codex": "deepseek-v4-flash",
-			}
-			payload.ReasoningMapping = map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
-			}
-		case ProviderOpenCodeZen, ProviderOpenCodeGo:
-			payload.ModelMapping = map[string]string{"gpt": "glm-5.1"}
-		}
 	}
+
+	configs, ok := channelTargetConfigs[target]
+	if !ok {
+		return
+	}
+	config, ok := configs[provider]
+	if !ok {
+		return
+	}
+	applyChannelTargetConfig(payload, config)
 }
