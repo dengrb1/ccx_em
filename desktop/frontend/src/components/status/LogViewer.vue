@@ -85,13 +85,13 @@ const scrollToBottom = (force = false) => {
   }
 }
 
-// 监听日志变化自动滚动
+// 监听日志变化自动滚动（受 autoScroll 开关控制）
 watch(() => props.logs.length, () => {
   scrollToBottom()
 })
 
-// 监听过滤后也滚动
-watch(filteredLogs, () => {
+// 仅在用户改变搜索关键字时强制滚动到底部，避免覆盖 autoScroll
+watch(searchQuery, () => {
   scrollToBottom(true)
 })
 
