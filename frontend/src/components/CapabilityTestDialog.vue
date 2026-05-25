@@ -221,7 +221,7 @@
                         variant="tonal"
                         rounded="lg"
                         class="copy-tab-btn"
-                        @click="$emit('copyToTab', test.protocol)"
+                        @click="$emit('copyToTab', test.protocol, test.protocol)"
                       >
                         {{ t('capability.copyToTab') }}
                       </v-btn>
@@ -237,7 +237,7 @@
                           variant="tonal"
                           rounded="lg"
                           class="convert-btn"
-                          @click="$emit('copyToTab', test.protocol)"
+                          @click="$emit('copyToTab', test.protocol, successProto)"
                         >
                           {{ t('capability.convert', { protocol: getProtocolDisplayName(successProto) }) }}
                         </v-btn>
@@ -338,7 +338,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'update:capabilityRpm': [value: number]
-  'copyToTab': [protocol: string]
+  'copyToTab': [targetProtocol: string, serviceProtocol?: string]
   'cancel': []
   'retryModel': [protocol: string, model: string]
   'testProtocol': [protocol: string]

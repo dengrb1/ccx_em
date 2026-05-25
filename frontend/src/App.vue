@@ -792,6 +792,19 @@ const getPlaceholderModelsForProtocol = (protocol: string): string[] => {
 
 const capabilityBaseProtocolOrder = ['messages', 'responses', 'chat', 'gemini'] as const
 type CapabilityBaseProtocol = typeof capabilityBaseProtocolOrder[number]
+type CapabilityCopyTargetProtocol = CapabilityBaseProtocol | 'images'
+
+const capabilityNativeServiceTypeByProtocol: Record<CapabilityCopyTargetProtocol, Channel['serviceType']> = {
+  messages: 'claude',
+  responses: 'responses',
+  chat: 'openai',
+  gemini: 'gemini',
+  images: 'openai'
+}
+
+const getCapabilityNativeServiceType = (protocol: string): Channel['serviceType'] | null => {
+  return capabilityNativeServiceTypeByProtocol[protocol as CapabilityCopyTargetProtocol] ?? null
+}
 
 // 判断协议是否为已知协议（基础协议 或 复合协议 from->to，其中 from 是已知基础协议）
 const isCapabilityProtocol = (protocol: string): boolean => {
@@ -1369,17 +1382,23 @@ const handleRetryCapabilityModel = async (protocol: string, model: string) => {
 }
 
 // 复制渠道到目标协议 Tab
-const handleCopyToTab = async (targetProtocol: string) => {
+const handleCopyToTab = async (targetProtocol: string, serviceProtocol = targetProtocol) => {
   const sourceChannel = channelStore.currentChannelsData.channels?.find((ch: Channel) => ch.index === capabilityTestChannelId.value)
   if (!sourceChannel) {
     showToast(t('toast.sourceChannelMissing'), 'error')
     return
   }
 
+  const targetServiceType = getCapabilityNativeServiceType(serviceProtocol)
+  if (!targetServiceType) {
+    showToast(t('toast.unsupportedProtocol', { protocol: serviceProtocol }), 'error')
+    return
+  }
+
   // 构造渠道配置（仅复制核心连接信息）
   const channelConfig: Omit<Channel, 'index' | 'latency' | 'status'> = {
     name: sourceChannel.name,
-    serviceType: targetProtocol === 'images' ? 'openai' : sourceChannel.serviceType,
+    serviceType: targetServiceType,
     baseUrl: sourceChannel.baseUrl,
     baseUrls: sourceChannel.baseUrls,
     apiKeys: [...sourceChannel.apiKeys],
