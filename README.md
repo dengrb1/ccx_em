@@ -24,7 +24,7 @@ CCX is a high-performance AI API proxy and protocol translation gateway for Clau
   <img src="docs/sponsors/youyun-zhisuan.png" width="96" alt="Youyun Zhisuan Logo">
 </a>
 
-Thanks to [Youyun Zhisuan](https://www.compshare.cn/?ytag=GPU_YY_git_ccx) for sponsoring this project! Youyun Zhisuan is UCloud's AI cloud platform, offering cost-effective domestic AI model Agent Plan packages by monthly subscription or pay-as-you-go, starting from 49 CNY/month. It also provides stable access to official overseas models, supports Claude Code, Codex, and API integrations, and offers enterprise-grade high concurrency, 24/7 technical support, and self-service invoicing. Users who register through this link can receive a free 5 CNY platform trial credit.
+Thanks to [Youyun Zhisuan](https://www.compshare.cn/?ytag=GPU_YY_git_ccx) for sponsoring this project! Youyun Zhisuan is UCloud's AI cloud platform, offering cost-effective domestic AI model Agent Plan packages by monthly subscription or pay-as-you-go, starting from 49 CNY/month. It also provides stable access to official overseas models, supports Claude Code, Codex, and API integrations, and offers enterprise-grade high concurrency, 24/7 technical support, and self-service invoicing. Users who register through [this link](https://www.compshare.cn/?ytag=GPU_YY_git_ccx) can receive a free 5 CNY platform trial credit.
 
 ## Screenshots
 
