@@ -8,6 +8,19 @@ import (
 
 const visionDetectedContextKey = "ccx_has_image_content"
 
+// HasImageContentCached 返回已缓存的图片内容检测结果，不触发请求体解析。
+func HasImageContentCached(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	if cached, exists := c.Get(visionDetectedContextKey); exists {
+		if detected, ok := cached.(bool); ok {
+			return detected
+		}
+	}
+	return false
+}
+
 // HasImageContent 检测请求体是否包含图片内容（覆盖 Claude/OpenAI/Responses/Gemini 四种协议格式）。
 // 结果缓存在 gin.Context 中，failover 重试时不重复解析。
 func HasImageContent(c *gin.Context, bodyBytes []byte) bool {

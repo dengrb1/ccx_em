@@ -95,7 +95,10 @@ func HandleMultiChannelFailover(
 
 			// 只有真正成功的普通请求才设置 Trace 亲和并追踪对话；title 请求没有用户消息，不污染卡片状态。
 			if result.SuccessKey != "" && (lastUserMsgStr != "" || userMsgCountInt > 0) {
-				channelScheduler.SetTraceAffinity(userID, channelIndex, kind)
+				// 含图请求成功不写普通 Trace 亲和，避免一次视觉请求覆盖文本亲和
+				if kind == scheduler.ChannelKindImages || !HasImageContentCached(c) {
+					channelScheduler.SetTraceAffinity(userID, channelIndex, kind)
+				}
 				channelName := ""
 				if upstream != nil {
 					channelName = upstream.Name

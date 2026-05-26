@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Fixed
+
+- **含图请求不再覆盖普通文本 Trace 亲和** - 含图请求 failover 到视觉渠道成功后，不再改写同一用户的普通文本 Trace 亲和，避免 DeepSeek 等文本渠道被长时间绕过；`HasImageContentCached` 只读缓存，不影响已有 Images 渠道行为。
+
 ## [v2.8.6] - 2026-05-26
 
 ### 新增
