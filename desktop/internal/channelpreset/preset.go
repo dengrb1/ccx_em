@@ -320,11 +320,11 @@ func BuildPayload(req CreateChannelRequest) (ChannelPayload, error) {
 		name = defaultChannelName(preset.ID, target)
 	}
 	payload := ChannelPayload{
-		Name:    name,
-		BaseURL: baseURL,
-		APIKeys:     []string{apiKey},
-		Priority:    1,
-		Status:      "active",
+		Name:     name,
+		BaseURL:  baseURL,
+		APIKeys:  []string{apiKey},
+		Priority: 1,
+		Status:   "active",
 	}
 	applyTargetDefaults(&payload, preset.ID, target)
 	return payload, nil
@@ -547,19 +547,19 @@ var channelTargetConfigs = map[string]map[string]channelTargetConfig{
 			NoVision:            true,
 		},
 		ProviderMiMo: {
-				ReasoningParamStyle: "reasoning",
-				NoVisionModels:     []string{"mimo-v2.5-pro"},
-				VisionFallbackModel: "mimo-v2.5",
-			},
+			ReasoningParamStyle: "reasoning",
+			NoVisionModels:      []string{"mimo-v2.5-pro"},
+			VisionFallbackModel: "mimo-v2.5",
+		},
 		ProviderCompshare: {
 			ReasoningParamStyle: "reasoning",
 			NoVisionModels:      []string{"deepseek-v4-flash"},
 			VisionFallbackModel: "MiniMax-M2.7",
 		},
-		ProviderMiniMax: {},
-		ProviderDashScope: {},
+		ProviderMiniMax:     {},
+		ProviderDashScope:   {},
 		ProviderOpenCodeZen: {},
-		ProviderOpenCodeGo: {},
+		ProviderOpenCodeGo:  {},
 	},
 	TargetResponses: {
 		ProviderDeepSeek: {
@@ -584,20 +584,20 @@ var channelTargetConfigs = map[string]map[string]channelTargetConfig{
 			VisionFallbackModel:   "mimo-v2.5",
 		},
 		ProviderCompshare: {
-				ModelMapping: map[string]string{
-					"gpt":  "glm-5.1",
-					"mini": "deepseek-v4-flash",
-				},
-				ReasoningParamStyle:           "reasoning",
-				CodexToolCompat:               boolRef(false),
-				StripCodexClientTools:         boolRef(false),
-				CodexNativeToolPassthrough:    true,
-				NormalizeNonstandardChatRoles: true,
-				NoVisionModels:                []string{"deepseek-v4-flash"},
-				VisionFallbackModel:           "MiniMax-M2.7",
+			ModelMapping: map[string]string{
+				"gpt":  "glm-5.1",
+				"mini": "deepseek-v4-flash",
 			},
-			ProviderMiniMax: {
-				ModelMapping:                  map[string]string{"gpt-5": "MiniMax-M2.7"},
+			ReasoningParamStyle:           "reasoning",
+			CodexToolCompat:               boolRef(false),
+			StripCodexClientTools:         boolRef(false),
+			CodexNativeToolPassthrough:    true,
+			NormalizeNonstandardChatRoles: true,
+			NoVisionModels:                []string{"deepseek-v4-flash"},
+			VisionFallbackModel:           "MiniMax-M2.7",
+		},
+		ProviderMiniMax: {
+			ModelMapping:                  map[string]string{"gpt-5": "MiniMax-M2.7"},
 			CodexToolCompat:               boolRef(false),
 			StripCodexClientTools:         boolRef(false),
 			CodexNativeToolPassthrough:    true,

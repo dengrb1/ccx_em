@@ -84,11 +84,11 @@ func TestBuildPayload(t *testing.T) {
 		},
 		{
 			name:          "mimo chat",
-				req:           CreateChannelRequest{Provider: ProviderMiMo, Target: TargetChat, APIKey: "tp-test"},
-				wantBaseURL:   "https://api.xiaomimimo.com/v1",
-				wantService:   "openai",
-				wantNormalize: true,
-				wantFallback:  "mimo-v2.5",
+			req:           CreateChannelRequest{Provider: ProviderMiMo, Target: TargetChat, APIKey: "tp-test"},
+			wantBaseURL:   "https://api.xiaomimimo.com/v1",
+			wantService:   "openai",
+			wantNormalize: true,
+			wantFallback:  "mimo-v2.5",
 		},
 		{
 			name:        "mimo responses",
@@ -134,8 +134,8 @@ func TestBuildPayload(t *testing.T) {
 			wantModelMap: map[string]string{
 				"gpt":  "glm-5.1",
 				"mini": "deepseek-v4-flash",
-				},
-				wantFallback: "MiniMax-M2.7",
+			},
+			wantFallback: "MiniMax-M2.7",
 		},
 		{
 			name:          "kimi chat",
@@ -169,10 +169,10 @@ func TestBuildPayload(t *testing.T) {
 		},
 		{
 			name:          "minimax chat",
-				req:           CreateChannelRequest{Provider: ProviderMiniMax, Target: TargetChat, APIKey: "sk-test"},
-				wantBaseURL:   "https://api.minimax.chat/v1",
-				wantService:   "openai",
-				wantNormalize: true,
+			req:           CreateChannelRequest{Provider: ProviderMiniMax, Target: TargetChat, APIKey: "sk-test"},
+			wantBaseURL:   "https://api.minimax.chat/v1",
+			wantService:   "openai",
+			wantNormalize: true,
 		},
 		{
 			name:           "minimax responses",
@@ -187,10 +187,10 @@ func TestBuildPayload(t *testing.T) {
 		},
 		{
 			name:          "dashscope chat",
-				req:           CreateChannelRequest{Provider: ProviderDashScope, Target: TargetChat, APIKey: "sk-test"},
-				wantBaseURL:   "https://dashscope.aliyuncs.com/compatible-mode/v1",
-				wantService:   "openai",
-				wantNormalize: true,
+			req:           CreateChannelRequest{Provider: ProviderDashScope, Target: TargetChat, APIKey: "sk-test"},
+			wantBaseURL:   "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			wantService:   "openai",
+			wantNormalize: true,
 		},
 		{
 			name:           "dashscope responses",
