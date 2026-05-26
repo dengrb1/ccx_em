@@ -107,6 +107,60 @@ tasks:
         /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VER" {{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Info.plist
       - codesign --force --deep --sign - {{.BIN_DIR}}/{{.APP_NAME}}.app
 
+  package:dmg:
+    summary: Packages a production build of the application into a Finder-styled DMG
+    vars:
+      DISPLAY_APP_NAME: '{{.DISPLAY_APP_NAME | default "CCX Desktop"}}'
+      DMG_WINDOW_SIZE: '{{.DMG_WINDOW_SIZE | default "600,400"}}'
+      DMG_APP_POSITION: '{{.DMG_APP_POSITION | default "150,190"}}'
+      DMG_APPLICATIONS_POSITION: '{{.DMG_APPLICATIONS_POSITION | default "450,190"}}'
+      DMG_APP_ICON_SIZE: '{{.DMG_APP_ICON_SIZE | default 96}}'
+      DMG_APPLICATIONS_ICON_SIZE: '{{.DMG_APPLICATIONS_ICON_SIZE | default 96}}'
+    deps:
+      - task: package
+        vars:
+          ARCH:
+            ref: .ARCH
+          BUILD_VERSION:
+            ref: .BUILD_VERSION
+          BUILD_TIME:
+            ref: .BUILD_TIME
+          GIT_COMMIT:
+            ref: .GIT_COMMIT
+    cmds:
+      - task: create:dmg
+        vars:
+          DISPLAY_APP_NAME:
+            ref: .DISPLAY_APP_NAME
+          DMG_WINDOW_SIZE:
+            ref: .DMG_WINDOW_SIZE
+          DMG_APP_POSITION:
+            ref: .DMG_APP_POSITION
+          DMG_APPLICATIONS_POSITION:
+            ref: .DMG_APPLICATIONS_POSITION
+          DMG_APP_ICON_SIZE:
+            ref: .DMG_APP_ICON_SIZE
+          DMG_APPLICATIONS_ICON_SIZE:
+            ref: .DMG_APPLICATIONS_ICON_SIZE
+          BUILD_VERSION:
+            ref: .BUILD_VERSION
+
+  create:dmg:
+    summary: Creates a DMG with a custom Finder layout and optional background
+    vars:
+      DISPLAY_APP_NAME: '{{.DISPLAY_APP_NAME | default "CCX Desktop"}}'
+      DMG_WINDOW_SIZE: '{{.DMG_WINDOW_SIZE | default "600,400"}}'
+      DMG_APP_POSITION: '{{.DMG_APP_POSITION | default "150,190"}}'
+      DMG_APPLICATIONS_POSITION: '{{.DMG_APPLICATIONS_POSITION | default "450,190"}}'
+      DMG_APP_ICON_SIZE: '{{.DMG_APP_ICON_SIZE | default 96}}'
+      DMG_APPLICATIONS_ICON_SIZE: '{{.DMG_APPLICATIONS_ICON_SIZE | default 96}}'
+      VERSION: '{{.BUILD_VERSION | default "0.0.0"}}'
+      DMG_OUTPUT: '{{.BIN_DIR}}/CCX-Desktop-{{.VERSION}}-darwin-{{.ARCH | default ARCH}}.dmg'
+    cmds:
+      - mv "{{.BIN_DIR}}/{{.APP_NAME}}.app" "{{.BIN_DIR}}/{{.DISPLAY_APP_NAME}}.app" || true
+      - python3 build/darwin/pack_dmg.py --dmg "{{.DMG_OUTPUT}}" --app "{{.BIN_DIR}}/{{.DISPLAY_APP_NAME}}.app" --volume-name "{{.DISPLAY_APP_NAME}}" --volume-icon build/darwin/icons.icns --background build/appicon.png --window-size "{{.DMG_WINDOW_SIZE}}" --app-icon-size {{.DMG_APP_ICON_SIZE}} --applications-icon-size {{.DMG_APPLICATIONS_ICON_SIZE}} --app-position "{{.DMG_APP_POSITION}}" --applications-position "{{.DMG_APPLICATIONS_POSITION}}"
+      - rm -rf "{{.BIN_DIR}}/{{.DISPLAY_APP_NAME}}.app"
+
   run:
     cmds:
       - mkdir -p {{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/{MacOS,Resources}

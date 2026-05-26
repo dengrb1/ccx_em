@@ -71,8 +71,8 @@ jobs:
       - name: Install Wails3 CLI
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.95
 
-      - name: Install create-dmg
-        run: brew install create-dmg
+      - name: Install DMG packaging dependencies
+        run: pip3 install --user Pillow
 
       - name: Install Desktop Frontend Deps
         run: bun install --frozen-lockfile
@@ -87,18 +87,8 @@ jobs:
           cp ../backend-go/ccx-darwin-arm64 bin/ccx-go
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
           VERSION="${BUILD_VERSION#v}"
-          wails3 task darwin:package ARCH=arm64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
-          rm -f "bin/CCX Desktop-arm64.dmg" || true
-          create-dmg \
-            --volname "CCX Desktop" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --app-drop-link 420 175 \
-            --icon "ccx-desktop.app" 180 175 \
-            "bin/CCX-Desktop-${VERSION}-darwin-arm64.dmg" \
-            "bin/ccx-desktop.app" || true
+          wails3 task darwin:package:dmg ARCH=arm64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
           shasum -a 256 "bin/CCX-Desktop-${VERSION}-darwin-arm64.dmg" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-darwin-arm64.dmg.sha256"
-          rm -rf "bin/ccx-desktop.app"
         working-directory: ./desktop
 
       - name: Build Desktop amd64 DMG
@@ -109,18 +99,8 @@ jobs:
           cp ../backend-go/ccx-darwin-amd64 bin/ccx-go
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
           VERSION="${BUILD_VERSION#v}"
-          wails3 task darwin:package ARCH=amd64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
-          rm -f "bin/CCX Desktop-amd64.dmg" || true
-          create-dmg \
-            --volname "CCX Desktop" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --app-drop-link 420 175 \
-            --icon "ccx-desktop.app" 180 175 \
-            "bin/CCX-Desktop-${VERSION}-darwin-amd64.dmg" \
-            "bin/ccx-desktop.app" || true
+          wails3 task darwin:package:dmg ARCH=amd64 BUILD_VERSION="${VERSION}" BUILD_TIME="${BUILD_TIME}" GIT_COMMIT="${GIT_COMMIT}"
           shasum -a 256 "bin/CCX-Desktop-${VERSION}-darwin-amd64.dmg" | awk '{print $1}' > "bin/CCX-Desktop-${VERSION}-darwin-amd64.dmg.sha256"
-          rm -rf "bin/ccx-desktop.app"
         working-directory: ./desktop
 
       - name: Generate macOS checksums

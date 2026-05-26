@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### 新增
+
+- **macOS DMG 拖拽安装布局增强** - 桌面端 macOS DMG 安装包现在内置自定义背景图与 Applications 快捷方式，支持 Finder 窗口尺寸、图标大小和拖拽位置配置；发布流程将默认 `create-dmg` 替换为 Taskfile + `pack_dmg.py` 自动化布局构建。
+
 ## [v2.8.5] - 2026-05-26
 
 ### 新增
