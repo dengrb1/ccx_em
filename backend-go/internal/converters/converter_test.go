@@ -283,46 +283,82 @@ func TestClaudeConverter_DefaultMaxTokens(t *testing.T) {
 		Messages: []types.ResponsesItem{},
 	}
 
-	req := &types.ResponsesRequest{
-		Model:     "claude-3-opus",
-		Input:     "Hello!",
-		MaxTokens: 0, // 客户端未传 max_output_tokens
-	}
+	t.Run("zero_defaults_to_4096", func(t *testing.T) {
+		req := &types.ResponsesRequest{
+			Model:     "claude-3-opus",
+			Input:     "Hello!",
+			MaxTokens: 0,
+		}
 
-	result, err := converter.ToProviderRequest(sess, req)
-	if err != nil {
-		t.Fatalf("转换失败: %v", err)
-	}
+		result, err := converter.ToProviderRequest(sess, req)
+		if err != nil {
+			t.Fatalf("转换失败: %v", err)
+		}
 
-	resultMap := result.(map[string]interface{})
+		resultMap := result.(map[string]interface{})
+		if resultMap["max_tokens"] != 4096 {
+			t.Errorf("默认 max_tokens 应为 4096，实际为 %v", resultMap["max_tokens"])
+		}
+	})
 
-	// 当客户端未传 max_output_tokens 时，应使用默认值 4096
-	if resultMap["max_tokens"] != 4096 {
-		t.Errorf("默认 max_tokens 应为 4096，实际为 %v", resultMap["max_tokens"])
-	}
+	t.Run("explicit_value_preserved", func(t *testing.T) {
+		req := &types.ResponsesRequest{
+			Model:     "claude-3-opus",
+			Input:     "Hello!",
+			MaxTokens: 8192,
+		}
+
+		result, err := converter.ToProviderRequest(sess, req)
+		if err != nil {
+			t.Fatalf("转换失败: %v", err)
+		}
+
+		resultMap := result.(map[string]interface{})
+		if resultMap["max_tokens"] != 8192 {
+			t.Errorf("max_tokens 应为 8192，实际为 %v", resultMap["max_tokens"])
+		}
+	})
 }
 
-func TestResponsesPassthroughConverter_SkipsZeroMaxTokens(t *testing.T) {
+func TestResponsesPassthroughConverter_MaxTokens(t *testing.T) {
 	converter := &ResponsesPassthroughConverter{}
 	sess := &session.Session{}
 
-	req := &types.ResponsesRequest{
-		Model:     "gpt-4",
-		Input:     "Hello!",
-		MaxTokens: 0, // 客户端未传 max_output_tokens
-	}
+	t.Run("skips_zero", func(t *testing.T) {
+		req := &types.ResponsesRequest{
+			Model:     "gpt-4",
+			Input:     "Hello!",
+			MaxTokens: 0,
+		}
 
-	result, err := converter.ToProviderRequest(sess, req)
-	if err != nil {
-		t.Fatalf("转换失败: %v", err)
-	}
+		result, err := converter.ToProviderRequest(sess, req)
+		if err != nil {
+			t.Fatalf("转换失败: %v", err)
+		}
 
-	resultMap := result.(map[string]interface{})
+		resultMap := result.(map[string]interface{})
+		if _, ok := resultMap["max_tokens"]; ok {
+			t.Errorf("max_tokens 不应出现在透传请求中，当客户端未提供时")
+		}
+	})
 
-	// 当客户端未传 max_output_tokens 时，不应包含 max_tokens 字段
-	if _, ok := resultMap["max_tokens"]; ok {
-		t.Errorf("max_tokens 不应出现在透传请求中，当客户端未提供时")
-	}
+	t.Run("preserves_explicit_value", func(t *testing.T) {
+		req := &types.ResponsesRequest{
+			Model:     "gpt-4",
+			Input:     "Hello!",
+			MaxTokens: 16384,
+		}
+
+		result, err := converter.ToProviderRequest(sess, req)
+		if err != nil {
+			t.Fatalf("转换失败: %v", err)
+		}
+
+		resultMap := result.(map[string]interface{})
+		if resultMap["max_tokens"] != 16384 {
+			t.Errorf("max_tokens 应为 16384，实际为 %v", resultMap["max_tokens"])
+		}
+	})
 }
 
 // ============== 工厂模式测试 ==============
