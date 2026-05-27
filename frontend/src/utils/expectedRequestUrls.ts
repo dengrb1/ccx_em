@@ -44,7 +44,7 @@ export function buildExpectedRequestUrls(
     } else if (serviceType === 'gemini') {
       endpoint = '/models/{model}:generateContent'
     } else if (serviceType === 'responses') {
-      endpoint = channelType === 'chat' ? '/chat/completions' : '/responses'
+      endpoint = '/responses'
     } else {
       endpoint = '/chat/completions'
     }

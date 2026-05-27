@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### 修复
+
+- **Chat 渠道选择 Responses 上游时请求格式与端点错误** - 修复 Chat 渠道 `serviceType: "responses"` 时仍以 Chat 格式发送到 `/v1/chat/completions` 的问题；新增 Chat↔Responses 双向协议转换（请求：messages→input, max_tokens→max_output_tokens；响应：output→choices），流式 SSE 事件转换（response.output_text.delta→Chat chunk），前端预期请求 URL 同步修正为 `/v1/responses`。(#130)
+
 ## [v2.8.7] - 2026-05-27
 
 ### 文档

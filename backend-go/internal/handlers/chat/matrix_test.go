@@ -22,7 +22,7 @@ func TestChatEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 		{"chat_to_openai", "openai", "https://api.example.com/v1/chat/completions", "messages"},
 		{"chat_to_claude", "claude", "https://api.example.com/v1/messages", "messages"},
 		{"chat_to_gemini", "gemini", "https://api.example.com/v1/chat/completions", "messages"},
-		{"chat_to_responses", "responses", "https://api.example.com/v1/chat/completions", "messages"},
+		{"chat_to_responses", "responses", "https://api.example.com/v1/responses", "input"},
 		{"chat_hash_baseurl", "openai", "https://core.blink.new/api/v1/ai/chat/completions", "messages"},
 	}
 

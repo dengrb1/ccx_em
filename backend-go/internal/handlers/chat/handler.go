@@ -374,7 +374,7 @@ func buildProviderRequest(
 	var url string
 
 	switch upstream.ServiceType {
-	case "openai", "responses", "":
+	case "openai", "":
 		// OpenAI 兼容上游：透传请求，仅替换 model 并注入高级参数
 		var err error
 		requestBody, err = buildChatCompletionRequestBody(bodyBytes, model, mappedModel, upstream, true)
@@ -389,6 +389,19 @@ func buildProviderRequest(
 			url = fmt.Sprintf("%s/chat/completions", strings.TrimRight(baseURL, "/"))
 		} else {
 			url = fmt.Sprintf("%s/v1/chat/completions", strings.TrimRight(baseURL, "/"))
+		}
+
+	case "responses":
+		// Responses 上游：转换 Chat 格式为 Responses 格式，发送到 /v1/responses
+		chatBody, err := buildChatCompletionRequestBody(bodyBytes, model, mappedModel, upstream, true)
+		if err != nil {
+			return nil, err
+		}
+		requestBody = converters.ConvertChatRequestToResponsesRequest(chatBody)
+		if skipVersionPrefix {
+			url = fmt.Sprintf("%s/responses", strings.TrimRight(baseURL, "/"))
+		} else {
+			url = fmt.Sprintf("%s/v1/responses", strings.TrimRight(baseURL, "/"))
 		}
 
 	case "claude":
@@ -727,6 +740,33 @@ func handleSuccess(
 		}
 		return usage, nil
 
+	case "responses":
+		// 转换 Responses 响应为 OpenAI Chat 格式
+		chatRespBytes := converters.ConvertResponsesResponseToChatResponse(bodyBytes, model)
+		// 空响应拦截（仅 Fuzzy 模式）
+		if fuzzyMode {
+			var respMap map[string]interface{}
+			if err := json.Unmarshal(chatRespBytes, &respMap); err == nil && common.IsChatResponseEmpty(respMap) {
+				log.Printf("[Chat-EmptyResponse] 上游返回空响应（非流式，upstreamType=%s），触发 failover", upstreamType)
+				return nil, common.ErrEmptyNonStreamResponse
+			}
+		}
+		c.Data(resp.StatusCode, "application/json", chatRespBytes)
+		// 提取 usage（Responses 格式：input_tokens / output_tokens）
+		var usage *types.Usage
+		var respMap map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &respMap); err == nil {
+			if u, ok := respMap["usage"].(map[string]interface{}); ok {
+				inputTokens, _ := u["input_tokens"].(float64)
+				outputTokens, _ := u["output_tokens"].(float64)
+				usage = &types.Usage{
+					InputTokens:  int(inputTokens),
+					OutputTokens: int(outputTokens),
+				}
+			}
+		}
+		return usage, nil
+
 	default:
 		// 先解析以判断空响应；再决定是 failover 还是透传
 		var respMap map[string]interface{}
@@ -897,6 +937,8 @@ func handleStreamSuccess(
 	switch upstreamType {
 	case "claude":
 		totalUsage = streamClaudeToChat(c, resp, flusher, model, logBuffer, streamLoggingEnabled, preflight.buffered)
+	case "responses":
+		totalUsage = streamResponsesToChat(c, resp, flusher, model, logBuffer, streamLoggingEnabled, preflight.buffered)
 	default:
 		// OpenAI / Gemini / Responses 等：直接透传 SSE 流
 		totalUsage = streamPassthrough(c, resp, flusher, logBuffer, streamLoggingEnabled, preflight.buffered)
@@ -1294,6 +1336,412 @@ func streamClaudeToChat(
 	}
 
 	return totalUsage
+}
+
+// flushResponsesSSEEvent 处理缓存的 Responses SSE data 行，生成对应的 Chat chunk。
+func flushResponsesSSEEvent(
+	c *gin.Context,
+	flusher http.Flusher,
+	model string,
+	chunkID string,
+	dataLines []string,
+	roleSent *bool,
+	currentToolIndex *int,
+	currentToolCallID *string,
+	currentToolName *string,
+	totalUsage **types.Usage,
+	doneSent *bool,
+	currentToolSeq *int,
+) {
+	jsonData := strings.Join(dataLines, "\n")
+	if jsonData == "[DONE]" {
+		return
+	}
+
+	var event map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
+		return
+	}
+
+	evtType, _ := event["type"].(string)
+
+	switch evtType {
+	case "response.output_text.delta":
+		if !*roleSent {
+			roleChunk := map[string]interface{}{
+				"id":      chunkID,
+				"object":  "chat.completion.chunk",
+				"created": time.Now().Unix(),
+				"model":   model,
+				"choices": []map[string]interface{}{{
+					"index":         0,
+					"delta":         map[string]interface{}{"role": "assistant"},
+					"finish_reason": nil,
+				}},
+			}
+			writeChatSSEChunk(c, flusher, roleChunk)
+			*roleSent = true
+		}
+		text, _ := event["delta"].(string)
+		if text == "" {
+			return
+		}
+		chatChunk := map[string]interface{}{
+			"id":      chunkID,
+			"object":  "chat.completion.chunk",
+			"created": time.Now().Unix(),
+			"model":   model,
+			"choices": []map[string]interface{}{{
+				"index":         0,
+				"delta":         map[string]interface{}{"content": text},
+				"finish_reason": nil,
+			}},
+		}
+		writeChatSSEChunk(c, flusher, chatChunk)
+
+	case "response.output_item.added":
+		item, _ := event["item"].(map[string]interface{})
+		if item == nil {
+			return
+		}
+		if item["type"] == "function_call" {
+			*currentToolCallID, _ = item["call_id"].(string)
+			*currentToolName, _ = item["name"].(string)
+			*currentToolIndex = *currentToolSeq
+			*currentToolSeq++
+			toolChunk := map[string]interface{}{
+				"id":      chunkID,
+				"object":  "chat.completion.chunk",
+				"created": time.Now().Unix(),
+				"model":   model,
+				"choices": []map[string]interface{}{{
+					"index": 0,
+					"delta": map[string]interface{}{
+						"tool_calls": []map[string]interface{}{{
+							"index": *currentToolIndex,
+							"id":    *currentToolCallID,
+							"type":  "function",
+							"function": map[string]interface{}{
+								"name":      *currentToolName,
+								"arguments": "",
+							},
+						}},
+					},
+					"finish_reason": nil,
+				}},
+			}
+			writeChatSSEChunk(c, flusher, toolChunk)
+		}
+
+	case "response.function_call_arguments.delta":
+		argsDelta, _ := event["delta"].(string)
+		if argsDelta == "" {
+			return
+		}
+		var arguments interface{} = argsDelta
+		if json.Valid([]byte(argsDelta)) {
+			var parsed interface{}
+			if err := json.Unmarshal([]byte(argsDelta), &parsed); err == nil {
+				arguments = parsed
+			}
+		}
+		toolChunk := map[string]interface{}{
+			"id":      chunkID,
+			"object":  "chat.completion.chunk",
+			"created": time.Now().Unix(),
+			"model":   model,
+			"choices": []map[string]interface{}{{
+				"index": 0,
+				"delta": map[string]interface{}{
+					"tool_calls": []map[string]interface{}{{
+						"index": *currentToolIndex,
+						"id":    *currentToolCallID,
+						"function": map[string]interface{}{
+							"arguments": arguments,
+						},
+					}},
+				},
+				"finish_reason": nil,
+			}},
+		}
+		writeChatSSEChunk(c, flusher, toolChunk)
+
+	case "response.completed":
+		if usage, ok := event["usage"].(map[string]interface{}); ok {
+			inputTokens, _ := usage["input_tokens"].(float64)
+			outputTokens, _ := usage["output_tokens"].(float64)
+			*totalUsage = &types.Usage{
+				InputTokens:  int(inputTokens),
+				OutputTokens: int(outputTokens),
+			}
+		}
+		finishReason := "stop"
+		if *currentToolCallID != "" {
+			finishReason = "tool_calls"
+		}
+		if respObj, ok := event["response"].(map[string]interface{}); ok {
+			if status, _ := respObj["status"].(string); status == "incomplete" {
+				finishReason = "length"
+			}
+		}
+		finalChunk := map[string]interface{}{
+			"id":      chunkID,
+			"object":  "chat.completion.chunk",
+			"created": time.Now().Unix(),
+			"model":   model,
+			"choices": []map[string]interface{}{{
+				"index":         0,
+				"delta":         map[string]interface{}{},
+				"finish_reason": finishReason,
+			}},
+		}
+		writeChatSSEChunk(c, flusher, finalChunk)
+		fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+		*doneSent = true
+	}
+}
+
+// streamResponsesToChat 将 Responses SSE 流转换为 OpenAI Chat SSE 格式。
+// 处理的 Responses 事件: response.output_text.delta, response.output_item.added,
+// response.function_call_arguments.delta, response.completed 等。
+func streamResponsesToChat(
+	c *gin.Context,
+	resp *http.Response,
+	flusher http.Flusher,
+	model string,
+	logBuffer *common.LimitedLogBuffer,
+	loggingEnabled bool,
+	prefetched []byte,
+) *types.Usage {
+	var totalUsage *types.Usage
+	var doneSent bool
+	var roleSent bool
+	buf := make([]byte, 32*1024)
+	var remainder string
+	pending := prefetched
+	// 工具调用状态追踪
+	var currentToolIndex int
+	var currentToolCallID string
+	var currentToolSeq int
+	var currentToolName string
+	chunkID := fmt.Sprintf("chatcmpl-resp-%d", time.Now().UnixNano())
+
+	for {
+		var chunk []byte
+		var readErr error
+		if len(pending) > 0 {
+			chunk = pending
+			pending = nil
+		} else {
+			n, err := resp.Body.Read(buf)
+			readErr = err
+			if n > 0 {
+				chunk = buf[:n]
+			}
+		}
+
+		if len(chunk) > 0 {
+			if loggingEnabled {
+				logBuffer.Write(chunk)
+			}
+			data := remainder + string(chunk)
+			lines := strings.Split(data, "\n")
+			remainder = lines[len(lines)-1]
+			lines = lines[:len(lines)-1]
+
+			var currentEventType string
+			for _, line := range lines {
+				// 记录 event: 行
+				if strings.HasPrefix(line, "event: ") {
+					currentEventType = strings.TrimPrefix(line, "event: ")
+					continue
+				}
+				if !strings.HasPrefix(line, "data: ") {
+					continue
+				}
+				jsonData := strings.TrimPrefix(line, "data: ")
+				if jsonData == "[DONE]" {
+					continue
+				}
+
+				var event map[string]interface{}
+				if err := json.Unmarshal([]byte(jsonData), &event); err != nil {
+					continue
+				}
+
+				// 从 data JSON 的 type 字段推断事件类型（兼容无 event: 行的格式）
+				evtType := currentEventType
+				if evtType == "" {
+					evtType, _ = event["type"].(string)
+				}
+				currentEventType = ""
+
+				switch evtType {
+				case "response.output_text.delta":
+					// 首次文本输出前发送 role delta
+					if !roleSent {
+						roleChunk := map[string]interface{}{
+							"id":      chunkID,
+							"object":  "chat.completion.chunk",
+							"created": time.Now().Unix(),
+							"model":   model,
+							"choices": []map[string]interface{}{{
+								"index":         0,
+								"delta":         map[string]interface{}{"role": "assistant"},
+								"finish_reason": nil,
+							}},
+						}
+						writeChatSSEChunk(c, flusher, roleChunk)
+						roleSent = true
+					}
+					text, _ := event["delta"].(string)
+					if text == "" {
+						continue
+					}
+					chatChunk := map[string]interface{}{
+						"id":      chunkID,
+						"object":  "chat.completion.chunk",
+						"created": time.Now().Unix(),
+						"model":   model,
+						"choices": []map[string]interface{}{{
+							"index":         0,
+							"delta":         map[string]interface{}{"content": text},
+							"finish_reason": nil,
+						}},
+					}
+					writeChatSSEChunk(c, flusher, chatChunk)
+
+				case "response.output_item.added":
+					item, _ := event["item"].(map[string]interface{})
+					if item == nil {
+						continue
+					}
+					itemType, _ := item["type"].(string)
+					if itemType == "function_call" {
+						currentToolCallID, _ = item["call_id"].(string)
+						currentToolName, _ = item["name"].(string)
+						currentToolIndex = currentToolSeq
+						currentToolSeq++
+						toolChunk := map[string]interface{}{
+							"id":      chunkID,
+							"object":  "chat.completion.chunk",
+							"created": time.Now().Unix(),
+							"model":   model,
+							"choices": []map[string]interface{}{{
+								"index": 0,
+								"delta": map[string]interface{}{
+									"tool_calls": []map[string]interface{}{{
+										"index": currentToolIndex,
+										"id":    currentToolCallID,
+										"type":  "function",
+										"function": map[string]interface{}{
+											"name":      currentToolName,
+											"arguments": "",
+										},
+									}},
+								},
+								"finish_reason": nil,
+							}},
+						}
+						writeChatSSEChunk(c, flusher, toolChunk)
+					}
+
+				case "response.function_call_arguments.delta":
+					argsDelta, _ := event["delta"].(string)
+					if argsDelta == "" {
+						continue
+					}
+					toolChunk := map[string]interface{}{
+						"id":      chunkID,
+						"object":  "chat.completion.chunk",
+						"created": time.Now().Unix(),
+						"model":   model,
+						"choices": []map[string]interface{}{{
+							"index": 0,
+							"delta": map[string]interface{}{
+								"tool_calls": []map[string]interface{}{{
+									"index": currentToolIndex,
+									"function": map[string]interface{}{
+										"arguments": argsDelta,
+									},
+								}},
+							},
+							"finish_reason": nil,
+						}},
+					}
+					writeChatSSEChunk(c, flusher, toolChunk)
+
+				case "response.completed":
+					// 提取 usage
+					if usage, ok := event["usage"].(map[string]interface{}); ok {
+						inputTokens, _ := usage["input_tokens"].(float64)
+						outputTokens, _ := usage["output_tokens"].(float64)
+						totalUsage = &types.Usage{
+							InputTokens:  int(inputTokens),
+							OutputTokens: int(outputTokens),
+						}
+					}
+					// 最终 chunk: 设置 finish_reason
+					finishReason := "stop"
+					if currentToolCallID != "" {
+						finishReason = "tool_calls"
+					}
+					// 检查 incomplete 状态
+					if respObj, ok := event["response"].(map[string]interface{}); ok {
+						if status, _ := respObj["status"].(string); status == "incomplete" {
+							finishReason = "length"
+						}
+					}
+					finalChunk := map[string]interface{}{
+						"id":      chunkID,
+						"object":  "chat.completion.chunk",
+						"created": time.Now().Unix(),
+						"model":   model,
+						"choices": []map[string]interface{}{{
+							"index":         0,
+							"delta":         map[string]interface{}{},
+							"finish_reason": finishReason,
+						}},
+					}
+					writeChatSSEChunk(c, flusher, finalChunk)
+					// 发送 [DONE]
+					fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
+					if flusher != nil {
+						flusher.Flush()
+					}
+					doneSent = true
+				}
+			}
+		}
+
+		if readErr != nil {
+			if remainder != "" {
+				// 处理剩余数据（忽略不完整的行）
+			}
+			break
+		}
+	}
+
+	if !doneSent {
+		fmt.Fprintf(c.Writer, "data: [DONE]\n\n")
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
+
+	return totalUsage
+}
+
+// writeChatSSEChunk 将 Chat chunk 写为 SSE 格式并 flush。
+func writeChatSSEChunk(c *gin.Context, flusher http.Flusher, chunk map[string]interface{}) {
+	chunkBytes, _ := json.Marshal(chunk)
+	fmt.Fprintf(c.Writer, "data: %s\n\n", string(chunkBytes))
+	if flusher != nil {
+		flusher.Flush()
+	}
 }
 
 func processClaudeChatStreamLine(c *gin.Context, flusher http.Flusher, model string, line string, totalUsage **types.Usage, doneSent *bool) {

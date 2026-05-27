@@ -166,8 +166,9 @@ func TestChatHandler_NonStreamMatrix_OpenAIFormat(t *testing.T) {
 	}
 }
 
-// TestChatHandler_NonStreamMatrix_Passthrough 验证 Chat 入口对 gemini/responses 上游
-// 走透传路径：上游响应原样返回给客户端（不做格式转换）
+// TestChatHandler_NonStreamMatrix_Passthrough 验证 Chat 入口对 gemini 上游
+// 走透传路径：上游响应原样返回给客户端（不做格式转换）。
+// responses 上游走转换路径（Responses → Chat），见 TestChatHandler_NonStreamMatrix_ResponsesConversion。
 func TestChatHandler_NonStreamMatrix_Passthrough(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -178,11 +179,6 @@ func TestChatHandler_NonStreamMatrix_Passthrough(t *testing.T) {
 			name:         "chat_handler_to_gemini_passthrough",
 			serviceType:  "gemini",
 			responseBody: `{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":17,"candidatesTokenCount":3,"totalTokenCount":20}}`,
-		},
-		{
-			name:         "chat_handler_to_responses_passthrough",
-			serviceType:  "responses",
-			responseBody: `{"id":"resp_1","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi"}]}],"usage":{"input_tokens":19,"output_tokens":9,"total_tokens":28}}`,
 		},
 	}
 
@@ -216,13 +212,56 @@ func TestChatHandler_NonStreamMatrix_Passthrough(t *testing.T) {
 	}
 }
 
+// TestChatHandler_NonStreamMatrix_ResponsesConversion 验证 Chat 入口对 responses 上游
+// 走转换路径：上游 Responses 格式响应转换为 Chat 格式返回给客户端。
+func TestChatHandler_NonStreamMatrix_ResponsesConversion(t *testing.T) {
+	upstreamBody := `{"id":"resp_1","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi from responses"}]}],"usage":{"input_tokens":19,"output_tokens":9,"total_tokens":28}}`
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(upstreamBody))
+	}))
+	defer upstream.Close()
+
+	router := newChatTestRouter(t, config.UpstreamConfig{
+		Name:        "responses_conversion",
+		BaseURL:     upstream.URL,
+		APIKeys:     []string{"sk-test"},
+		ServiceType: "responses",
+		Status:      "active",
+	})
+
+	w := performChatHandlerRequest(t, router, `{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	// 验证转换为 Chat 格式
+	if resp["object"] != "chat.completion" {
+		t.Fatalf("object = %v, want chat.completion", resp["object"])
+	}
+	choices, ok := resp["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		t.Fatalf("choices = %#v, want non-empty array", resp["choices"])
+	}
+	choice, _ := choices[0].(map[string]interface{})
+	msg, _ := choice["message"].(map[string]interface{})
+	if msg["content"] != "hi from responses" {
+		t.Fatalf("message.content = %v, want 'hi from responses'", msg["content"])
+	}
+}
+
 func TestChatHandler_PassthroughPreservesMultimodalRequest(t *testing.T) {
 	tests := []struct {
 		name        string
 		serviceType string
 	}{
 		{name: "handler_openai_multimodal_passthrough", serviceType: "openai"},
-		{name: "handler_responses_multimodal_passthrough", serviceType: "responses"},
 		{name: "handler_gemini_multimodal_passthrough", serviceType: "gemini"},
 	}
 

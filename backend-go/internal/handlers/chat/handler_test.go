@@ -237,7 +237,7 @@ func TestBuildProviderRequest_PreservesMultimodalContentArray(t *testing.T) {
 			wantModel: "gpt-4o-image",
 		},
 		{
-			name:        "responses_passthrough_keeps_image_url",
+			name:        "responses_converts_image_to_input_image",
 			serviceType: "responses",
 			upstream: &config.UpstreamConfig{
 				ServiceType: "responses",
@@ -288,6 +288,34 @@ func TestBuildProviderRequest_PreservesMultimodalContentArray(t *testing.T) {
 
 			if got["model"] != tt.wantModel {
 				t.Fatalf("model = %v, want %v", got["model"], tt.wantModel)
+			}
+
+			if tt.serviceType == "responses" {
+				// responses 上游：请求体已转换为 Responses 格式，使用 input 而非 messages
+				input, ok := got["input"].([]interface{})
+				if !ok || len(input) == 0 {
+					t.Fatalf("input = %#v, want non-empty array", got["input"])
+				}
+				firstItem, ok := input[0].(map[string]interface{})
+				if !ok {
+					t.Fatalf("input[0] = %#v, want object", input[0])
+				}
+				itemContent, ok := firstItem["content"].([]interface{})
+				if !ok || len(itemContent) < 2 {
+					t.Fatalf("input[0].content = %#v, want >= 2 items", firstItem["content"])
+				}
+				foundImage := false
+				for _, c := range itemContent {
+					block, ok := c.(map[string]interface{})
+					if ok && block["type"] == "input_image" {
+						foundImage = true
+						break
+					}
+				}
+				if !foundImage {
+					t.Fatalf("input[0].content does not contain input_image block")
+				}
+				return
 			}
 
 			messages, ok := got["messages"].([]interface{})

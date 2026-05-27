@@ -1303,9 +1303,7 @@ const getExpectedRequestUrl = (inputBaseUrl: string): string => {
           : serviceType === 'gemini'
             ? '/models/{model}:generateContent'
             : serviceType === 'responses'
-              ? props.channelType === 'chat'
-                ? '/chat/completions'
-                : '/responses'
+              ? '/responses'
               : '/chat/completions'
 
   return buildExpectedRequestUrl(serviceType, endpoint, inputBaseUrl)
