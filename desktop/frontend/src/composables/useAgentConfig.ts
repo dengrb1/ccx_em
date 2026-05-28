@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { AgentPlatform, AgentProvider, AgentConfigStatus, ApplyAgentConfigRequest, ConfigDiffResult } from '@/types'
+import { useLanguage } from '@/composables/useLanguage'
 import {
   GetAgentConfigStatus,
   ApplyAgentConfig,
@@ -8,6 +9,8 @@ import {
   PreviewAgentConfigDiff,
   PreviewRestoreConfigDiff,
 } from '@bindings/github.com/BenedictKing/ccx/desktop/desktopservice'
+
+const { t } = useLanguage()
 
 const agentLabels: Record<AgentPlatform, string> = {
   claude: 'Claude Code',
@@ -27,12 +30,12 @@ const claudeProviderLabels: Record<AgentProvider | 'custom', string> = {
   'opencode-zen': 'OpenCode Zen',
   'opencode-go': 'OpenCode Go',
   openai: 'OpenAI',
-  custom: '自定义',
+  custom: t('agent.custom'),
 }
 
 const codexProviderLabels: Record<AgentProvider | 'custom', string> = {
-  ccx: 'CCX 本地网关',
-  openai: 'OpenAI 官方',
+  ccx: t('agent.localGateway'),
+  openai: 'OpenAI',
   deepseek: 'DeepSeek',
   mimo: 'MiMo',
   compshare: 'Compshare',
@@ -42,7 +45,7 @@ const codexProviderLabels: Record<AgentProvider | 'custom', string> = {
   dashscope: 'DashScope',
   'opencode-zen': 'OpenCode Zen',
   'opencode-go': 'OpenCode Go',
-  custom: '自定义',
+  custom: t('agent.custom'),
 }
 
 const agentPlatforms: AgentPlatform[] = ['claude', 'codex', 'opencode']
@@ -89,24 +92,24 @@ const isClaudeProvider = (value?: string): value is AgentProvider => {
 }
 
 const claudeProviderLabel = (value?: string) => {
-  if (!value) return '未识别'
+  if (!value) return t('agent.statusDetecting')
   return claudeProviderLabels[value as AgentProvider | 'custom'] || value
 }
 
 const codexProviderLabel = (value?: string) => {
-  if (!value) return '未识别'
+  if (!value) return t('agent.statusDetecting')
   return codexProviderLabels[value as AgentProvider | 'custom'] || value
 }
 
 const openCodeProviderLabel = (value?: string) => {
-  if (!value) return '未识别'
+  if (!value) return t('agent.statusDetecting')
   return codexProviderLabels[value as AgentProvider | 'custom'] || value
 }
 
 const claudeTargetBaseUrl = () => {
   switch (selectedClaudeProvider.value) {
     case 'ccx':
-      return agentStatuses.value.claude?.targetBaseUrl || '当前 CCX 网关'
+      return agentStatuses.value.claude?.targetBaseUrl || t('agent.localGateway')
     case 'deepseek':
       return 'https://api.deepseek.com/anthropic'
     case 'mimo':
@@ -133,7 +136,7 @@ const claudeTargetBaseUrl = () => {
 const codexTargetBaseUrl = () => {
   switch (selectedCodexProvider.value) {
     case 'ccx':
-      return agentStatuses.value.codex?.targetBaseUrl || '当前 CCX 网关'
+      return agentStatuses.value.codex?.targetBaseUrl || t('agent.localGateway')
     case 'openai':
       return 'https://api.openai.com/v1'
     case 'dashscope':
@@ -150,7 +153,7 @@ const codexTargetBaseUrl = () => {
 const openCodeTargetBaseUrl = () => {
   switch (selectedOpenCodeProvider.value) {
     case 'ccx':
-      return agentStatuses.value.opencode?.targetBaseUrl || '当前 CCX 网关'
+      return agentStatuses.value.opencode?.targetBaseUrl || t('agent.localGateway')
     case 'openai':
       return 'https://api.openai.com/v1'
     case 'dashscope':
@@ -165,10 +168,10 @@ const openCodeTargetBaseUrl = () => {
 }
 
 const agentStatusText = (item: AgentConfigStatus | null) => {
-  if (!item) return '检测中'
-  if (item.configured) return '已配置'
-  if (item.needsUpdate) return '端口不匹配'
-  return '未配置'
+  if (!item) return t('agent.statusDetecting')
+  if (item.configured) return t('agent.statusConfigured')
+  if (item.needsUpdate) return t('agent.statusPortMismatch')
+  return t('agent.statusUnconfigured')
 }
 
 const agentStatusClass = (item: AgentConfigStatus | null) => {
