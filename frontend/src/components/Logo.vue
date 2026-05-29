@@ -22,83 +22,37 @@ const sizeStyle = computed(() => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       class="ccx-logo-svg"
+      aria-hidden="true"
     >
       <defs>
-        <!-- 主流光渐变线 -->
-        <linearGradient id="web-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#3b82f6" />   <!-- CCX Blue -->
-          <stop offset="50%" stop-color="#6366f1" />  <!-- Indigo -->
-          <stop offset="100%" stop-color="#10b981" /> <!-- Emerald Green -->
+        <!-- Web 导航专用轻量流光符号 -->
+        <linearGradient id="web-logo-flow" x1="18%" y1="24%" x2="84%" y2="76%">
+          <stop offset="0%" stop-color="#38bdf8" />
+          <stop offset="48%" stop-color="#6366f1" />
+          <stop offset="100%" stop-color="#10b981" />
         </linearGradient>
-
-        <!-- 高斯发光滤镜 -->
-        <filter id="web-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        <filter id="web-logo-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="2.4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
 
-      <!-- 1. 外部数据循环轨道 - 缩收半径至 38px 防止物理贴边裁剪 -->
-      <circle
-        cx="50"
-        cy="50"
-        r="38"
-        stroke="url(#web-logo-grad)"
-        stroke-width="2.2"
-        stroke-dasharray="10 6 3 6"
-        class="ccx-orbit"
-        :class="{ 'animate-spin-slow': animated }"
-      />
+      <!-- 轻量版 Terminal Gateway：无 App 背景，适配 Web 顶栏小尺寸 -->
+      <g filter="url(#web-logo-glow)" stroke="url(#web-logo-flow)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 22 29 L 43 50 L 22 71" stroke-width="8.5" />
+        <path d="M 56 28 L 80 72" stroke-width="8.5" />
+        <path d="M 80 28 L 56 72" stroke-width="8.5" />
+      </g>
 
-      <!-- 2. "C" 字型分流弧线 -->
-      <path
-        d="M 32 24 C 18 32, 18 68, 32 76"
-        stroke="url(#web-logo-grad)"
-        stroke-width="5.5"
-        stroke-linecap="round"
-        class="ccx-path"
-      />
-
-      <!-- 3. "X" 字型路由交叉射束 -->
-      <path
-        d="M 72 24 L 50 50 L 72 76"
-        stroke="url(#web-logo-grad)"
-        stroke-width="5.5"
-        stroke-linecap="round"
-        class="ccx-path"
-      />
-
-      <!-- 4. 反向贯穿路径 -->
-      <path
-        d="M 50 50 L 36 36"
-        stroke="url(#web-logo-grad)"
-        stroke-width="5.5"
-        stroke-linecap="round"
-        class="ccx-path"
-      />
-      <path
-        d="M 50 50 L 36 64"
-        stroke="url(#web-logo-grad)"
-        stroke-width="5.5"
-        stroke-linecap="round"
-        class="ccx-path"
-      />
-
-      <!-- 5. 核心高能 AI 路由核 -->
-      <g :class="{ 'animate-pulse-slow': animated }" filter="url(#web-glow)">
-        <circle
-          cx="50"
-          cy="50"
-          r="9"
-          fill="url(#web-logo-grad)"
-          class="ccx-core-glow"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="5.5"
-          fill="#ffffff"
-        />
+      <!-- 细状态线和在线节点，呼应 App 图标但不压重导航栏 -->
+      <path d="M 24 82 H 50" stroke="#10b981" stroke-width="3.2" stroke-linecap="round" opacity="0.55" />
+      <path d="M 56 82 H 70" stroke="#38bdf8" stroke-width="3.2" stroke-linecap="round" opacity="0.42" />
+      <g :class="{ 'animate-gateway-pulse': animated }">
+        <circle cx="80" cy="82" r="3" fill="#5eead4" />
+        <circle cx="80" cy="82" r="7" stroke="#5eead4" stroke-width="1.4" opacity="0.24" />
       </g>
     </svg>
   </div>
@@ -115,46 +69,24 @@ const sizeStyle = computed(() => {
 .ccx-logo-svg {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
-.ccx-orbit {
-  opacity: 0.55; /* 上调透明度，确保在明色（黄油白底）与暗色应用栏下都具备清晰的轮廓辨识度 */
-}
-
-.ccx-path {
-  opacity: 0.9;
-}
-
-.ccx-core-glow {
-  opacity: 0.45;
-}
-
-/* 外部轨道旋转动效 */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-spin-slow {
-  transform-origin: 50px 50px;
-  animation: spin 22s linear infinite;
-}
-
-/* 核心呼吸灯动效 */
-@keyframes pulse {
+/* Web 导航在线节点呼吸脉冲 */
+@keyframes gateway-pulse {
   0%, 100% {
-    transform: scale(0.92);
-    transform-origin: 50px 50px;
-    opacity: 0.85;
+    transform: scale(0.9);
+    transform-origin: 80px 82px;
+    opacity: 0.78;
   }
   50% {
-    transform: scale(1.08);
-    transform-origin: 50px 50px;
+    transform: scale(1.14);
+    transform-origin: 80px 82px;
     opacity: 1;
   }
 }
 
-.animate-pulse-slow {
-  animation: pulse 2.2s infinite ease-in-out;
+.animate-gateway-pulse {
+  animation: gateway-pulse 2.4s infinite ease-in-out;
 }
 </style>

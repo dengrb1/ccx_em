@@ -253,7 +253,9 @@ func run() error {
 	tray := app.SystemTray.New()
 	log.Printf("[Desktop-Boot] system tray created")
 	tray.SetTooltip("CCX Desktop")
-	if icon, err := assets.ReadFile("frontend/dist/wails.png"); err == nil && len(icon) > 0 {
+	if icon, err := assets.ReadFile("frontend/dist/tray-template.png"); err == nil && len(icon) > 0 {
+		tray.SetTemplateIcon(icon)
+	} else if icon, err := assets.ReadFile("frontend/dist/wails.png"); err == nil && len(icon) > 0 {
 		tray.SetTemplateIcon(icon)
 	}
 

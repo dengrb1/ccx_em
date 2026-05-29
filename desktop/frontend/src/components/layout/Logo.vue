@@ -16,121 +16,133 @@ const sizeStyle = computed(() => {
 </script>
 
 <template>
-  <div class="relative shrink-0 flex items-center justify-center select-none" :style="sizeStyle">
+  <div class="ccx-desktop-logo relative shrink-0 flex items-center justify-center select-none" :style="sizeStyle">
     <svg
       viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       class="w-full h-full"
+      aria-hidden="true"
     >
       <defs>
-        <!-- 主流光渐变线 -->
-        <linearGradient id="ccx-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#3b82f6" />   <!-- CCX Blue -->
-          <stop offset="50%" stop-color="#6366f1" />  <!-- Indigo -->
-          <stop offset="100%" stop-color="#10b981" /> <!-- Emerald Green -->
+        <!-- 终端网关流光渐变线：由 CSS 变量按明暗主题切换 -->
+        <linearGradient id="desktop-gateway-flow" x1="18%" y1="28%" x2="82%" y2="72%">
+          <stop offset="0%" stop-color="var(--logo-flow-start)" />
+          <stop offset="48%" stop-color="var(--logo-flow-mid)" />
+          <stop offset="100%" stop-color="var(--logo-flow-end)" />
         </linearGradient>
 
-        <!-- 极细微高斯发光滤镜 -->
-        <filter id="ccx-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        <!-- 玻璃面板渐变：亮色用浅底，暗色用深底 -->
+        <linearGradient id="desktop-gateway-panel" x1="15%" y1="20%" x2="85%" y2="82%">
+          <stop offset="0%" stop-color="var(--logo-panel-start)" stop-opacity="0.95" />
+          <stop offset="52%" stop-color="var(--logo-panel-mid)" stop-opacity="0.92" />
+          <stop offset="100%" stop-color="var(--logo-panel-end)" stop-opacity="0.95" />
+        </linearGradient>
+
+        <radialGradient id="desktop-gateway-bg" cx="70%" cy="70%" r="86%">
+          <stop offset="0%" stop-color="var(--logo-bg-start)" />
+          <stop offset="40%" stop-color="var(--logo-bg-mid)" />
+          <stop offset="100%" stop-color="var(--logo-bg-end)" />
+        </radialGradient>
+
+        <filter id="desktop-gateway-glow" x="-28%" y="-28%" width="156%" height="156%">
+          <feGaussianBlur stdDeviation="2.2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
 
-      <!-- 1. 外部数据循环轨道 (Orbit) - 缩收半径至 38px 以防止在 24px 微尺寸下贴边被视口物理裁剪，上调亮度 -->
-      <circle
-        cx="50"
-        cy="50"
-        r="38"
-        stroke="url(#ccx-logo-grad)"
-        stroke-width="2"
-        stroke-dasharray="10 6 3 6"
-        class="opacity-65"
-        :class="{ 'animate-orbit-rotate': animated }"
-      />
+      <!-- 1. Sidebar 主题自适应圆角底 -->
+      <rect x="5" y="5" width="90" height="90" rx="22" fill="url(#desktop-gateway-bg)" />
+      <rect x="7.5" y="7.5" width="85" height="85" rx="20" fill="none" stroke="var(--logo-border)" stroke-width="0.9" opacity="0.42" />
 
-      <!-- 2. "C" 字型左翼分流弧线 -->
-      <path
-        d="M 32 24 C 18 32, 18 68, 32 76"
-        stroke="url(#ccx-logo-grad)"
-        stroke-width="5"
-        stroke-linecap="round"
-        class="opacity-80"
-      />
+      <!-- 2. 玻璃终端窗口 -->
+      <rect x="15" y="20" width="70" height="62" rx="14" fill="url(#desktop-gateway-panel)" stroke="var(--logo-panel-border)" stroke-width="1.4" opacity="0.98" />
+      <path d="M 19 32 H 81" stroke="var(--logo-divider)" stroke-width="0.8" opacity="0.22" />
+      <circle cx="25" cy="26.5" r="2.3" fill="var(--logo-dot-green)" />
+      <circle cx="32" cy="26.5" r="2.3" fill="var(--logo-dot-blue)" opacity="0.82" />
+      <circle cx="39" cy="26.5" r="2.3" fill="var(--logo-dot-indigo)" opacity="0.82" />
 
-      <!-- 3. "X" 字型右翼路由交叉交叉射束 -->
-      <path
-        d="M 72 24 L 50 50 L 72 76"
-        stroke="url(#ccx-logo-grad)"
-        stroke-width="5"
-        stroke-linecap="round"
-        class="opacity-80"
-      />
+      <!-- 3. 终端网关提示符与 X 路由束 -->
+      <g filter="url(#desktop-gateway-glow)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 28 39 L 42 51 L 28 63" stroke="url(#desktop-gateway-flow)" stroke-width="8" />
+        <path d="M 52 38 L 73 64" stroke="url(#desktop-gateway-flow)" stroke-width="8" />
+        <path d="M 73 38 L 52 64" stroke="url(#desktop-gateway-flow)" stroke-width="8" />
+      </g>
 
-      <!-- 4. X 的核心反向贯穿路径 -->
-      <path
-        d="M 50 50 L 36 36"
-        stroke="url(#ccx-logo-grad)"
-        stroke-width="5"
-        stroke-linecap="round"
-        class="opacity-85"
-      />
-      <path
-        d="M 50 50 L 36 64"
-        stroke="url(#ccx-logo-grad)"
-        stroke-width="5"
-        stroke-linecap="round"
-        class="opacity-85"
-      />
-
-      <!-- 5. 核心高能 AI 智能调度路由核 (Glowing Core Node) -->
-      <g :class="{ 'animate-core-pulse': animated }" filter="url(#ccx-glow)">
-        <!-- 外层发光晕 -->
-        <circle
-          cx="50"
-          cy="50"
-          r="9"
-          fill="url(#ccx-logo-grad)"
-          class="opacity-40"
-        />
-        <!-- 内层核心实心点 -->
-        <circle
-          cx="50"
-          cy="50"
-          r="5.5"
-          fill="#ffffff"
-        />
+      <!-- 4. 底部网关状态线与在线节点 -->
+      <path d="M 22 74 H 50" stroke="var(--logo-status-green)" stroke-width="2.6" stroke-linecap="round" opacity="0.56" />
+      <path d="M 55 74 H 68" stroke="var(--logo-status-blue)" stroke-width="2.6" stroke-linecap="round" opacity="0.46" />
+      <g :class="{ 'animate-gateway-pulse': animated }">
+        <circle cx="76" cy="74" r="2.4" fill="var(--logo-online)" />
+        <circle cx="76" cy="74" r="5.5" stroke="var(--logo-online)" stroke-width="1.1" opacity="0.28" />
       </g>
     </svg>
   </div>
 </template>
 
 <style scoped>
-/* 外部虚线轨道极速缓慢旋转 */
-@keyframes orbit-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.animate-orbit-rotate {
-  transform-origin: 50px 50px;
-  animation: orbit-spin 25s linear infinite;
+.ccx-desktop-logo {
+  /* 亮色主题：浅底 + 深蓝/青绿，高对比但不压重 Sidebar */
+  --logo-bg-start: #ccfbf1;
+  --logo-bg-mid: #dbeafe;
+  --logo-bg-end: #f8fafc;
+  --logo-border: #2563eb;
+  --logo-panel-start: #ffffff;
+  --logo-panel-mid: #eff6ff;
+  --logo-panel-end: #ecfdf5;
+  --logo-panel-border: #0284c7;
+  --logo-divider: #0f766e;
+  --logo-flow-start: #0369a1;
+  --logo-flow-mid: #2563eb;
+  --logo-flow-end: #059669;
+  --logo-dot-green: #059669;
+  --logo-dot-blue: #0284c7;
+  --logo-dot-indigo: #4f46e5;
+  --logo-status-green: #047857;
+  --logo-status-blue: #0369a1;
+  --logo-online: #0d9488;
 }
 
-/* 核心路由节点仿生呼吸脉冲 */
-@keyframes core-pulse {
+:global(.dark) .ccx-desktop-logo {
+  /* 暗色主题：深底 + 蓝靛绿霓虹，呼应 App 图标 */
+  --logo-bg-start: #064e3b;
+  --logo-bg-mid: #082f49;
+  --logo-bg-end: #020617;
+  --logo-border: #93c5fd;
+  --logo-panel-start: #102a56;
+  --logo-panel-mid: #06142a;
+  --logo-panel-end: #042f2e;
+  --logo-panel-border: #93c5fd;
+  --logo-divider: #bae6fd;
+  --logo-flow-start: #38bdf8;
+  --logo-flow-mid: #6366f1;
+  --logo-flow-end: #10b981;
+  --logo-dot-green: #10b981;
+  --logo-dot-blue: #38bdf8;
+  --logo-dot-indigo: #6366f1;
+  --logo-status-green: #10b981;
+  --logo-status-blue: #38bdf8;
+  --logo-online: #5eead4;
+}
+
+/* 在线网关节点呼吸脉冲 */
+@keyframes gateway-pulse {
   0%, 100% {
     transform: scale(0.92);
-    transform-origin: 50px 50px;
-    opacity: 0.85;
+    transform-origin: 76px 74px;
+    opacity: 0.82;
   }
   50% {
-    transform: scale(1.08);
-    transform-origin: 50px 50px;
+    transform: scale(1.12);
+    transform-origin: 76px 74px;
     opacity: 1;
   }
 }
-.animate-core-pulse {
-  animation: core-pulse 2.5s infinite ease-in-out;
+
+.animate-gateway-pulse {
+  animation: gateway-pulse 2.4s infinite ease-in-out;
 }
 </style>
