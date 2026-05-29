@@ -154,8 +154,8 @@ const handleDaemonAction = async () => {
             :class="[
               'p-1.5 rounded-lg border text-xs transition-all duration-200 hover:scale-105 active:scale-95 shrink-0 cursor-pointer',
               status.running
-                ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
-                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
             ]"
           >
             <component :is="status.running ? Square : Play" class="w-3 h-3" />
@@ -235,7 +235,7 @@ const handleDaemonAction = async () => {
                 v-if="showUpdateBadge"
                 type="button"
                 @click="handleOpenRelease"
-                class="flex items-center gap-1 px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200 transition-all duration-200 cursor-pointer animate-pulse"
+                class="flex items-center gap-1 px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-800 dark:hover:text-emerald-200 transition-all duration-200 cursor-pointer animate-pulse"
                 :title="t('sidebar.updateAvailableHint')"
               >
                 <Sparkles class="w-2.5 h-2.5" />

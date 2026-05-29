@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
                 <Eye v-else class="w-4 h-4" />
               </Button>
               <Button type="button" variant="outline" size="sm" @click="handleCopyKey" :disabled="!inputKey" class="shrink-0 px-2.5" :title="copiedTarget === 'key' ? t('setup.copied') : t('setup.copyKey')">
-                <Check v-if="copiedTarget === 'key'" class="w-4 h-4 text-emerald-400" />
+                <Check v-if="copiedTarget === 'key'" class="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 <Copy v-else class="w-4 h-4" />
               </Button>
             </div>
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
               class="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-1 cursor-pointer"
               :title="copiedTarget === 'path' ? t('setup.copied') : t('setup.copyPath')"
             >
-              <Check v-if="copiedTarget === 'path'" class="w-3 h-3 text-emerald-400" />
+              <Check v-if="copiedTarget === 'path'" class="w-3 h-3 text-emerald-700 dark:text-emerald-400" />
               <Copy v-else class="w-3 h-3" />
             </button>
           </div>

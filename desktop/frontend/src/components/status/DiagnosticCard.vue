@@ -47,7 +47,7 @@ const kindDefaults = computed<Record<ErrorKind, Omit<DiagnosticInfo, 'kind'>>>((
   binary: {
     icon: HardDrive,
     title: t('diagnostic.binaryTitle'),
-    color: 'text-amber-400',
+    color: 'text-amber-700 dark:text-amber-400',
     suggestions: [
       t('diagnostic.binarySuggestionBuild'),
       t('diagnostic.binarySuggestionCheckDataDir'),
@@ -57,7 +57,7 @@ const kindDefaults = computed<Record<ErrorKind, Omit<DiagnosticInfo, 'kind'>>>((
   port: {
     icon: Network,
     title: t('diagnostic.portTitle'),
-    color: 'text-orange-400',
+    color: 'text-orange-700 dark:text-orange-400',
     suggestions: [
       t('diagnostic.portSuggestionInstance'),
       t('diagnostic.portSuggestionEnv'),
@@ -67,7 +67,7 @@ const kindDefaults = computed<Record<ErrorKind, Omit<DiagnosticInfo, 'kind'>>>((
   health: {
     icon: Clock,
     title: t('diagnostic.healthTitle'),
-    color: 'text-amber-400',
+    color: 'text-amber-700 dark:text-amber-400',
     suggestions: [
       t('diagnostic.healthSuggestionLogs'),
       t('diagnostic.healthSuggestionEnv'),
@@ -78,7 +78,7 @@ const kindDefaults = computed<Record<ErrorKind, Omit<DiagnosticInfo, 'kind'>>>((
   permission: {
     icon: ShieldAlert,
     title: t('diagnostic.permissionTitle'),
-    color: 'text-rose-400',
+    color: 'text-rose-700 dark:text-rose-400',
     suggestions: [
       t('diagnostic.permissionSuggestionDataDir'),
       t('diagnostic.permissionSuggestionExecutable'),
@@ -88,7 +88,7 @@ const kindDefaults = computed<Record<ErrorKind, Omit<DiagnosticInfo, 'kind'>>>((
   generic: {
     icon: XCircle,
     title: t('diagnostic.genericTitle'),
-    color: 'text-rose-400',
+    color: 'text-rose-700 dark:text-rose-400',
     suggestions: [
       t('diagnostic.genericSuggestionLogs'),
       t('diagnostic.genericSuggestionRestart'),

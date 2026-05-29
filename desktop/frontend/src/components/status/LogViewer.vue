@@ -123,7 +123,7 @@ const clearLocalLogs = () => {
     <!-- 终端顶部控制栏 -->
     <div class="h-11 bg-secondary/60 border-b border-border px-4 flex items-center justify-between select-none shrink-0">
       <div class="flex items-center gap-2">
-        <Terminal class="w-3.5 h-3.5 text-blue-400" />
+        <Terminal class="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
         <span class="text-xs font-bold text-foreground font-mono tracking-wider">GATEWAY_DAEMON_TERM</span>
       </div>
 
@@ -160,13 +160,13 @@ const clearLocalLogs = () => {
           class="p-1.5 rounded text-muted-foreground border border-transparent hover:text-foreground hover:bg-secondary cursor-pointer"
                     :title="copySuccess ? t('logs.copied') : t('logs.copyAll')"
         >
-          <Copy class="w-3.5 h-3.5" :class="copySuccess ? 'text-emerald-400' : ''" />
+          <Copy class="w-3.5 h-3.5" :class="copySuccess ? 'text-emerald-700 dark:text-emerald-400' : ''" />
         </button>
 
         <!-- 清空日志 -->
         <button
           @click="clearLocalLogs"
-          class="p-1.5 rounded text-muted-foreground border border-transparent hover:text-rose-400 hover:bg-secondary cursor-pointer"
+          class="p-1.5 rounded text-muted-foreground border border-transparent hover:text-rose-700 dark:hover:text-rose-400 hover:bg-secondary cursor-pointer"
           :title="t('logs.clear')"
         >
           <Trash2 class="w-3.5 h-3.5" />
@@ -189,11 +189,11 @@ const clearLocalLogs = () => {
         <!-- 2. 组件-操作 标签高亮 -->
         <span v-if="item.parsed.component" :class="[
           'px-1.5 py-0.2 rounded text-[10px] uppercase font-bold shrink-0 tracking-wider',
-          item.parsed.type === 'error' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/15' :
-          item.parsed.type === 'warn' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/15' :
-          item.parsed.component === 'Scheduler' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/15' :
-          item.parsed.component === 'Config' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/15' :
-          item.parsed.component === 'Updater' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/15' :
+          item.parsed.type === 'error' ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/15' :
+          item.parsed.type === 'warn' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/15' :
+          item.parsed.component === 'Scheduler' ? 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/15' :
+          item.parsed.component === 'Config' ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/15' :
+          item.parsed.component === 'Updater' ? 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/15' :
           'bg-secondary text-foreground border border-border'
         ]">
           {{ item.parsed.component }}<span v-if="item.parsed.action" class="opacity-60 text-[9px]">.{{ item.parsed.action }}</span>
@@ -202,9 +202,9 @@ const clearLocalLogs = () => {
         <!-- 3. 日志正文内容根据状态渲染不同颜色 -->
         <span :class="[
           'flex-1 font-sans text-foreground text-[12px]',
-          item.parsed.type === 'error' ? 'text-rose-400 font-medium' :
-          item.parsed.type === 'warn' ? 'text-amber-300 font-medium' :
-          item.parsed.type === 'success' ? 'text-emerald-400 font-medium' : ''
+          item.parsed.type === 'error' ? 'text-rose-700 dark:text-rose-400 font-medium' :
+          item.parsed.type === 'warn' ? 'text-amber-700 dark:text-amber-300 font-medium' :
+          item.parsed.type === 'success' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : ''
         ]">
           {{ item.parsed.msg }}
         </span>

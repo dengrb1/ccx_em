@@ -220,7 +220,7 @@ const submit = async () => {
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2">
                 <span class="font-semibold text-foreground">{{ localizePresetLabel(preset) }}</span>
-                <span v-if="keysByProvider[preset.id]" class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                <span v-if="keysByProvider[preset.id]" class="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                   {{ t('channel.hasKey') }}
                 </span>
               </div>
@@ -237,7 +237,7 @@ const submit = async () => {
             <span
               v-for="badge in capabilityBadges"
               :key="badge"
-              class="text-[10px] text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded-full px-2 py-0.5"
+              class="text-[10px] text-blue-700 dark:text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded-full px-2 py-0.5"
             >
               {{ badge }}
             </span>
@@ -304,7 +304,7 @@ const submit = async () => {
           <div class="space-y-2">
             <Label class="text-xs text-muted-foreground">API Key</Label>
             <Input v-model="apiKey" type="password" autocomplete="off" :placeholder="currentAsset?.apiKey ? t('channel.keySavedPlaceholder') : t('channel.keyInputPlaceholder')" />
-            <div v-if="currentAsset?.apiKey" class="flex items-center gap-1.5 text-xs text-emerald-400">
+            <div v-if="currentAsset?.apiKey" class="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
               <KeyRound class="w-3 h-3" />
               {{ t('channel.reuseKey', { provider: localizePresetLabel(currentPreset) }) }}
             </div>
@@ -319,15 +319,15 @@ const submit = async () => {
 
         <div class="rounded-xl bg-secondary/50 border border-border p-3 text-xs text-muted-foreground space-y-1.5">
           <div class="flex items-center gap-1.5 text-foreground">
-            <Sparkles class="w-3.5 h-3.5 text-blue-400" />
+            <Sparkles class="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
             <span class="font-semibold">{{ t('channel.presetWrites') }}</span>
           </div>
           <p>Base URL: <code class="text-foreground">{{ effectiveBaseUrl || '—' }}</code></p>
           <p>{{ t('channel.capabilityHint') }}</p>
         </div>
 
-        <p v-if="localError || error" class="text-sm text-rose-400">{{ localError || error }}</p>
-        <div v-if="result" class="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+        <p v-if="localError || error" class="text-sm text-rose-700 dark:text-rose-400">{{ localError || error }}</p>
+        <div v-if="result" class="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 class="w-4 h-4" />
           {{ result.message }}：{{ result.name }} → {{ result.baseUrl }}
         </div>

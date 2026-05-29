@@ -49,9 +49,9 @@ const actionLabel = (action: string) => {
 
 const actionBadgeClass = (action: string) => {
   switch (action) {
-    case 'create': return 'bg-emerald-500/20 text-emerald-400 border-0'
-    case 'delete': return 'bg-red-500/20 text-red-400 border-0'
-    default: return 'bg-blue-500/20 text-blue-400 border-0'
+    case 'create': return 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-0'
+    case 'delete': return 'bg-red-500/20 text-red-700 dark:text-red-400 border-0'
+    default: return 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border-0'
   }
 }
 
@@ -184,8 +184,8 @@ const processedFiles = computed(() => {
                           </td>
                           <td class="w-4 text-center py-0.5 select-none align-top"
                             :class="{
-                              'text-emerald-400': item.line.type === 'added',
-                              'text-red-400': item.line.type === 'removed',
+                              'text-emerald-700 dark:text-emerald-400': item.line.type === 'added',
+                              'text-red-700 dark:text-red-400': item.line.type === 'removed',
                               'text-muted/50': item.line.type === 'context',
                             }"
                           >
@@ -193,8 +193,8 @@ const processedFiles = computed(() => {
                           </td>
                           <td class="py-0.5 pr-4 whitespace-pre-wrap break-all"
                             :class="{
-                              'text-emerald-300/80': item.line.type === 'added',
-                              'text-red-300/80': item.line.type === 'removed',
+                              'text-emerald-700/80 dark:text-emerald-300/80': item.line.type === 'added',
+                              'text-red-700/80 dark:text-red-300/80': item.line.type === 'removed',
                               'text-muted/60': item.line.type === 'context',
                             }"
                           >

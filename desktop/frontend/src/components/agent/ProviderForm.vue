@@ -101,7 +101,7 @@ const keyPlaceholder = (provider: AgentProvider) => {
       <button
         v-if="providerPromotionLinks[selectedProvider]"
         type="button"
-        class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-300 hover:text-blue-200"
+        class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
         @click="openProviderPromotion(selectedProvider)"
       >
         {{ t('agent.promo') }}

@@ -89,14 +89,14 @@ const uptimeDisplay = computed(() => {
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">{{ t('metrics.gatewayPort') }}</span>
         <div class="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/15 group-hover:bg-blue-500/20 transition-colors">
-          <Server class="w-3.5 h-3.5 text-blue-400" />
+          <Server class="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
         </div>
       </div>
       <div class="mt-4 flex items-baseline gap-1.5 min-w-0">
         <span class="text-xl font-bold font-mono tracking-tight text-foreground truncate">
           {{ status.port || '——' }}
         </span>
-        <span class="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/15 uppercase tracking-wide shrink-0" v-if="status.running">
+        <span class="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/15 uppercase tracking-wide shrink-0" v-if="status.running">
           Active
         </span>
       </div>
@@ -107,7 +107,7 @@ const uptimeDisplay = computed(() => {
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">{{ t('metrics.uptime') }}</span>
         <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/15 group-hover:bg-emerald-500/20 transition-colors">
-          <Clock class="w-3.5 h-3.5 text-emerald-400" />
+          <Clock class="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
         </div>
       </div>
       <div class="mt-4 flex items-baseline gap-1.5 min-w-0">
@@ -125,14 +125,14 @@ const uptimeDisplay = computed(() => {
       <div class="flex items-center justify-between">
         <span class="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">{{ t('metrics.channels') }}</span>
         <div class="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/15 group-hover:bg-indigo-500/20 transition-colors">
-          <GitBranch class="w-3.5 h-3.5 text-indigo-400" />
+          <GitBranch class="w-3.5 h-3.5 text-indigo-700 dark:text-indigo-400" />
         </div>
       </div>
       <div class="mt-4 flex items-baseline gap-1.5 min-w-0">
         <span class="text-xl font-bold font-mono tracking-tight text-foreground truncate">
           {{ status.health?.config?.upstreamCount || 0 }}
         </span>
-        <span class="text-[9px] text-indigo-400 bg-indigo-500/10 px-1 py-0.2 rounded border border-indigo-500/15 uppercase tracking-wide shrink-0">
+        <span class="text-[9px] text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-1 py-0.2 rounded border border-indigo-500/15 uppercase tracking-wide shrink-0">
           Channels
         </span>
       </div>

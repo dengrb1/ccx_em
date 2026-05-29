@@ -78,7 +78,7 @@ const tabTitles = computed<Record<TabValue, string>>(() => ({
       <!-- 右侧顶部精细页眉 -->
       <header class="h-14 border-b border-border bg-background/60 backdrop-blur-md flex items-center justify-between px-8 shrink-0" data-wails-drag>
         <div class="flex items-center gap-3">
-          <span class="text-xs bg-blue-500/10 text-blue-400 font-semibold px-2 py-0.5 rounded border border-blue-500/15">
+          <span class="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold px-2 py-0.5 rounded border border-blue-500/15">
             {{ t('common.gatewayLabel') }}
           </span>
           <h2 class="text-sm font-bold text-foreground tracking-wide uppercase">
@@ -98,19 +98,19 @@ const tabTitles = computed<Record<TabValue, string>>(() => ({
           <!-- 实时网关状态指示微标 -->
           <span
             v-if="status.running"
-            class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold px-2 py-0.5 rounded-full"
+            class="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold px-2 py-0.5 rounded-full"
           >
             {{ t('common.online') }}
           </span>
           <span
             v-else-if="status.starting"
-            class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold px-2 py-0.5 rounded-full animate-pulse"
+            class="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold px-2 py-0.5 rounded-full animate-pulse"
           >
             {{ t('common.connecting') }}
           </span>
           <span
             v-else
-            class="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold px-2 py-0.5 rounded-full"
+            class="text-[10px] bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-bold px-2 py-0.5 rounded-full"
           >
             {{ t('common.offline') }}
           </span>
