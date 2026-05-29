@@ -25,14 +25,28 @@ const sizeStyle = computed(() => {
       aria-hidden="true"
     >
       <defs>
-        <!-- Web 导航专用轻量流光符号 -->
-        <linearGradient id="web-logo-flow" x1="18%" y1="24%" x2="84%" y2="76%">
+        <!-- 与 App Icon 同源的终端网关流光渐变 -->
+        <linearGradient id="web-gateway-flow" x1="18%" y1="28%" x2="82%" y2="72%">
           <stop offset="0%" stop-color="#38bdf8" />
           <stop offset="48%" stop-color="#6366f1" />
           <stop offset="100%" stop-color="#10b981" />
         </linearGradient>
-        <filter id="web-logo-glow" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="2.4" result="blur" />
+
+        <!-- 深色玻璃面板渐变 -->
+        <linearGradient id="web-gateway-panel" x1="15%" y1="20%" x2="85%" y2="82%">
+          <stop offset="0%" stop-color="#102a56" stop-opacity="0.95" />
+          <stop offset="52%" stop-color="#06142a" stop-opacity="0.92" />
+          <stop offset="100%" stop-color="#042f2e" stop-opacity="0.95" />
+        </linearGradient>
+
+        <radialGradient id="web-gateway-bg" cx="70%" cy="70%" r="86%">
+          <stop offset="0%" stop-color="#064e3b" />
+          <stop offset="40%" stop-color="#082f49" />
+          <stop offset="100%" stop-color="#020617" />
+        </radialGradient>
+
+        <filter id="web-gateway-glow" x="-28%" y="-28%" width="156%" height="156%">
+          <feGaussianBlur stdDeviation="2.2" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -40,19 +54,30 @@ const sizeStyle = computed(() => {
         </filter>
       </defs>
 
-      <!-- 轻量版 Terminal Gateway：无 App 背景，适配 Web 顶栏小尺寸 -->
-      <g filter="url(#web-logo-glow)" stroke="url(#web-logo-flow)" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M 22 29 L 43 50 L 22 71" stroke-width="8.5" />
-        <path d="M 56 28 L 80 72" stroke-width="8.5" />
-        <path d="M 80 28 L 56 72" stroke-width="8.5" />
+      <!-- 1. App 图标同源深色圆角底 -->
+      <rect x="5" y="5" width="90" height="90" rx="22" fill="url(#web-gateway-bg)" />
+      <rect x="7.5" y="7.5" width="85" height="85" rx="20" fill="none" stroke="#93c5fd" stroke-width="0.9" opacity="0.32" />
+
+      <!-- 2. 玻璃终端窗口 -->
+      <rect x="15" y="20" width="70" height="62" rx="14" fill="url(#web-gateway-panel)" stroke="#93c5fd" stroke-width="1.4" opacity="0.98" />
+      <path d="M 19 32 H 81" stroke="#bae6fd" stroke-width="0.8" opacity="0.18" />
+      <circle cx="25" cy="26.5" r="2.3" fill="#10b981" />
+      <circle cx="32" cy="26.5" r="2.3" fill="#38bdf8" opacity="0.78" />
+      <circle cx="39" cy="26.5" r="2.3" fill="#6366f1" opacity="0.78" />
+
+      <!-- 3. 终端网关提示符与 X 路由束 -->
+      <g filter="url(#web-gateway-glow)" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 28 39 L 42 51 L 28 63" stroke="url(#web-gateway-flow)" stroke-width="8" />
+        <path d="M 52 38 L 73 64" stroke="url(#web-gateway-flow)" stroke-width="8" />
+        <path d="M 73 38 L 52 64" stroke="url(#web-gateway-flow)" stroke-width="8" />
       </g>
 
-      <!-- 细状态线和在线节点，呼应 App 图标但不压重导航栏 -->
-      <path d="M 24 82 H 50" stroke="#10b981" stroke-width="3.2" stroke-linecap="round" opacity="0.55" />
-      <path d="M 56 82 H 70" stroke="#38bdf8" stroke-width="3.2" stroke-linecap="round" opacity="0.42" />
+      <!-- 4. 底部网关状态线与在线节点 -->
+      <path d="M 22 74 H 50" stroke="#10b981" stroke-width="2.6" stroke-linecap="round" opacity="0.46" />
+      <path d="M 55 74 H 68" stroke="#38bdf8" stroke-width="2.6" stroke-linecap="round" opacity="0.34" />
       <g :class="{ 'animate-gateway-pulse': animated }">
-        <circle cx="80" cy="82" r="3" fill="#5eead4" />
-        <circle cx="80" cy="82" r="7" stroke="#5eead4" stroke-width="1.4" opacity="0.24" />
+        <circle cx="76" cy="74" r="2.4" fill="#5eead4" />
+        <circle cx="76" cy="74" r="5.5" stroke="#5eead4" stroke-width="1.1" opacity="0.24" />
       </g>
     </svg>
   </div>
@@ -69,19 +94,18 @@ const sizeStyle = computed(() => {
 .ccx-logo-svg {
   width: 100%;
   height: 100%;
-  overflow: visible;
 }
 
-/* Web 导航在线节点呼吸脉冲 */
+/* 在线网关节点呼吸脉冲 */
 @keyframes gateway-pulse {
   0%, 100% {
-    transform: scale(0.9);
-    transform-origin: 80px 82px;
-    opacity: 0.78;
+    transform: scale(0.92);
+    transform-origin: 76px 74px;
+    opacity: 0.82;
   }
   50% {
-    transform: scale(1.14);
-    transform-origin: 80px 82px;
+    transform: scale(1.12);
+    transform-origin: 76px 74px;
     opacity: 1;
   }
 }
