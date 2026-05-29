@@ -273,9 +273,6 @@ func (s *DesktopService) PreviewAgentConfigDiff(req configservice.ApplyAgentConf
 	if platform == "" {
 		return configservice.ConfigDiffResult{}, fmt.Errorf("agent 平台不能为空")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
-	defer cancel()
-	status := s.manager.Status(ctx)
 	var key string
 	if platform == configservice.PlatformCodex || platform == configservice.PlatformOpenCode || (platform == configservice.PlatformClaude && (req.Provider == "" || req.Provider == configservice.ProviderCCX)) {
 		key, _ = s.manager.ReadProxyAccessKey()
