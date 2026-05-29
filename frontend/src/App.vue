@@ -778,7 +778,7 @@ const capabilityPlaceholderModels: Record<string, string[]> = {
   messages: ['claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
   chat: ['gpt-5.5', 'gpt-5.4', 'gpt-5.3-codex', 'gpt-5.2', 'gpt-5.2-codex'],
   responses: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.2', 'gpt-5.2-codex'],
-  gemini: ['gemini-3.1-pro-preview', 'gemini-3.1-pro', 'gemini-3-pro-preview', 'gemini-3-pro', 'gemini-3-flash-preview', 'gemini-3-flash'],
+  gemini: ['gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite'],
   images: ['gpt-image-2', 'gpt-image-1', 'dall-e-3', 'dall-e-2']
 }
 

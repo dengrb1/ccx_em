@@ -1507,9 +1507,11 @@ const allSourceModelOptions = computed(() => {
   if (props.channelType === 'gemini') {
     // Gemini API 常用模型别名
     return [
-      { title: 'gemini-3.1-pro', value: 'gemini-3.1-pro' },
-      { title: 'gemini-3-pro', value: 'gemini-3-pro' },
-      { title: 'gemini-3-flash', value: 'gemini-3-flash' },
+      { title: 'gemini-3.5-flash', value: 'gemini-3.5-flash' },
+      { title: 'gemini-3.1-pro-preview', value: 'gemini-3.1-pro-preview' },
+      { title: 'gemini-3-pro-preview', value: 'gemini-3-pro-preview' },
+      { title: 'gemini-3-flash-preview', value: 'gemini-3-flash-preview' },
+      { title: 'gemini-3.1-flash-lite', value: 'gemini-3.1-flash-lite' },
       { title: 'gemini-2.5-pro', value: 'gemini-2.5-pro' },
       { title: 'gemini-2.5-flash', value: 'gemini-2.5-flash' },
       { title: 'gemini-2.5-flash-lite', value: 'gemini-2.5-flash-lite' },
