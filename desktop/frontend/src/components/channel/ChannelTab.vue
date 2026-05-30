@@ -197,7 +197,7 @@ const submit = async () => {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
       <div class="space-y-2">
         <button
           v-for="preset in presets"
@@ -296,7 +296,7 @@ const submit = async () => {
               </option>
             </select>
             <p class="text-xs text-muted-foreground">{{ currentPlan ? localizePlanDescription(currentPreset, currentPlan) : '' }}</p>
-            <p v-if="currentPlan?.baseUrl" class="text-xs text-foreground font-mono">{{ currentPlan.baseUrl }}</p>
+            <p v-if="currentPlan?.baseUrl" class="text-xs text-foreground font-mono break-all">{{ currentPlan.baseUrl }}</p>
           </div>
         </div>
 
@@ -322,13 +322,13 @@ const submit = async () => {
             <Sparkles class="w-3.5 h-3.5 text-blue-700 dark:text-blue-400" />
             <span class="font-semibold">{{ t('channel.presetWrites') }}</span>
           </div>
-          <p>Base URL: <code class="text-foreground">{{ effectiveBaseUrl || '—' }}</code></p>
+          <p class="break-all">Base URL: <code class="text-foreground">{{ effectiveBaseUrl || '—' }}</code></p>
           <p>{{ t('channel.capabilityHint') }}</p>
         </div>
 
         <p v-if="localError || error" class="text-sm text-rose-700 dark:text-rose-400">{{ localError || error }}</p>
         <div v-if="result" class="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 class="w-4 h-4" />
+          <CheckCircle2 class="w-4 h-4 shrink-0" />
           {{ result.message }}：{{ result.name }} → {{ result.baseUrl }}
         </div>
 
