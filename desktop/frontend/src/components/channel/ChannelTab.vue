@@ -36,13 +36,27 @@ const localError = ref('')
 
 onMounted(async () => {
   await loadChannelPresets()
-  if (!selectedProvider.value && presets.value.length > 0) {
-    selectedProvider.value = presets.value[0].id
+  if (!selectedProvider.value && sortedPresets.value.length > 0) {
+    selectedProvider.value = sortedPresets.value[0].id
   }
 })
 
+// 有保存 key 的 preset 排在前面，组内保持后端原始顺序
+const sortedPresets = computed(() => {
+  const withKey: ProviderPreset[] = []
+  const withoutKey: ProviderPreset[] = []
+  for (const preset of presets.value) {
+    if (keysByProvider.value[preset.id]) {
+      withKey.push(preset)
+    } else {
+      withoutKey.push(preset)
+    }
+  }
+  return [...withKey, ...withoutKey]
+})
+
 const currentPreset = computed(() => {
-  return presets.value.find((item) => item.id === selectedProvider.value) || null
+  return sortedPresets.value.find((item) => item.id === selectedProvider.value) || null
 })
 
 const localizePresetLabel = (preset: ProviderPreset) =>
@@ -82,7 +96,7 @@ const targetOptions = computed<ChannelTarget[]>(() => currentPreset.value?.targe
 // 切换左侧 provider 时重置表单；仅响应 selectedProvider 变化，
 // 避免 target 变化触发 loadChannelPresets 后因 presets 更新而级联重置 selectedTarget
 watch(selectedProvider, (id) => {
-  const preset = presets.value.find((item) => item.id === id)
+  const preset = sortedPresets.value.find((item) => item.id === id)
   if (!preset) return
   selectedTarget.value = preset.defaultTarget
   selectedPlan.value = bestPlanForTarget(preset, preset.defaultTarget)
@@ -200,7 +214,7 @@ const submit = async () => {
     <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
       <div class="space-y-2">
         <button
-          v-for="preset in presets"
+          v-for="preset in sortedPresets"
           :key="preset.id"
           :class="[
             'w-full p-4 rounded-xl border text-left transition-all duration-200 bg-glass-hover',
