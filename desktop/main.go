@@ -269,7 +269,7 @@ func run() error {
 		}()
 	}
 
-		updaterInitialized := false
+	updaterInitialized := false
 	buildTrayMenu := func(running bool, port int, pid int, autostartEnabled bool) *application.Menu {
 		menu := application.NewMenu()
 

@@ -62,8 +62,8 @@ func TestEnvLocaleFallback(t *testing.T) {
 		{
 			name: "LC_MESSAGES between LC_ALL and LANG",
 			env: map[string]string{
-				"LANG":         "en_US",
-				"LC_MESSAGES":  "fr_FR",
+				"LANG":        "en_US",
+				"LC_MESSAGES": "fr_FR",
 			},
 			want: "fr_FR",
 		},
