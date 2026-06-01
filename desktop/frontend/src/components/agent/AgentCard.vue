@@ -33,6 +33,7 @@ const props = defineProps<{
   selectedCodexProvider?: AgentProvider
   codexMode?: 'quick' | 'plugin'
   codexOpenAIKey?: string
+  codexOpenAIUseOwnKey?: boolean
   codexProviderLabels?: Record<string, string>
   codexProviderLabel?: (value?: string) => string
   codexTargetBaseUrl?: () => string
@@ -54,16 +55,35 @@ const emit = defineEmits<{
   'update:selectedCodexProvider': [value: AgentProvider]
   'update:codexMode': [value: 'quick' | 'plugin']
   'update:codexOpenAIKey': [value: string]
+  'update:codexOpenAIUseOwnKey': [value: boolean]
   'update:selectedOpenCodeProvider': [value: AgentProvider]
   'update:openCodeOpenAIKey': [value: string]
 }>()
 
-// OpenAI 直连 API Key 勾选框状态（默认不显示输入框）
-const showCodexOwnKey = ref(false)
+// OpenAI 直连「我有自己的 API Key」勾选状态（受控，默认不显示输入框）
+const showCodexOwnKey = computed(() => props.codexOpenAIUseOwnKey ?? false)
 
 const codexKeyRequired = computed(() => {
   const p = props.selectedCodexProvider
   return p !== 'ccx' && p !== 'openai'
+})
+
+// OpenAI 直连勾选「我有自己的 API Key」后必须输入；第三方 provider 始终必填
+const codexKeyMandatory = computed(() =>
+  codexKeyRequired.value || (props.selectedCodexProvider === 'openai' && showCodexOwnKey.value),
+)
+
+// API Key 输入框 placeholder：OpenAI 直连无可复用 saved key，勾选即必填
+const codexKeyPlaceholder = computed(() => {
+  if (props.selectedCodexProvider === 'openai') {
+    return t('agent.codexPlaceholderRequired')
+  }
+  if (props.savedProviderKeys?.[`codex:${props.selectedCodexProvider}`]) {
+    return t('agent.codexPlaceholderSaved')
+  }
+  return codexKeyRequired.value
+    ? t('agent.codexPlaceholderRequired')
+    : t('agent.codexPlaceholderWriteOnly')
 })
 
 // 支持快捷模式/插件模式切换的 provider 列表
@@ -87,12 +107,6 @@ const editors = ref<EditorInfo[]>([])
 const openingFile = ref('')
 
 onMounted(async () => {
-  // 已保存 OpenAI key 时自动勾选"我有 API Key"
-  if (props.selectedCodexProvider === 'openai') {
-    if (props.savedProviderKeys?.['codex:openai']) {
-      showCodexOwnKey.value = true
-    }
-  }
   try {
     editors.value = (await DetectEditors()) as EditorInfo[] ?? []
   } catch { editors.value = [] }
@@ -208,7 +222,7 @@ const openFileInEditor = async (editorPath: string, filePath: string) => {
           <select
             :value="selectedCodexProvider"
             class="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            @change="showCodexOwnKey = false; emit('update:codexOpenAIKey', ''); emit('update:selectedCodexProvider', ($event.target as HTMLSelectElement).value as AgentProvider)"
+            @change="emit('update:codexOpenAIUseOwnKey', false); emit('update:codexOpenAIKey', ''); emit('update:selectedCodexProvider', ($event.target as HTMLSelectElement).value as AgentProvider)"
           >
             <option value="ccx">{{ t('agent.provider.localGateway') }}</option>
             <option value="openai">{{ t('agent.provider.openaiDirect') }}</option>
@@ -262,17 +276,17 @@ const openFileInEditor = async (editorPath: string, filePath: string) => {
               type="checkbox"
               class="h-3 w-3 rounded border-input accent-primary cursor-pointer"
               :checked="showCodexOwnKey"
-              @change="showCodexOwnKey = ($event.target as HTMLInputElement).checked; if (!showCodexOwnKey) emit('update:codexOpenAIKey', '')"
+              @change="emit('update:codexOpenAIUseOwnKey', ($event.target as HTMLInputElement).checked); if (!($event.target as HTMLInputElement).checked) emit('update:codexOpenAIKey', '')"
             >
             {{ t('agent.hasOwnApiKey') }}
           </label>
         </div>
         <div v-if="selectedCodexProvider !== 'ccx' && (codexKeyRequired || showCodexOwnKey)" class="space-y-1.5">
-          <Label class="text-xs text-muted-foreground">API Key <span v-if="codexKeyRequired" class="text-destructive">*</span></Label>
+          <Label class="text-xs text-muted-foreground">API Key <span v-if="codexKeyMandatory" class="text-destructive">*</span></Label>
           <Input
             type="password"
             autocomplete="off"
-            :placeholder="savedProviderKeys?.[`codex:${selectedCodexProvider}`] ? t('agent.codexPlaceholderSaved') : codexKeyRequired ? t('agent.codexPlaceholderRequired') : t('agent.codexPlaceholderWriteOnly')"
+            :placeholder="codexKeyPlaceholder"
             :model-value="codexOpenAIKey || ''"
             @update:model-value="emit('update:codexOpenAIKey', String($event))"
           />

@@ -14,6 +14,7 @@ const {
   claudeProviderKeys,
   savedProviderKeys,
   codexOpenAIKey,
+  codexOpenAIUseOwnKey,
   openCodeOpenAIKey,
   claudeMimoBaseUrl,
   selectedMimoPlan,
@@ -109,6 +110,7 @@ const handleConfirm = async () => {
         :selected-codex-provider="selectedCodexProvider"
         :codex-mode="codexMode"
         :codex-open-a-i-key="codexOpenAIKey"
+        :codex-open-a-i-use-own-key="codexOpenAIUseOwnKey"
         :codex-provider-labels="codexProviderLabels"
         :codex-provider-label="codexProviderLabel"
         :codex-target-base-url="codexTargetBaseUrl"
@@ -127,6 +129,7 @@ const handleConfirm = async () => {
         @update:selected-codex-provider="selectedCodexProvider = $event"
         @update:codex-mode="codexMode = $event"
         @update:codex-open-a-i-key="codexOpenAIKey = $event"
+        @update:codex-open-a-i-use-own-key="codexOpenAIUseOwnKey = $event"
         @update:selected-open-code-provider="selectedOpenCodeProvider = $event"
         @update:open-code-open-a-i-key="openCodeOpenAIKey = $event"
       />

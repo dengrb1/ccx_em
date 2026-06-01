@@ -648,9 +648,7 @@ func (s *Service) applyCodexOpenAI(apiKey string) error {
 	key := strings.TrimSpace(apiKey)
 	if key != "" {
 		// API Key 模式：写入 key + auth_mode = "apikey"
-		if err := s.saveProviderKey(PlatformCodex, ProviderOpenAI, key); err != nil {
-			return err
-		}
+		// OpenAI 直连的 key 直接落在 auth.json，不再单独保存 provider key
 		authData["OPENAI_API_KEY"] = key
 		authData["auth_mode"] = "apikey"
 	} else {

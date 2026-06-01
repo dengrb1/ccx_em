@@ -948,6 +948,25 @@ func TestApplyCodexOpenAI_WithApiKey(t *testing.T) {
 	}
 }
 
+func TestApplyCodexOpenAI_DoesNotPersistProviderKey(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+	os.WriteFile(configPath, []byte("model_provider = \"ccx\"\n"), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": nil, "auth_mode": "chatgpt"})
+
+	// OpenAI 直连的 key 只落 auth.json，不应再写入 provider-keys 存储
+	err := svc.Apply(ApplyAgentConfigRequest{Platform: PlatformCodex, Provider: ProviderOpenAI, APIKey: "sk-my-openai-key"}, 0, "")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	if saved := svc.GetSavedProviderKeys()["codex:openai"]; saved != "" {
+		t.Errorf("OpenAI direct key should not be persisted as provider key, got %q", saved)
+	}
+}
+
 func TestApplyCodex_MigratesFromLegacyCCX(t *testing.T) {
 	svc := newTestService(t)
 	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")

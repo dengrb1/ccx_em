@@ -73,6 +73,8 @@ const claudeProviderKeys = ref<Record<AgentProvider, string>>({
 })
 const savedProviderKeys = ref<Record<string, string>>({})
 const codexOpenAIKey = ref('')
+// OpenAI 直连：是否勾选「我有自己的 API Key」。勾选则必须输入 key，否则走 OAuth。
+const codexOpenAIUseOwnKey = ref(false)
 const openCodeOpenAIKey = ref('')
 const claudeMimoBaseUrl = ref('https://api.xiaomimimo.com/anthropic')
 const selectedMimoPlan = ref('https://api.xiaomimimo.com/anthropic')
@@ -265,9 +267,13 @@ const findSavedKey = (provider: string, planID?: string): string => {
 const canApplyAgent = (platform: AgentPlatform) => {
   if (configLoading.value) return false
   if (platform === 'codex') {
-    // CCX 和 OpenAI 直连都不需要验证 key：CCX 用 proxy key，OpenAI 用 ChatGPT OAuth 登录
-    if (selectedCodexProvider.value === 'ccx' || selectedCodexProvider.value === 'openai') {
+    // CCX 用 proxy key，无需验证
+    if (selectedCodexProvider.value === 'ccx') {
       return true
+    }
+    // OpenAI 直连：不勾选走 OAuth；勾选「我有自己的 API Key」则必须输入
+    if (selectedCodexProvider.value === 'openai') {
+      return !codexOpenAIUseOwnKey.value || codexOpenAIKey.value.trim() !== ''
     }
     // 第三方 provider 必须有输入的 key 或已保存的 key
     const inputKey = codexOpenAIKey.value.trim()
@@ -443,6 +449,7 @@ export function useAgentConfig() {
     claudeProviderKeys,
     savedProviderKeys,
     codexOpenAIKey,
+    codexOpenAIUseOwnKey,
     codexMode,
     openCodeOpenAIKey,
     claudeMimoBaseUrl,
