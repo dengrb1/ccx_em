@@ -1601,7 +1601,7 @@ func (s *Service) previewApplyCodexQuick(port int, accessKey string) (ConfigDiff
 		oldBearerToken, _ = extractTomlStringField(existingBlock, "experimental_bearer_token")
 	}
 	oldKeyValues := map[string]string{"experimental_bearer_token": oldBearerToken}
-	newKeyValues := map[string]string{"OPENAI_API_KEY": accessKey}
+	newKeyValues := map[string]string{}
 
 	newAuthData := copyJSONMap(authData)
 	newAuthData["OPENAI_API_KEY"] = accessKey
@@ -1625,13 +1625,6 @@ func (s *Service) previewApplyCodexPlugin(port int, accessKey string) (ConfigDif
 		return ConfigDiffResult{}, err
 	}
 
-	oldBearerToken := ""
-	if existingBlock, ok := extractNamedTomlBlock(configContent, "model_providers.ccx"); ok {
-		oldBearerToken, _ = extractTomlStringField(existingBlock, "experimental_bearer_token")
-	}
-	oldKeyValues := map[string]string{"experimental_bearer_token": oldBearerToken}
-	newKeyValues := map[string]string{"experimental_bearer_token": accessKey, "OPENAI_API_KEY": accessKey}
-
 	block := fmt.Sprintf(`[model_providers.ccx]
 name = "CCX Proxy"
 base_url = %q
@@ -1644,6 +1637,13 @@ experimental_bearer_token = %q
 	updatedConfig = restoreTopLevelTomlString(updatedConfig, "openai_base_url", nil)
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil)
 	updatedConfig = upsertNamedTomlBlock(updatedConfig, "model_providers.ccx", block)
+
+	oldBearerToken := ""
+	if existingBlock, ok := extractNamedTomlBlock(configContent, "model_providers.ccx"); ok {
+		oldBearerToken, _ = extractTomlStringField(existingBlock, "experimental_bearer_token")
+	}
+	oldKeyValues := map[string]string{"experimental_bearer_token": oldBearerToken}
+	newKeyValues := map[string]string{"experimental_bearer_token": accessKey}
 
 	newAuthData := copyJSONMap(authData)
 	newAuthData["OPENAI_API_KEY"] = accessKey
@@ -1684,16 +1684,8 @@ func (s *Service) previewApplyCodexOpenAI(apiKey string) (ConfigDiffResult, erro
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.ccx", nil)
 	updatedConfig = restoreNamedTomlBlock(updatedConfig, "model_providers.openai", nil)
 
-	oldKey, _ := authData["OPENAI_API_KEY"].(string)
-	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
-	newKeyDisplay := key
-	if newKeyDisplay == "" {
-		newKeyDisplay = "[OAuth]"
-	}
-	newKeyValues := map[string]string{"OPENAI_API_KEY": newKeyDisplay}
-
 	return ConfigDiffResult{Files: []FileDiff{
-		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeTextDiff(configPath, configContent, updatedConfig),
 		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
 	}}, nil
 }
@@ -1718,10 +1710,6 @@ func (s *Service) previewApplyCodexThirdParty(provider, baseURL, apiKey string) 
 		key = "[未配置]"
 	}
 
-	oldKey, _ := authData["OPENAI_API_KEY"].(string)
-	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
-	newKeyValues := map[string]string{"OPENAI_API_KEY": key}
-
 	block := fmt.Sprintf(`[model_providers.%s]
 name = %q
 base_url = %q
@@ -1741,7 +1729,7 @@ requires_openai_auth = false
 	newAuthData["auth_mode"] = "apikey"
 
 	return ConfigDiffResult{Files: []FileDiff{
-		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeTextDiff(configPath, configContent, updatedConfig),
 		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
 	}}, nil
 }
@@ -1766,10 +1754,6 @@ func (s *Service) previewApplyCodexThirdPartyQuick(provider, baseURL, apiKey str
 		key = "[未配置]"
 	}
 
-	oldKey, _ := authData["OPENAI_API_KEY"].(string)
-	oldKeyValues := map[string]string{"OPENAI_API_KEY": oldKey}
-	newKeyValues := map[string]string{"OPENAI_API_KEY": key}
-
 	// config.toml: model_provider="openai" + openai_base_url=<第三方 URL>
 	updatedConfig := upsertTopLevelTomlString(configContent, "model_provider", "openai")
 	updatedConfig = upsertTopLevelTomlString(updatedConfig, "openai_base_url", baseURL)
@@ -1784,7 +1768,7 @@ func (s *Service) previewApplyCodexThirdPartyQuick(provider, baseURL, apiKey str
 	newAuthData["auth_mode"] = "apikey"
 
 	return ConfigDiffResult{Files: []FileDiff{
-		computeTextDiffWithSeparateMasks(configPath, configContent, updatedConfig, oldKeyValues, newKeyValues),
+		computeTextDiff(configPath, configContent, updatedConfig),
 		computeJSONDiffWithMask(authPath, authData, newAuthData, "OPENAI_API_KEY"),
 	}}, nil
 }
