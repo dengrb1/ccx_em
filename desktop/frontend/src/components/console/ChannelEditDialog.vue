@@ -1155,7 +1155,8 @@ function buildCurrentPayload() {
                   </h4>
 
                   <!-- 预设按钮 -->
-                  <div v-if="showModelMappingPresets" class="flex flex-wrap gap-1.5">
+                  <div v-if="showModelMappingPresets" class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-muted-foreground">{{ tf('addChannel.oneClickSetup', '一键配置') }}</span>
                     <Button v-for="(preset, name) in modelMappingPresets" :key="name" type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyModelMappingPreset(String(name))">
                       <Zap class="mr-1 h-3 w-3" />
                       {{ name }}
@@ -1163,11 +1164,13 @@ function buildCurrentPayload() {
                     <Button type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyClaudePreset('mimo')"><Zap class="mr-1 h-3 w-3" />MiMo</Button>
                     <Button type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyClaudePreset('deepseek')"><Zap class="mr-1 h-3 w-3" />DeepSeek</Button>
                   </div>
-                  <div v-if="showClaudeChannelPresets" class="flex flex-wrap gap-1.5">
+                  <div v-if="showClaudeChannelPresets" class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-muted-foreground">{{ tf('addChannel.oneClickSetup', '一键配置') }}</span>
                     <Button type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyClaudePreset('mimo')"><Zap class="mr-1 h-3 w-3" />MiMo</Button>
                     <Button type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyClaudePreset('deepseek')"><Zap class="mr-1 h-3 w-3" />DeepSeek</Button>
                   </div>
-                  <div v-if="showCodexResponsesPresets" class="flex flex-wrap gap-1.5">
+                  <div v-if="showCodexResponsesPresets" class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-muted-foreground">{{ tf('addChannel.oneClickSetup', '一键配置') }}</span>
                     <Button type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyCodexResponsesPreset('mimo')"><Zap class="mr-1 h-3 w-3" />MiMo</Button>
                     <Button type="button" variant="outline" size="sm" class="h-6 text-[10px]" @click="applyCodexResponsesPreset('deepseek')"><Zap class="mr-1 h-3 w-3" />DeepSeek</Button>
                   </div>
