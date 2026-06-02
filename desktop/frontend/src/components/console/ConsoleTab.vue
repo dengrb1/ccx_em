@@ -119,11 +119,11 @@ watch(() => status.value.running, (running) => {
           class="inline-flex"
           @update:model-value="updateConsoleTab"
         >
-          <TabsList class="h-7 p-0.5">
-            <TabsTrigger value="channels" class="px-2.5 py-0.5 text-xs">
+          <TabsList class="h-7 border border-border bg-secondary/40 p-0.5">
+            <TabsTrigger value="channels" class="px-2.5 py-0.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               {{ tf('console.channelsTab', 'Channels') }}
             </TabsTrigger>
-            <TabsTrigger value="conversations" class="px-2.5 py-0.5 text-xs">
+            <TabsTrigger value="conversations" class="px-2.5 py-0.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               {{ tf('console.conversationsTab', 'Conversations') }}
             </TabsTrigger>
           </TabsList>
@@ -139,12 +139,12 @@ watch(() => status.value.running, (running) => {
           class="inline-flex"
           @update:model-value="updateProtocolTab"
         >
-          <TabsList class="h-7 p-0.5">
+          <TabsList class="h-7 border border-border bg-secondary/40 p-0.5">
             <TabsTrigger
               v-for="tab in protocolTabs"
               :key="tab.value"
               :value="tab.value"
-              class="px-2 py-0.5 text-xs"
+              class="px-2 py-0.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               {{ tab.label }}
             </TabsTrigger>
