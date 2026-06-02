@@ -313,8 +313,13 @@ function handleQuickPaste(text: string) {
   const result = parseQuickInput(text, form.serviceType || undefined)
   if (result.detectedBaseUrl) form.baseUrl = result.detectedBaseUrl
   if (result.detectedBaseUrls.length > 1) form.baseUrlsText = result.detectedBaseUrls.join('\n')
-  if (result.detectedApiKeys.length) form.apiKeysText = mergeLineText(form.apiKeysText, result.detectedApiKeys)
+  if (result.detectedApiKeys.length) {
+    existingApiKeys.value = [...new Set([...existingApiKeys.value, ...result.detectedApiKeys])]
+  }
   if (result.detectedServiceType && !form.serviceType) form.serviceType = result.detectedServiceType
+  if (!form.name.trim() && result.detectedServiceType) {
+    form.name = `${props.channelType}-${result.detectedServiceType}-channel`
+  }
 }
 
 async function handleRestoreKey(key: string) {
@@ -692,20 +697,14 @@ function buildCurrentPayload() {
 
               <!-- ── 创建模式：仅保留快速粘贴 ── -->
               <section v-if="!isEditMode" class="space-y-3 border border-primary/20 bg-primary/5 p-4 lg:col-span-2">
-                <div class="flex items-center justify-between gap-3">
-                  <div>
-                    <h4 class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-                      <ClipboardPaste class="h-3.5 w-3.5" />
-                      {{ tf('addChannel.quickMode', '快速粘贴') }}
-                    </h4>
-                    <p class="mt-1 text-xs text-muted-foreground">
-                      {{ tf('addChannel.quickHint', '粘贴 Base URL、API Key 或完整配置片段，自动识别并填入表单。') }}
-                    </p>
-                  </div>
-                  <Button type="button" size="sm" :disabled="!quickHasDetections" @click="applyQuickInput">
-                    <Wand2 class="h-3.5 w-3.5" />
-                    {{ tf('addChannel.applyDetected', '应用识别结果') }}
-                  </Button>
+                <div>
+                  <h4 class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                    <ClipboardPaste class="h-3.5 w-3.5" />
+                    {{ tf('addChannel.quickMode', '快速粘贴') }}
+                  </h4>
+                  <p class="mt-1 text-xs text-muted-foreground">
+                    {{ tf('addChannel.quickHint', '粘贴 Base URL、API Key 或完整配置片段，自动识别并填入表单。') }}
+                  </p>
                 </div>
                 <Textarea
                   v-model="quickInput"
