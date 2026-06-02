@@ -714,7 +714,7 @@ function buildCurrentPayload() {
                   placeholder="https://api.example.com/v1&#10;sk-..."
                   @paste="handleQuickPaste(($event.clipboardData?.getData('text/plain') || ''))"
                 />
-                <div class="grid gap-2 md:grid-cols-3">
+                <div class="grid gap-2 md:grid-cols-2">
                   <div class="border border-border bg-background/70 p-2 text-xs">
                     <div class="mb-1 flex items-center gap-1.5 font-semibold">
                       <CheckCircle2 v-if="detectedBaseUrls.length" class="h-3.5 w-3.5 text-emerald-500" />
@@ -733,16 +733,6 @@ function buildCurrentPayload() {
                     </div>
                     <p class="text-muted-foreground">
                       {{ detectedApiKeys.length ? `${detectedApiKeys.length} ${tf('console.keys.active', 'active keys')}` : tf('addChannel.noneDetected', '未识别') }}
-                    </p>
-                  </div>
-                  <div class="border border-border bg-background/70 p-2 text-xs">
-                    <div class="mb-1 flex items-center gap-1.5 font-semibold">
-                      <CheckCircle2 v-if="quickDetection.detectedServiceType" class="h-3.5 w-3.5 text-emerald-500" />
-                      <AlertCircle v-else class="h-3.5 w-3.5 text-muted-foreground" />
-                      Service Type
-                    </div>
-                    <p class="text-muted-foreground">
-                      {{ quickDetection.detectedServiceType || tf('addChannel.noneDetected', '未识别') }}
                     </p>
                   </div>
                 </div>
