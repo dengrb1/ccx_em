@@ -431,7 +431,7 @@ onBeforeUnmount(() => {
                 <Textarea
                   v-model="quickInput"
                   rows="10"
-                  class="font-mono text-xs"
+                  class="!field-sizing-none min-h-[14rem] font-mono text-xs"
                   placeholder="https://api.example.com/v1&#10;sk-..."
                   @paste="handleQuickPaste(($event.clipboardData?.getData('text/plain') || ''))"
                 />
