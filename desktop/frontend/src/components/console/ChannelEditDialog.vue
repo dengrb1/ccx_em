@@ -382,8 +382,8 @@ onBeforeUnmount(() => {
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')" />
 
         <div class="relative z-10 flex max-h-[90vh] w-[94vw] max-w-6xl flex-col border border-border bg-card shadow-2xl">
-          <div class="flex shrink-0 items-start justify-between border-b border-border p-4">
-            <div class="space-y-1">
+          <div class="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
+            <div class="min-w-0 space-y-1">
               <div class="text-xs font-bold uppercase tracking-[0.18em] text-primary">
                 {{ channelType }} CHANNEL
               </div>
@@ -393,14 +393,8 @@ onBeforeUnmount(() => {
                   : tf('console.form.addChannel', '添加渠道')
                 }}
               </h3>
-              <p class="text-xs text-muted-foreground">
-                {{ isEditMode
-                  ? tf('addChannel.editSubtitle', '修改渠道配置信息')
-                  : tf('addChannel.fullSubtitle', '配置渠道、密钥、模型与高级协议选项')
-                }}
-              </p>
             </div>
-            <Button variant="ghost" size="icon-sm" @click="emit('close')">
+            <Button variant="ghost" size="icon-sm" class="shrink-0" @click="emit('close')">
               <X class="h-4 w-4" />
             </Button>
           </div>
@@ -683,7 +677,7 @@ onBeforeUnmount(() => {
             </form>
           </ScrollArea>
 
-          <div class="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-card p-4">
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-card p-4">
             <Button variant="ghost" @click="emit('close')">
               {{ tf('common.cancel', '取消') }} <span class="ml-1.5 text-xs opacity-60">Esc</span>
             </Button>
