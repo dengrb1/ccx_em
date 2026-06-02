@@ -21,7 +21,6 @@ const variant = computed(() => {
 const label = computed(() => {
   const s = props.status || 'active'
   if (props.circuitState === 'open') return 'Circuit Open'
-  if (props.circuitState === 'half_open') return 'Half Open'
   return s.charAt(0).toUpperCase() + s.slice(1)
 })
 
@@ -30,7 +29,6 @@ const dotClass = computed(() => {
   if (s === 'disabled' || s === 'error') return 'bg-rose-500'
   if (s === 'suspended') return 'bg-amber-500'
   if (props.circuitState === 'open') return 'bg-rose-500 animate-pulse'
-  if (props.circuitState === 'half_open') return 'bg-amber-500 animate-pulse'
   return 'bg-emerald-500'
 })
 </script>

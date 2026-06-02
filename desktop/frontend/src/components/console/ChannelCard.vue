@@ -113,12 +113,6 @@ const circuitDisplay = computed(() => {
       class: 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     }
   }
-  if (state === 'half_open') {
-    return {
-      label: tf('console.circuit.halfOpen', 'Half-Open'),
-      class: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    }
-  }
   return null
 })
 
@@ -185,14 +179,14 @@ async function copyChannelInfo() {
 <template>
   <div
     :class="[
-      'group grid grid-cols-[36px_minmax(170px,1fr)_110px_82px_74px_128px] items-center gap-1.5 border px-2 py-2 transition-all duration-200 xl:grid-cols-[42px_minmax(220px,1fr)_120px_96px_88px_150px] xl:gap-3 xl:px-3 xl:py-2.5',
+      'group grid grid-cols-[24px_minmax(150px,1fr)_88px_74px_86px] items-center gap-1 border px-2 py-2 transition-all duration-200 lg:grid-cols-[36px_minmax(170px,1fr)_110px_82px_74px_128px] lg:gap-1.5 xl:grid-cols-[42px_minmax(220px,1fr)_120px_96px_88px_150px] xl:gap-3 xl:px-3 xl:py-2.5',
       'bg-card/75 hover:bg-card dark:bg-card/55 dark:hover:bg-card/80',
       inactive ? 'border-dashed border-border/80 opacity-80' : 'border-border',
       circuitDisplay ? 'ring-1 ring-rose-500/20' : '',
     ]"
   >
     <div class="flex items-center gap-2 text-muted-foreground">
-      <GripVertical class="h-4 w-4 cursor-grab opacity-60 group-hover:opacity-100" />
+      <GripVertical class="hidden h-4 w-4 cursor-grab opacity-60 group-hover:opacity-100 lg:block" />
       <span class="min-w-5 text-right font-mono text-[11px] font-bold text-foreground/70">
         {{ priority || '—' }}
       </span>
@@ -258,28 +252,28 @@ async function copyChannelInfo() {
       <div class="text-[10px] text-muted-foreground">RPM / TPM</div>
     </div>
 
-    <div class="space-y-0.5 text-right font-mono">
+    <div class="hidden space-y-0.5 text-right font-mono lg:block">
       <div class="text-[11px] font-bold text-foreground xl:text-xs">{{ requestDisplay }}</div>
       <div class="text-[10px] text-muted-foreground">{{ successRateDisplay }}</div>
     </div>
 
     <div class="flex items-center justify-end gap-1">
-      <Button v-if="isDisabled" variant="outline" size="sm" class="px-2 text-xs xl:px-3" @click="emit('enable')">
+      <Button v-if="isDisabled" variant="outline" size="sm" class="px-2 text-xs lg:px-2 xl:px-3" @click="emit('enable')">
         <Play class="h-3.5 w-3.5" />
-        {{ tf('console.actions.enable', 'Enable') }}
+        <span class="hidden lg:inline">{{ tf('console.actions.enable', 'Enable') }}</span>
       </Button>
-      <Button v-else-if="isSuspended" variant="outline" size="sm" class="px-2 text-xs xl:px-3" @click="emit('status')">
+      <Button v-else-if="isSuspended" variant="outline" size="sm" class="px-2 text-xs lg:px-2 xl:px-3" @click="emit('status')">
         <Play class="h-3.5 w-3.5" />
-        {{ tf('console.actions.resume', 'Resume') }}
+        <span class="hidden lg:inline">{{ tf('console.actions.resume', 'Resume') }}</span>
       </Button>
-      <Button v-else variant="outline" size="sm" class="px-2 text-xs xl:px-3" @click="emit('status')">
+      <Button v-else variant="outline" size="sm" class="px-2 text-xs lg:px-2 xl:px-3" @click="emit('status')">
         <Pause class="h-3.5 w-3.5" />
-        {{ tf('console.actions.suspend', 'Suspend') }}
+        <span class="hidden lg:inline">{{ tf('console.actions.suspend', 'Suspend') }}</span>
       </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon-sm">
+          <Button variant="ghost" size="icon-sm" class="shrink-0">
             <MoreVertical class="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

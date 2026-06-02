@@ -6,15 +6,16 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   ClipboardPaste,
+  Key,
   Loader2,
   RotateCcw,
+  Trash2,
   Wand2,
   X,
 } from 'lucide-vue-next'
@@ -45,6 +46,8 @@ const error = ref('')
 const showAdvanced = ref(false)
 const showProtocolOptions = ref(false)
 const quickInput = ref('')
+const existingApiKeys = ref<string[]>([])
+const newApiKeysText = ref('')
 
 const reasoningParamStyleOptions = [
   { label: 'reasoning.effort', value: 'reasoning' },
@@ -140,6 +143,8 @@ function resetForm() {
   form.codexToolCompat = false
   form.stripCodexClientTools = false
   quickInput.value = ''
+  existingApiKeys.value = []
+  newApiKeysText.value = ''
   error.value = ''
   showAdvanced.value = false
   showProtocolOptions.value = false
@@ -163,7 +168,9 @@ function populateFromChannel(ch: Channel) {
   form.requestTimeoutMs = ch.requestTimeoutMs || ''
   form.routePrefix = ch.routePrefix || ''
   form.insecureSkipVerify = ch.insecureSkipVerify ?? false
-  form.apiKeysText = (ch.apiKeys || []).join('\n')
+  existingApiKeys.value = [...(ch.apiKeys || [])]
+  form.apiKeysText = ''
+  newApiKeysText.value = ''
   form.customHeadersText = stringifyJson(ch.customHeaders)
   form.modelMappingText = stringifyJson(ch.modelMapping)
   form.reasoningMappingText = stringifyJson(ch.reasoningMapping)
@@ -230,6 +237,19 @@ function parseLines(text: string) {
     .split('\n')
     .map(s => s.trim())
     .filter(Boolean)
+}
+
+function maskApiKey(key: string): string {
+  if (key.length <= 10) return `${key.slice(0, 3)}***${key.slice(-2)}`
+  return `${key.slice(0, 8)}***${key.slice(-5)}`
+}
+
+function removeExistingApiKey(index: number) {
+  existingApiKeys.value.splice(index, 1)
+}
+
+function getSubmitApiKeys() {
+  return [...existingApiKeys.value, ...parseLines(newApiKeysText.value || form.apiKeysText)]
 }
 
 function mergeLineText(currentText: string, additions: string[]) {
@@ -299,7 +319,7 @@ async function handleSubmit() {
       passbackReasoningContent: form.passbackReasoningContent,
       passbackThinkingBlocks: form.passbackThinkingBlocks,
       description: form.description,
-      apiKeys: parseLines(form.apiKeysText),
+      apiKeys: getSubmitApiKeys(),
       modelMapping,
       reasoningMapping,
       reasoningParamStyle: form.reasoningParamStyle,
@@ -381,7 +401,7 @@ onBeforeUnmount(() => {
       >
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="emit('close')" />
 
-        <div class="relative z-10 flex max-h-[90vh] w-[94vw] max-w-6xl flex-col border border-border bg-card shadow-2xl">
+        <div class="relative z-10 flex max-h-[90vh] w-[94vw] max-w-6xl flex-col overflow-hidden border border-border bg-card shadow-2xl">
           <div class="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4">
             <div class="min-w-0 space-y-1">
               <div class="text-xs font-bold uppercase tracking-[0.18em] text-primary">
@@ -399,7 +419,7 @@ onBeforeUnmount(() => {
             </Button>
           </div>
 
-          <ScrollArea class="min-h-0 flex-1">
+          <div class="min-h-0 flex-1 overflow-y-auto">
             <form class="grid gap-5 p-4 lg:grid-cols-[1fr_1fr]" @submit.prevent="handleSubmit">
               <div v-if="error" class="lg:col-span-2 border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {{ error }}
@@ -545,16 +565,42 @@ onBeforeUnmount(() => {
                   <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {{ tf('console.form.authentication', '认证') }}
                   </h4>
-                  <div class="space-y-1.5">
-                    <Label>{{ tf('console.form.apiKeys', 'API Keys（每行一个）') }}</Label>
-                    <Textarea v-model="form.apiKeysText" rows="4" placeholder="sk-xxx&#10;sk-yyy" class="font-mono text-xs" />
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                      <Label>{{ tf('console.form.apiKeys', 'API Keys（每行一个）') }}</Label>
+                      <span class="text-[10px] text-muted-foreground">{{ existingApiKeys.length }} keys</span>
+                    </div>
+                    <div v-if="existingApiKeys.length" class="space-y-2">
+                      <div
+                        v-for="(key, index) in existingApiKeys"
+                        :key="`${index}-${key}`"
+                        class="flex items-center justify-between gap-2 border border-border bg-background/60 px-2 py-1.5 text-xs"
+                      >
+                        <div class="flex min-w-0 items-center gap-2">
+                          <Key class="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <code class="truncate font-mono text-muted-foreground">{{ maskApiKey(key) }}</code>
+                        </div>
+                        <Button size="icon-sm" variant="ghost" class="shrink-0 text-destructive" @click="removeExistingApiKey(index)">
+                          <Trash2 class="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div class="space-y-1.5">
+                      <Label class="text-xs text-muted-foreground">{{ tf('addChannel.addNewApiKey', '添加新 API Key') }}</Label>
+                      <Textarea
+                        v-model="newApiKeysText"
+                        rows="3"
+                        placeholder="sk-xxx&#10;sk-yyy"
+                        class="font-mono text-xs"
+                      />
+                    </div>
                   </div>
                   <div v-if="disabledApiKeys.length" class="space-y-2 border border-amber-500/20 bg-amber-500/10 p-2">
                     <div class="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                       {{ tf('console.form.disabledKeys', 'Disabled keys') }}
                     </div>
                     <div v-for="item in disabledApiKeys" :key="item.key" class="flex items-center justify-between gap-2 text-xs">
-                      <span class="min-w-0 truncate font-mono" :title="item.message || item.reason">{{ item.key }}</span>
+                      <span class="min-w-0 truncate font-mono" :title="item.message || item.reason">{{ maskApiKey(item.key) }}</span>
                       <Button size="sm" variant="outline" :disabled="restoringKey === item.key" @click="handleRestoreKey(item.key)">
                         <Loader2 v-if="restoringKey === item.key" class="h-3 w-3 animate-spin" />
                         <RotateCcw v-else class="h-3 w-3" />
@@ -675,7 +721,7 @@ onBeforeUnmount(() => {
                 </section>
               </template>
             </form>
-          </ScrollArea>
+          </div>
 
           <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-card p-4">
             <Button variant="ghost" @click="emit('close')">
