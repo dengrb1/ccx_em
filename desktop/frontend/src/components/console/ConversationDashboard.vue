@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance, type StyleValue } from 'vue'
-import { useDocumentVisibility, useIntervalFn } from '@vueuse/core'
+import { useIntervalFn } from '@vueuse/core'
 import { Alert } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -33,7 +33,6 @@ const masonryColumnCount = ref(1)
 const masonryHeight = ref(0)
 const masonryItemRects = ref<Record<string, { x: number; y: number; width: number }>>({})
 const notice = ref<{ variant: 'success' | 'destructive'; message: string } | null>(null)
-const visibility = useDocumentVisibility()
 
 const MASONRY_MIN_COLUMN_WIDTH = 320
 const MASONRY_GAP = 16
@@ -93,7 +92,7 @@ const visibleConversations = computed(() => {
 })
 
 const overrideCount = computed(() => Object.keys(overrides.value).length)
-const shouldRefresh = computed(() => status.value.running && visibility.value === 'visible')
+const shouldRefresh = computed(() => status.value.running)
 
 function showNotice(variant: 'success' | 'destructive', message: string) {
   notice.value = { variant, message }

@@ -1,5 +1,5 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useIntervalFn, useDocumentVisibility } from '@vueuse/core'
+import { useIntervalFn } from '@vueuse/core'
 import { useAdminApi } from '@/composables/useAdminApi'
 import { useStatus } from '@/composables/useStatus'
 import { mergeChannelsWithLocalData } from '@/utils/channel-merge'
@@ -235,10 +235,9 @@ let autoRefreshRunning = false
 
 export function useConsoleChannels() {
   const { status } = useStatus()
-  const visibility = useDocumentVisibility()
 
-  // 仅在服务运行时且页面可见时刷新
-  const shouldRefresh = computed(() => status.value.running && visibility.value === 'visible')
+  // 仅在服务运行时刷新（桌面 App Webview 始终在前台，无需可见性检查）
+  const shouldRefresh = computed(() => status.value.running)
 
   const { pause, resume } = useIntervalFn(() => {
     if (autoRefreshRunning && shouldRefresh.value) {
