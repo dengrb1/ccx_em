@@ -1181,45 +1181,59 @@ function buildCurrentPayload() {
                       </Button>
                     </div>
                     <p v-if="fetchedModelsError" class="text-[10px] text-destructive">{{ fetchedModelsError }}</p>
-                    <div v-for="(row, index) in modelMappingRows" :key="row.id" class="flex items-center gap-2 border border-border bg-background/60 px-2 py-1.5 text-xs">
-                      <Input v-model="row.source" class="h-7 flex-1 font-mono text-xs" placeholder="source-model" :list="`source-models-${index}`" />
-                      <datalist :id="`source-models-${index}`"><option v-for="m in sourceModelOptions" :key="m" :value="m" /></datalist>
-                      <ArrowRight class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <Input v-model="row.target" class="h-7 flex-1 font-mono text-xs" placeholder="target-model" :list="targetModelOptions.length ? `target-models-${index}` : undefined" />
-                      <datalist v-if="targetModelOptions.length" :id="`target-models-${index}`">
-                        <option v-for="m in targetModelOptions" :key="m" :value="m" />
-                      </datalist>
-                      <Select v-if="supportsOpenAIAdvanced" :model-value="toSelectValue(row.reasoning)" @update:model-value="row.reasoning = fromSelectValue($event) as ReasoningEffort | ''">
-                        <SelectTrigger class="h-7 w-28 text-xs"><SelectValue :placeholder="tf('console.form.reasoningEffort', '思考强度')" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" size="icon-sm" variant="ghost" :class="row.noVision ? 'text-amber-500' : 'text-muted-foreground'" :title="tf('console.form.noVision', '禁用视觉')" @click="row.noVision = !row.noVision">
-                        <EyeOff v-if="row.noVision" class="h-3.5 w-3.5" />
-                        <Eye v-else class="h-3.5 w-3.5" />
-                      </Button>
-                      <Button type="button" size="icon-sm" variant="ghost" class="text-destructive" @click="removeModelMappingRow(index)">
-                        <Trash2 class="h-3.5 w-3.5" />
-                      </Button>
+
+                    <!-- 已配置的重定向 -->
+                    <div v-if="modelMappingRows.length" class="space-y-2">
+                      <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {{ tf('console.form.modelMappingExisting', '已配置') }} ({{ modelMappingRows.length }})
+                      </div>
+                      <div v-for="(row, index) in modelMappingRows" :key="row.id" class="flex items-center gap-2 border border-border bg-background/60 px-2 py-1.5 text-xs">
+                        <Input v-model="row.source" class="h-7 flex-1 font-mono text-xs" placeholder="source-model" :list="`source-models-${index}`" />
+                        <datalist :id="`source-models-${index}`"><option v-for="m in sourceModelOptions" :key="m" :value="m" /></datalist>
+                        <ArrowRight class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <Input v-model="row.target" class="h-7 flex-1 font-mono text-xs" placeholder="target-model" :list="targetModelOptions.length ? `target-models-${index}` : undefined" />
+                        <datalist v-if="targetModelOptions.length" :id="`target-models-${index}`">
+                          <option v-for="m in targetModelOptions" :key="m" :value="m" />
+                        </datalist>
+                        <Select v-if="supportsOpenAIAdvanced" :model-value="toSelectValue(row.reasoning)" @update:model-value="row.reasoning = fromSelectValue($event) as ReasoningEffort | ''">
+                          <SelectTrigger class="h-7 w-28 text-xs"><SelectValue :placeholder="tf('console.form.reasoningEffort', '思考强度')" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" size="icon-sm" variant="ghost" :class="row.noVision ? 'text-amber-500' : 'text-muted-foreground'" :title="tf('console.form.noVision', '禁用视觉')" @click="row.noVision = !row.noVision">
+                          <EyeOff v-if="row.noVision" class="h-3.5 w-3.5" />
+                          <Eye v-else class="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" size="icon-sm" variant="ghost" class="text-destructive" @click="removeModelMappingRow(index)">
+                          <Trash2 class="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <Input v-model="newModelMapping.source" class="h-7 flex-1 font-mono text-xs" placeholder="source" list="source-models-new" @keydown.enter.prevent="addModelMappingRow" />
-                      <datalist id="source-models-new"><option v-for="m in sourceModelOptions" :key="m" :value="m" /></datalist>
-                      <ArrowRight class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <Input v-model="newModelMapping.target" class="h-7 flex-1 font-mono text-xs" placeholder="target" :list="targetModelOptions.length ? 'target-models-new' : undefined" @keydown.enter.prevent="addModelMappingRow" />
-                      <datalist v-if="targetModelOptions.length" id="target-models-new">
-                        <option v-for="m in targetModelOptions" :key="m" :value="m" />
-                      </datalist>
-                      <Select v-if="supportsOpenAIAdvanced" :model-value="toSelectValue(newModelMapping.reasoning)" @update:model-value="newModelMapping.reasoning = fromSelectValue($event) as ReasoningEffort | ''">
-                        <SelectTrigger class="h-7 w-28 text-xs"><SelectValue :placeholder="tf('console.form.reasoningEffort', '思考强度')" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" variant="outline" size="sm" :disabled="!newModelMapping.source.trim() || !newModelMapping.target.trim()" @click="addModelMappingRow">
-                        <Plus class="h-3.5 w-3.5" />
-                      </Button>
+
+                    <!-- 添加新重定向 -->
+                    <div class="space-y-2 border-t border-dashed border-border pt-3">
+                      <div class="text-[10px] font-bold uppercase tracking-wider text-primary">
+                        {{ tf('console.form.modelMappingAdd', '添加新重定向') }}
+                      </div>
+                      <div class="flex items-center gap-2 border border-primary/30 bg-primary/5 px-2 py-1.5 text-xs">
+                        <Input v-model="newModelMapping.source" class="h-7 flex-1 font-mono text-xs" placeholder="source" list="source-models-new" @keydown.enter.prevent="addModelMappingRow" />
+                        <datalist id="source-models-new"><option v-for="m in sourceModelOptions" :key="m" :value="m" /></datalist>
+                        <ArrowRight class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <Input v-model="newModelMapping.target" class="h-7 flex-1 font-mono text-xs" placeholder="target" :list="targetModelOptions.length ? 'target-models-new' : undefined" @keydown.enter.prevent="addModelMappingRow" />
+                        <datalist v-if="targetModelOptions.length" id="target-models-new">
+                          <option v-for="m in targetModelOptions" :key="m" :value="m" />
+                        </datalist>
+                        <Select v-if="supportsOpenAIAdvanced" :model-value="toSelectValue(newModelMapping.reasoning)" @update:model-value="newModelMapping.reasoning = fromSelectValue($event) as ReasoningEffort | ''">
+                          <SelectTrigger class="h-7 w-28 text-xs"><SelectValue :placeholder="tf('console.form.reasoningEffort', '思考强度')" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="outline" size="sm" :disabled="!newModelMapping.source.trim() || !newModelMapping.target.trim()" @click="addModelMappingRow">
+                          <Plus class="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
