@@ -507,20 +507,28 @@ export interface ChannelSequenceEntry {
   channelName: string
 }
 
+export interface ConversationChannelInfo {
+  index: number
+  name: string
+  priority: number
+  status: string
+  circuitOpen?: boolean
+}
+
 export interface SequenceOverrideInfo {
   sequence: ChannelSequenceEntry[]
   setAt: string
-  expiresAt?: string
+  expiresAt: string
 }
 
 export interface ConversationInfo {
   id: string
-  kind: string
+  kind: 'messages' | 'responses' | 'chat' | 'gemini' | 'images'
   userId: string
-  rawUserId: string
-  title: string
-  currentChannel: string
-  status: string
+  rawUserId?: string
+  title?: string
+  currentChannel: number
+  status: 'active' | 'streaming' | 'idle'
   models: string[]
   lastModel: string
   requestCount: number
@@ -533,7 +541,7 @@ export interface ConversationInfo {
 export interface ConversationsResponse {
   conversations: ConversationInfo[]
   total: number
-  channelsByKind: Record<string, ChannelSequenceEntry[]>
+  channelsByKind?: Record<string, ConversationChannelInfo[]>
   overrides: Record<string, SequenceOverrideInfo>
 }
 

@@ -1,74 +1,620 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import type { ConversationInfo, SequenceOverrideInfo, ChannelSequenceEntry } from '@/services/admin-api'
+import { ArrowDown, Check, Copy } from 'lucide-vue-next'
+import { useLanguage } from '@/composables/useLanguage'
+import type {
+  ChannelSequenceEntry,
+  ConversationChannelInfo,
+  ConversationInfo,
+  SequenceOverrideInfo,
+} from '@/services/admin-api'
 
-interface Props {
-  conversation: ConversationInfo
-  override?: SequenceOverrideInfo
-  channelsByKind?: ChannelSequenceEntry[]
+interface ChannelInfo {
+  index: number
+  name: string
+  status: string
+  priority?: number
+  circuitOpen?: boolean
 }
 
-defineProps<Props>()
-
-defineEmits<{
-  (e: 'setOverride', id: string): void
-  (e: 'removeOverride', id: string): void
+const props = defineProps<{
+  conversation: ConversationInfo
+  override?: SequenceOverrideInfo
+  availableChannels: ConversationChannelInfo[]
+  expanded: boolean
+  nowMs: number
 }>()
 
-function formatTime(ts: string) {
+const emit = defineEmits<{
+  toggleExpand: []
+  setOverride: [conversationId: string, sequence: ChannelSequenceEntry[]]
+  removeOverride: [conversationId: string]
+  success: [message: string]
+  error: [message: string]
+}>()
+
+const { tf } = useLanguage()
+const MAX_VISIBLE = 6
+
+const conversation = computed(() => props.conversation)
+const hasOverride = computed(() => !!props.override)
+const kindLabel = computed(() => `[ ${props.conversation.kind.toUpperCase()} ]`)
+
+const kindStyle = computed(() => {
+  switch (props.conversation.kind) {
+    case 'messages': return { color: '#a855f7', chip: 'border-purple-500/60 text-purple-500 bg-purple-500/10' }
+    case 'chat': return { color: '#3b82f6', chip: 'border-blue-500/60 text-blue-500 bg-blue-500/10' }
+    case 'responses': return { color: '#14b8a6', chip: 'border-teal-500/60 text-teal-500 bg-teal-500/10' }
+    case 'gemini': return { color: '#f97316', chip: 'border-orange-500/60 text-orange-500 bg-orange-500/10' }
+    case 'images': return { color: '#ec4899', chip: 'border-pink-500/60 text-pink-500 bg-pink-500/10' }
+    default: return { color: 'var(--color-foreground)', chip: 'border-border text-muted-foreground bg-muted/20' }
+  }
+})
+
+const displayLabel = computed(() => props.conversation.title || props.conversation.userId)
+const tooltipText = computed(() => props.conversation.title || props.conversation.userId)
+
+const duration = computed(() => {
+  const start = new Date(props.conversation.createdAt).getTime()
+  if (!Number.isFinite(start)) return '<1m'
+  const mins = Math.floor((props.nowMs - start) / 60000)
+  if (mins < 1) return '<1m'
+  if (mins < 60) return `${mins}m`
+  return `${Math.floor(mins / 60)}h${mins % 60}m`
+})
+
+const remainingTime = computed(() => {
+  if (!props.override?.expiresAt) return '--:--'
+  const expires = new Date(props.override.expiresAt).getTime()
+  if (!Number.isFinite(expires)) return '--:--'
+  const remaining = Math.max(0, expires - props.nowMs)
+  const mins = Math.floor(remaining / 60000)
+  const secs = Math.floor((remaining % 60000) / 1000)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+})
+
+const normalizedAvailableChannels = computed<ChannelInfo[]>(() => {
+  return props.availableChannels
+    .map(channel => ({
+      index: channel.index,
+      name: channel.name,
+      status: channel.status || 'active',
+      priority: channel.priority,
+      circuitOpen: channel.circuitOpen,
+    }))
+    .sort((a, b) => ((a.priority ?? a.index) - (b.priority ?? b.index)) || (a.index - b.index))
+})
+
+const fallbackChannels = computed((): ChannelInfo[] => {
+  const channels: ChannelInfo[] = []
+  const pushUnique = (channel: ChannelInfo) => {
+    if (!channels.some(item => item.index === channel.index)) channels.push(channel)
+  }
+
+  if (props.override?.sequence) {
+    for (const entry of props.override.sequence) {
+      pushUnique({
+        index: entry.channelIndex,
+        name: entry.channelName || `Channel ${entry.channelIndex}`,
+        status: 'active',
+      })
+    }
+  }
+
+  pushUnique({
+    index: props.conversation.currentChannel,
+    name: props.conversation.channelName || `Channel ${props.conversation.currentChannel}`,
+    status: 'active',
+  })
+
+  return channels
+})
+
+const channelSequence = computed((): ChannelInfo[] => {
+  if (props.override?.sequence?.length) {
+    return props.override.sequence.map(entry => {
+      const channel = normalizedAvailableChannels.value.find(item => item.index === entry.channelIndex)
+      return {
+        index: entry.channelIndex,
+        name: entry.channelName || channel?.name || `Channel ${entry.channelIndex}`,
+        status: channel?.status || 'active',
+        priority: channel?.priority,
+        circuitOpen: channel?.circuitOpen,
+      }
+    })
+  }
+
+  const channels = normalizedAvailableChannels.value.filter(channel => channel.status !== 'disabled')
+  return channels.length > 0 ? channels : fallbackChannels.value
+})
+
+const currentChannelInfo = computed(() => {
+  const existing = channelSequence.value.find(channel => channel.index === props.conversation.currentChannel)
+    ?? normalizedAvailableChannels.value.find(channel => channel.index === props.conversation.currentChannel)
+  if (existing) return existing
+  return {
+    index: props.conversation.currentChannel,
+    name: props.conversation.channelName || `Channel ${props.conversation.currentChannel}`,
+    status: 'active',
+  }
+})
+
+const nextChannel = computed(() => {
+  const candidate = props.override?.sequence?.[0]?.channelIndex
+  return candidate !== undefined && candidate !== props.conversation.currentChannel ? candidate : undefined
+})
+
+const nextChannelInfo = computed(() => {
+  if (nextChannel.value === undefined) return undefined
+  const existing = channelSequence.value.find(channel => channel.index === nextChannel.value)
+    ?? normalizedAvailableChannels.value.find(channel => channel.index === nextChannel.value)
+  if (existing) return existing
+  const entry = props.override?.sequence?.[0]
+  return {
+    index: nextChannel.value,
+    name: entry?.channelName || `Channel ${nextChannel.value}`,
+    status: 'active',
+  }
+})
+
+const nextChannelCircuitOpen = computed(() => nextChannelInfo.value?.circuitOpen === true)
+
+const visibleChannels = computed(() => {
+  const result: ChannelInfo[] = []
+  const required = [currentChannelInfo.value, nextChannelInfo.value].filter((channel): channel is ChannelInfo => !!channel)
+  const requiredIndexes = new Set(required.map(channel => channel.index))
+  const pushUnique = (channel?: ChannelInfo) => {
+    if (!channel || result.some(item => item.index === channel.index)) return
+    result.push(channel)
+  }
+
+  for (const channel of channelSequence.value) {
+    if (result.length >= MAX_VISIBLE) break
+    pushUnique(channel)
+  }
+
+  for (const channel of required) {
+    if (result.some(item => item.index === channel.index)) continue
+    if (result.length >= MAX_VISIBLE) {
+      let removeIndex = result.length - 1
+      for (let i = result.length - 1; i >= 0; i--) {
+        if (!requiredIndexes.has(result[i].index)) {
+          removeIndex = i
+          break
+        }
+      }
+      result.splice(removeIndex, 1)
+    }
+    pushUnique(channel)
+  }
+
+  return result
+})
+
+const hiddenCount = computed(() => Math.max(0, channelSequence.value.length - visibleChannels.value.length))
+
+function isDemoted(index: number): boolean {
+  if (!props.override) return false
+  return index >= channelSequence.value.length - 1
+}
+
+function buildSequence(channels: ChannelInfo[]): ChannelSequenceEntry[] {
+  return channels.map(channel => ({
+    channelIndex: channel.index,
+    channelName: channel.name,
+  }))
+}
+
+function getChannelTooltip(channel: ChannelInfo): string {
+  if (channel.index === props.conversation.currentChannel && !hasOverride.value) return 'Current channel'
+  if (channel.index === nextChannel.value) return 'Next override target'
+  return 'Click to set as next'
+}
+
+function channelChipClass(channel: ChannelInfo): string {
+  if (channel.index === props.conversation.currentChannel) {
+    return 'border-primary bg-primary text-primary-foreground shadow-sm'
+  }
+  if (channel.index === nextChannel.value) {
+    return nextChannelCircuitOpen.value
+      ? 'next-channel-chip border-red-500 bg-red-500 text-white'
+      : 'next-channel-chip border-emerald-500 bg-emerald-500 text-white'
+  }
+  return 'border-border bg-background/50 text-foreground hover:border-primary/40 hover:bg-accent/30'
+}
+
+function sequenceBadgeClass(channel: ChannelInfo): string {
+  if (channel.index === props.conversation.currentChannel) return 'bg-primary text-primary-foreground'
+  if (channel.index === nextChannel.value) return nextChannelCircuitOpen.value ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'
+  return 'border border-border bg-muted/30 text-muted-foreground'
+}
+
+function fusedBadgeClass(channel: ChannelInfo): string {
+  return channel.status === 'suspended' ? 'fused-chip text-white' : 'bg-red-500 text-white'
+}
+
+function handleQuickOverride(channel: ChannelInfo) {
+  if (!hasOverride.value && channel.index === props.conversation.currentChannel) return
+  const rest = channelSequence.value.filter(item => item.index !== channel.index)
+  emit('setOverride', props.conversation.id, buildSequence([channel, ...rest]))
+}
+
+function handleMoveToTop(channel: ChannelInfo, currentIndex: number) {
+  if (currentIndex === 0) return
+  const current = [...channelSequence.value]
+  const [item] = current.splice(currentIndex, 1)
+  current.unshift(item)
+  emit('setOverride', props.conversation.id, buildSequence(current))
+}
+
+function handleDemote(index: number) {
+  const current = [...channelSequence.value]
+  if (index >= current.length - 1) return
+  const [item] = current.splice(index, 1)
+  current.push(item)
+  emit('setOverride', props.conversation.id, buildSequence(current))
+}
+
+async function copyRawUserId() {
+  if (!props.conversation.rawUserId) return
   try {
-    const d = new Date(ts)
-    const now = Date.now()
-    const diff = now - d.getTime()
-    if (diff < 60000) return '刚刚'
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-    return d.toLocaleDateString()
+    await navigator.clipboard.writeText(props.conversation.rawUserId)
+    emit('success', tf('cockpit.rawUserIdCopied', '对话 ID 已复制'))
   } catch {
-    return ts
+    emit('error', tf('cockpit.rawUserIdCopyFailed', '复制失败'))
   }
 }
 </script>
 
 <template>
-  <div class="border border-border rounded-lg p-4 bg-card hover:bg-accent/30 transition-colors space-y-3">
-    <div class="flex items-start justify-between gap-4">
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-sm font-medium truncate">{{ conversation.title || conversation.id }}</span>
-          <Badge variant="secondary" class="text-[10px] shrink-0">{{ conversation.kind }}</Badge>
-          <Badge v-if="override" variant="default" class="text-[10px] shrink-0">Override</Badge>
-        </div>
-        <div class="text-xs text-muted-foreground space-y-0.5">
-          <p>用户: {{ conversation.userId }} | 模型: {{ conversation.lastModel }}</p>
-          <p>请求数: {{ conversation.requestCount }} | 频道: {{ conversation.currentChannel }}</p>
-          <p>最后活跃: {{ formatTime(conversation.lastActiveAt) }}</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-1.5 shrink-0">
-        <Button
-          v-if="!override"
-          variant="outline"
-          size="sm"
-          @click="$emit('setOverride', conversation.id)"
-        >
-          覆盖频道
-        </Button>
-        <Button
-          v-else
-          variant="destructive"
-          size="sm"
-          @click="$emit('removeOverride', conversation.id)"
-        >
-          移除覆盖
+  <div
+    class="conversation-card border bg-card/85 p-4 text-card-foreground"
+    :class="{ 'override-active': hasOverride }"
+    :style="{ '--ccx-kind-color': kindStyle.color }"
+    role="button"
+    tabindex="0"
+    :aria-expanded="expanded"
+    @click="emit('toggleExpand')"
+    @keydown.enter.prevent="emit('toggleExpand')"
+    @keydown.space.prevent="emit('toggleExpand')"
+  >
+    <!-- Row 1: LED + Kind + Title/User + Stats -->
+    <div class="mb-3 flex min-w-0 items-center gap-2">
+      <span class="status-led" :class="`status-led--${conversation.status}`" />
+      <span class="kind-chip border px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em]" :class="kindStyle.chip">
+        {{ kindLabel }}
+      </span>
+      <span class="display-label min-w-0 flex-1 font-mono text-xs text-muted-foreground" :title="tooltipText">
+        <span class="display-label-text">{{ displayLabel }}</span>
+      </span>
+      <span class="shrink-0 text-xs text-muted-foreground">{{ conversation.requestCount }}x</span>
+      <span class="shrink-0 text-xs text-muted-foreground">{{ duration }}</span>
+    </div>
+
+    <!-- Row 2: Model + Channel chips (collapsed) -->
+    <div v-if="!expanded" class="flex flex-wrap items-center gap-2">
+      <span class="mr-2 min-w-0 max-w-full truncate text-sm font-medium">{{ conversation.lastModel }}</span>
+      <button
+        v-for="channel in visibleChannels"
+        :key="channel.index"
+        type="button"
+        :title="getChannelTooltip(channel)"
+        class="channel-chip inline-flex max-w-[160px] items-center gap-1 truncate border px-2 py-0.5 text-[10px] font-medium transition-colors"
+        :class="channelChipClass(channel)"
+        @click.stop="handleQuickOverride(channel)"
+      >
+        <span class="truncate">{{ channel.name }}</span>
+        <Check v-if="channel.index === conversation.currentChannel" class="h-2.5 w-2.5 shrink-0" />
+        <span v-else-if="channel.index === nextChannel" class="next-label shrink-0">
+          | {{ nextChannelCircuitOpen ? 'FUSED' : 'NEXT' }}
+        </span>
+      </button>
+      <button
+        v-if="hiddenCount > 0"
+        type="button"
+        class="px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+        @click.stop="emit('toggleExpand')"
+      >
+        +{{ hiddenCount }}
+      </button>
+    </div>
+
+    <!-- Expanded: Override alert -->
+    <div v-if="expanded && hasOverride" class="override-alert mt-3 border border-amber-500/70 bg-amber-500/10 p-2">
+      <div class="flex items-center gap-2">
+        <span class="alert-bang">[!]</span>
+        <span class="text-xs text-amber-600 dark:text-amber-400">
+          {{ tf('cockpit.overrideActive', '正在使用自定义渠道顺序，{time} 后自动恢复默认调度', { time: remainingTime }) }}
+        </span>
+        <div class="flex-1" />
+        <Button variant="ghost" size="sm" class="h-6 px-2 text-xs" @click.stop="emit('removeOverride', conversation.id)">
+          {{ tf('cockpit.restoreDefault', '恢复默认顺序') }}
         </Button>
       </div>
     </div>
-    <div v-if="override" class="text-xs text-muted-foreground bg-muted/50 rounded p-2">
-      <p class="font-medium mb-1">当前覆盖序列:</p>
-      <p>{{ override.sequence.map(s => s.channelName).join(' → ') }}</p>
+
+    <!-- Expanded: Full channel sequence -->
+    <div v-if="expanded" class="mt-3">
+      <div class="mb-1 text-xs text-muted-foreground">{{ conversation.lastModel }}</div>
+      <div class="channel-sequence" @click.stop>
+        <div
+          v-for="(channel, index) in channelSequence"
+          :key="channel.index"
+          class="channel-item channel-item-animated flex items-center gap-1 border-b border-border/60 px-2 py-1.5 last:border-b-0"
+          :class="{ demoted: isDemoted(index) }"
+          :style="{ animationDelay: `${Math.min(index, 12) * 35}ms` }"
+        >
+          <span class="seq-num">{{ String(index + 1).padStart(2, '0') }}</span>
+          <span class="seq-arrow">→</span>
+          <button
+            type="button"
+            class="channel-name min-w-0 flex-1 truncate text-left text-xs"
+            @click.stop="handleMoveToTop(channel, index)"
+          >
+            {{ channel.name }}
+          </button>
+          <span
+            v-if="channel.index === conversation.currentChannel"
+            class="sequence-badge"
+            :class="sequenceBadgeClass(channel)"
+          >
+            CURRENT
+          </span>
+          <span
+            v-else-if="channel.index === nextChannel"
+            class="sequence-badge"
+            :class="sequenceBadgeClass(channel)"
+          >
+            {{ nextChannelCircuitOpen ? 'FUSED' : 'NEXT' }}
+          </span>
+          <span
+            v-if="channel.status === 'suspended' || channel.circuitOpen"
+            class="sequence-badge"
+            :class="fusedBadgeClass(channel)"
+          >
+            FUSED
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="h-6 w-6"
+            :disabled="index === channelSequence.length - 1"
+            @click.stop="handleDemote(index)"
+          >
+            <ArrowDown class="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      <div class="mt-1 text-right">
+        <Button variant="ghost" size="sm" class="h-6 px-2 text-xs" @click.stop="emit('toggleExpand')">
+          Collapse
+        </Button>
+      </div>
+    </div>
+
+    <!-- Row 3: Raw User ID -->
+    <div v-if="conversation.rawUserId" class="raw-user-id mt-2 flex items-center gap-1 border-t border-dashed border-border pt-2">
+      <button
+        type="button"
+        class="raw-user-id-text min-w-0 flex-1 truncate text-left font-mono text-xs text-muted-foreground"
+        @click.stop="copyRawUserId"
+      >
+        {{ conversation.rawUserId }}
+      </button>
+      <Button variant="ghost" size="icon-sm" class="copy-btn h-6 w-6" aria-label="Copy conversation ID" @click.stop="copyRawUserId">
+        <Copy class="h-3 w-3" />
+      </Button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.conversation-card {
+  cursor: pointer;
+  position: relative;
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--color-foreground) 55%, transparent);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 color-mix(in srgb, var(--color-foreground) 80%, transparent);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--color-foreground) 12%, transparent) 1px, transparent 1px) 0 0 / 16px 16px,
+    var(--color-card);
+  transition: all 0.1s ease;
+}
+
+.conversation-card::before,
+.conversation-card::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.conversation-card::before {
+  left: 6px;
+  top: 6px;
+  border-left: 2px solid var(--ccx-kind-color);
+  border-top: 2px solid var(--ccx-kind-color);
+}
+
+.conversation-card::after {
+  right: 6px;
+  bottom: 6px;
+  border-bottom: 2px solid var(--ccx-kind-color);
+  border-right: 2px solid var(--ccx-kind-color);
+}
+
+.conversation-card:hover {
+  border-color: var(--ccx-kind-color);
+  box-shadow: 5px 5px 0 0 var(--ccx-kind-color);
+  transform: translate(-1px, -1px);
+}
+
+.conversation-card:active {
+  box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--color-foreground) 80%, transparent);
+  transform: translate(1px, 1px);
+}
+
+.conversation-card.override-active {
+  border-color: var(--color-warning);
+  box-shadow: 4px 4px 0 0 var(--color-warning);
+}
+
+.conversation-card.override-active:hover {
+  border-color: var(--color-warning);
+  box-shadow: 5px 5px 0 0 var(--color-warning);
+}
+
+.status-led {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.status-led--streaming {
+  background: #22d3ee;
+  animation: ccx-led-pulse 1.4s ease-in-out infinite;
+}
+
+.status-led--active {
+  background: #10b981;
+  box-shadow: 0 0 4px 1px rgba(16, 185, 129, 0.45);
+}
+
+.status-led--idle {
+  background: var(--color-muted-foreground);
+}
+
+.kind-chip,
+.channel-chip,
+.sequence-badge {
+  border-radius: 0;
+}
+
+.display-label-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.next-label {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.next-channel-chip {
+  animation: ccx-breathe 2s ease-in-out infinite;
+}
+
+.channel-sequence {
+  max-height: calc(20 * 40px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  overscroll-behavior: auto;
+}
+
+.channel-item-animated {
+  animation: ccx-slide-in 0.18s ease both;
+}
+
+.channel-item.demoted {
+  opacity: 0.5;
+}
+
+.seq-num {
+  min-width: 2.5ch;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.5;
+}
+
+.seq-arrow {
+  font-size: 10px;
+  opacity: 0.35;
+}
+
+.channel-name:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.sequence-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.fused-chip {
+  border: none;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(239, 68, 68, 0.9) 0,
+    rgba(239, 68, 68, 0.9) 4px,
+    rgba(127, 29, 29, 0.9) 4px,
+    rgba(127, 29, 29, 0.9) 8px
+  );
+}
+
+.override-alert {
+  border-radius: 0;
+}
+
+.alert-bang {
+  color: var(--color-warning);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  animation: ccx-alert-blink 0.8s step-end infinite;
+}
+
+.raw-user-id {
+  opacity: 0.65;
+}
+
+.raw-user-id:hover {
+  opacity: 0.95;
+}
+
+.copy-btn {
+  opacity: 0.55;
+}
+
+.raw-user-id:hover .copy-btn {
+  opacity: 1;
+}
+
+@keyframes ccx-led-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 5px rgba(34, 211, 238, 0.55); }
+  50% { opacity: 0.4; box-shadow: 0 0 12px rgba(34, 211, 238, 0.9); }
+}
+
+@keyframes ccx-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes ccx-slide-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ccx-alert-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+</style>

@@ -4,13 +4,14 @@ import type {
   ConversationInfo,
   ConversationsResponse,
   ChannelSequenceEntry,
+  ConversationChannelInfo,
   SequenceOverrideInfo,
 } from '@/services/admin-api'
 
 // Module-level singletons
 const conversations = ref<ConversationInfo[]>([])
 const total = ref(0)
-const channelsByKind = ref<Record<string, ChannelSequenceEntry[]>>({})
+const channelsByKind = ref<Record<string, ConversationChannelInfo[]>>({})
 const overrides = ref<Record<string, SequenceOverrideInfo>>({})
 const loading = ref(false)
 const error = ref('')
@@ -31,7 +32,7 @@ export function useConversations() {
       const data = await api.get<ConversationsResponse>(`/api/conversations${params}`)
       conversations.value = data.conversations
       total.value = data.total
-      channelsByKind.value = data.channelsByKind
+      channelsByKind.value = data.channelsByKind || {}
       overrides.value = data.overrides
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
