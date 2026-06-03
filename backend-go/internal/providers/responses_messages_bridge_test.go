@@ -18,7 +18,7 @@ func TestResponsesProvider_BuildResponsesRequestFromClaude(t *testing.T) {
 	upstream := &config.UpstreamConfig{
 		ServiceType: "responses",
 		ModelMapping: map[string]string{
-			"gpt-5": "gpt-5.2",
+			"gpt-5": "gpt-5.4",
 		},
 	}
 
@@ -41,8 +41,8 @@ func TestResponsesProvider_BuildResponsesRequestFromClaude(t *testing.T) {
 		t.Fatalf("buildResponsesRequestFromClaude() err = %v", err)
 	}
 
-	if result["model"] != "gpt-5.2" {
-		t.Fatalf("model = %v, want gpt-5.2", result["model"])
+	if result["model"] != "gpt-5.4" {
+		t.Fatalf("model = %v, want gpt-5.4", result["model"])
 	}
 	if result["instructions"] != "you are helpful" {
 		t.Fatalf("instructions = %v, want you are helpful", result["instructions"])

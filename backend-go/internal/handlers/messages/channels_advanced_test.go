@@ -16,7 +16,7 @@ func TestGetUpstreams_IncludesAdvancedOptionFields(t *testing.T) {
 		ServiceType:      "responses",
 		BaseURL:          "https://api.example.com",
 		APIKeys:          []string{"sk-1"},
-		ModelMapping:     map[string]string{"gpt-5": "gpt-5.2"},
+		ModelMapping:     map[string]string{"gpt-5": "gpt-5.4"},
 		ReasoningMapping: map[string]string{"gpt-5": "high"},
 		TextVerbosity:    "medium",
 		FastMode:         true,

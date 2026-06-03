@@ -27,7 +27,7 @@ func TestResponsesEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 			path:            "/v1/responses",
 			body:            `{"model":"gpt-5","input":"hello","stream":true}`,
 			expectedURL:     "https://api.example.com/v1/responses",
-			expectedModel:   "gpt-5.2",
+			expectedModel:   "gpt-5.4",
 			expectFieldPath: "input",
 		},
 		{
@@ -45,7 +45,7 @@ func TestResponsesEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 			path:            "/v1/responses",
 			body:            `{"model":"gpt-5","input":"hello","stream":false}`,
 			expectedURL:     "https://api.example.com/v1/chat/completions",
-			expectedModel:   "gpt-5.2",
+			expectedModel:   "gpt-5.4",
 			expectFieldPath: "messages",
 		},
 		{
@@ -53,8 +53,8 @@ func TestResponsesEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 			serviceType:     "gemini",
 			path:            "/v1/responses",
 			body:            `{"model":"gpt-5","input":"hello","stream":false}`,
-			expectedURL:     "https://api.example.com/v1beta/models/gpt-5.2:generateContent",
-			expectedModel:   "gpt-5.2",
+			expectedURL:     "https://api.example.com/v1beta/models/gpt-5.4:generateContent",
+			expectedModel:   "gpt-5.4",
 			expectFieldPath: "contents",
 		},
 		{
@@ -63,7 +63,7 @@ func TestResponsesEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 			path:            "/v1/responses",
 			body:            `{"model":"gpt-5","input":"hello"}`,
 			expectedURL:     "https://core.blink.new/api/v1/ai/chat/completions",
-			expectedModel:   "gpt-5.2",
+			expectedModel:   "gpt-5.4",
 			expectFieldPath: "messages",
 		},
 	}

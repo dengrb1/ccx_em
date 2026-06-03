@@ -17,7 +17,7 @@ func TestOpenAIProvider_InjectsModelLevelReasoningAndChannelLevelOptions(t *test
 		BaseURL:     "https://api.example.com",
 		ServiceType: "openai",
 		ModelMapping: map[string]string{
-			"gpt-5.1-codex": "gpt-5.2-codex",
+			"gpt-5.1-codex": "gpt-5.4-mini",
 		},
 		ReasoningMapping: map[string]string{
 			"gpt-5.1-codex": "xhigh",
@@ -37,8 +37,8 @@ func TestOpenAIProvider_InjectsModelLevelReasoningAndChannelLevelOptions(t *test
 		t.Fatalf("decode request body: %v", err)
 	}
 
-	if got := body["model"]; got != "gpt-5.2-codex" {
-		t.Fatalf("model = %v, want gpt-5.2-codex", got)
+	if got := body["model"]; got != "gpt-5.4-mini" {
+		t.Fatalf("model = %v, want gpt-5.4-mini", got)
 	}
 
 	reasoning, ok := body["reasoning"].(map[string]interface{})
@@ -63,7 +63,7 @@ func TestResponsesProvider_PassthroughInjectsModelLevelReasoningAndChannelLevelO
 		BaseURL:     "https://api.example.com",
 		ServiceType: "responses",
 		ModelMapping: map[string]string{
-			"gpt-5": "gpt-5.2",
+			"gpt-5": "gpt-5.4",
 		},
 		ReasoningMapping: map[string]string{
 			"gpt-5": "high",
@@ -83,8 +83,8 @@ func TestResponsesProvider_PassthroughInjectsModelLevelReasoningAndChannelLevelO
 		t.Fatalf("decode request body: %v", err)
 	}
 
-	if got := body["model"]; got != "gpt-5.2" {
-		t.Fatalf("model = %v, want gpt-5.2", got)
+	if got := body["model"]; got != "gpt-5.4" {
+		t.Fatalf("model = %v, want gpt-5.4", got)
 	}
 
 	reasoning, ok := body["reasoning"].(map[string]interface{})

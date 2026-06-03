@@ -21,7 +21,7 @@ func TestBuildProviderRequest_InjectsReasoningBeforeModelRedirect(t *testing.T) 
 	upstream := &config.UpstreamConfig{
 		ServiceType: "openai",
 		ModelMapping: map[string]string{
-			"gpt-5.1-codex": "gpt-5.2-codex",
+			"gpt-5.1-codex": "gpt-5.4-mini",
 		},
 		ReasoningMapping: map[string]string{
 			"gpt-5.1-codex": "xhigh",
@@ -40,8 +40,8 @@ func TestBuildProviderRequest_InjectsReasoningBeforeModelRedirect(t *testing.T) 
 		t.Fatalf("decode request body: %v", err)
 	}
 
-	if got["model"] != "gpt-5.2-codex" {
-		t.Fatalf("model = %v, want gpt-5.2-codex", got["model"])
+	if got["model"] != "gpt-5.4-mini" {
+		t.Fatalf("model = %v, want gpt-5.4-mini", got["model"])
 	}
 
 	reasoning, ok := got["reasoning"].(map[string]interface{})

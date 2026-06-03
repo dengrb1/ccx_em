@@ -405,7 +405,7 @@ func TestVirtualProtocolSnapshot_InitialState(t *testing.T) {
 		ServiceType: "openai",
 		ModelMapping: map[string]string{
 			"claude-sonnet-4-6":         "gpt-5.5",
-			"claude-haiku-4-5-20251001": "gpt-5.3-codex",
+			"claude-haiku-4-5-20251001": "gpt-5.4-mini",
 		},
 		APIKeys: []string{"test-key"},
 	}

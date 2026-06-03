@@ -249,24 +249,6 @@
                       gpt-5.4
                     </v-btn>
                     <v-btn
-                      size="small"
-                      variant="tonal"
-                      color="secondary"
-                      prepend-icon="mdi-lightning-bolt"
-                      @click="applyModelMappingPreset('gpt-5.3-codex')"
-                    >
-                     gpt-5.3-codex
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      variant="tonal"
-                      color="secondary"
-                      prepend-icon="mdi-lightning-bolt"
-                      @click="applyModelMappingPreset('gpt-5.2-codex')"
-                    >
-                      gpt-5.2 / gpt-5.2-codex
-                    </v-btn>
-                    <v-btn
                       v-if="showMessagesOpenAIChannelPresets"
                       size="small"
                       variant="tonal"
@@ -1511,9 +1493,6 @@ const allSourceModelOptions = computed(() => {
       { title: 'gpt-5.5', value: 'gpt-5.5' },
       { title: 'gpt-5.4', value: 'gpt-5.4' },
       { title: 'gpt-5.4-mini', value: 'gpt-5.4-mini' },
-      { title: 'gpt-5.3-codex', value: 'gpt-5.3-codex' },
-      { title: 'gpt-5.2-codex', value: 'gpt-5.2-codex' },
-      { title: 'gpt-5.2', value: 'gpt-5.2' }
     ]
   }
   if (props.channelType === 'images') {
@@ -1549,9 +1528,6 @@ const allSourceModelOptions = computed(() => {
       { title: 'gpt-5.5', value: 'gpt-5.5' },
       { title: 'gpt-5.4', value: 'gpt-5.4' },
       { title: 'gpt-5.4-mini', value: 'gpt-5.4-mini' },
-      { title: 'gpt-5.3-codex', value: 'gpt-5.3-codex' },
-      { title: 'gpt-5.2-codex', value: 'gpt-5.2-codex' },
-      { title: 'gpt-5.2', value: 'gpt-5.2' }
     ]
   } else {
     // Messages API (Claude) 常用模型别名
@@ -1641,7 +1617,7 @@ const showMessagesOpenAIChannelPresets = computed(() => {
 const modelNameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 
 const modelMappingPresets: Record<
-  'gpt-5.5' | 'gpt-5.4' | 'gpt-5.3-codex' | 'gpt-5.2-codex',
+  'gpt-5.5' | 'gpt-5.4',
   {
     modelMapping: Record<string, string>
     reasoningMapping: Record<string, 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'>
@@ -1653,7 +1629,7 @@ const modelMappingPresets: Record<
     modelMapping: {
       opus: 'gpt-5.5',
       sonnet: 'gpt-5.4',
-      haiku: 'gpt-5.3-codex'
+      haiku: 'gpt-5.4-mini'
     },
     reasoningMapping: {
       opus: 'xhigh',
@@ -1667,35 +1643,7 @@ const modelMappingPresets: Record<
     modelMapping: {
       opus: 'gpt-5.4',
       sonnet: 'gpt-5.4',
-      haiku: 'gpt-5.3-codex'
-    },
-    reasoningMapping: {
-      opus: 'xhigh',
-      sonnet: 'xhigh',
-      haiku: 'high'
-    },
-    fastMode: true,
-    textVerbosity: 'medium'
-  },
-  'gpt-5.3-codex': {
-    modelMapping: {
-      opus: 'gpt-5.3-codex',
-      sonnet: 'gpt-5.3-codex',
-      haiku: 'gpt-5.3-codex'
-    },
-    reasoningMapping: {
-      opus: 'xhigh',
-      sonnet: 'xhigh',
-      haiku: 'high'
-    },
-    fastMode: true,
-    textVerbosity: 'medium'
-  },
-  'gpt-5.2-codex': {
-    modelMapping: {
-      opus: 'gpt-5.2',
-      sonnet: 'gpt-5.2-codex',
-      haiku: 'gpt-5.2-codex'
+      haiku: 'gpt-5.4-mini'
     },
     reasoningMapping: {
       opus: 'xhigh',

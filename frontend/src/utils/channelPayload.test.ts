@@ -17,7 +17,7 @@ describe('buildChannelPayload', () => {
       passbackThinkingBlocks: false,
       description: '  desc  ',
       apiKeys: ['sk-1', '  ', 'sk-2'],
-      modelMapping: { 'gpt-5': 'gpt-5.2' },
+      modelMapping: { 'gpt-5': 'gpt-5.4' },
       reasoningMapping: { 'gpt-5': 'max' },
       reasoningParamStyle: 'reasoning_effort',
       textVerbosity: 'medium',
@@ -43,7 +43,7 @@ describe('buildChannelPayload', () => {
     expect(result.website).toBe('https://platform.openai.com')
     expect(result.description).toBe('desc')
     expect(result.apiKeys).toEqual(['sk-1', 'sk-2'])
-    expect(result.modelMapping).toEqual({ 'gpt-5': 'gpt-5.2' })
+    expect(result.modelMapping).toEqual({ 'gpt-5': 'gpt-5.4' })
     expect(result.reasoningMapping).toEqual({ 'gpt-5': 'max' })
     expect(result.reasoningParamStyle).toBe('reasoning_effort')
     expect(result.textVerbosity).toBe('medium')

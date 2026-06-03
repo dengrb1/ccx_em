@@ -214,14 +214,12 @@ func TestBuildPayload(t *testing.T) {
 				"gpt-5.5":           "glm-5.1",
 				"gpt-5.4":           "deepseek-v4-pro",
 				"gpt-5.4-mini":      "deepseek-v4-flash",
-				"gpt-5.3-codex":     "deepseek-v4-flash",
 				"codex-auto-review": "deepseek-v4-flash",
 			},
 			wantReasoning: map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
+				"gpt-5.5":      "high",
+				"gpt-5.4":      "max",
+				"gpt-5.4-mini": "high",
 			},
 		},
 		{
@@ -235,14 +233,12 @@ func TestBuildPayload(t *testing.T) {
 				"gpt-5.5":           "glm-5.1",
 				"gpt-5.4":           "deepseek-v4-pro",
 				"gpt-5.4-mini":      "deepseek-v4-flash",
-				"gpt-5.3-codex":     "deepseek-v4-flash",
 				"codex-auto-review": "deepseek-v4-flash",
 			},
 			wantReasoning: map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
+				"gpt-5.5":      "high",
+				"gpt-5.4":      "max",
+				"gpt-5.4-mini": "high",
 			},
 		},
 		{
@@ -282,14 +278,12 @@ func TestBuildPayload(t *testing.T) {
 				"gpt-5.5":           "glm-5.1",
 				"gpt-5.4":           "deepseek-v4-pro",
 				"gpt-5.4-mini":      "deepseek-v4-flash",
-				"gpt-5.3-codex":     "deepseek-v4-flash",
 				"codex-auto-review": "deepseek-v4-flash",
 			},
 			wantReasoning: map[string]string{
-				"gpt-5.5":       "high",
-				"gpt-5.4":       "max",
-				"gpt-5.4-mini":  "high",
-				"gpt-5.3-codex": "high",
+				"gpt-5.5":      "high",
+				"gpt-5.4":      "max",
+				"gpt-5.4-mini": "high",
 			},
 		},
 		{
@@ -399,6 +393,32 @@ func TestBuildPayload(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestChannelTargetConfigsExcludeRetiredGPTModels(t *testing.T) {
+	retiredModels := map[string]struct{}{
+		"gpt-5.2":       {},
+		"gpt-5.2-codex": {},
+		"gpt-5.3-codex": {},
+	}
+
+	assertActiveModel := func(field string, provider string, target string, model string) {
+		if _, ok := retiredModels[model]; ok {
+			t.Fatalf("%s for %s/%s contains retired model %q", field, provider, target, model)
+		}
+	}
+
+	for target, providerConfigs := range channelTargetConfigs {
+		for provider, config := range providerConfigs {
+			for source, mapped := range config.ModelMapping {
+				assertActiveModel("ModelMapping source", provider, target, source)
+				assertActiveModel("ModelMapping target", provider, target, mapped)
+			}
+			for source := range config.ReasoningMapping {
+				assertActiveModel("ReasoningMapping source", provider, target, source)
+			}
+		}
 	}
 }
 

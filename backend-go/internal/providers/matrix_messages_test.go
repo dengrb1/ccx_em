@@ -39,7 +39,7 @@ func TestMessagesEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 			path:            "/v1/messages",
 			body:            `{"model":"sonnet","messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`,
 			expectedURL:     "https://api.example.com/v1/chat/completions",
-			expectedModel:   "gpt-5.2",
+			expectedModel:   "gpt-5.4",
 			expectFieldPath: "messages",
 		},
 		{
@@ -59,7 +59,7 @@ func TestMessagesEntry_RequestMatrix_AllFourUpstreams(t *testing.T) {
 			path:            "/v1/messages",
 			body:            `{"model":"sonnet","messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`,
 			expectedURL:     "https://api.example.com/v1/responses",
-			expectedModel:   "gpt-5.2",
+			expectedModel:   "gpt-5.4",
 			expectFieldPath: "input",
 		},
 	}
