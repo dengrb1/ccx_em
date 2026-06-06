@@ -12,6 +12,11 @@ const (
 )
 
 func DataDir() string {
+	if runtime.GOOS == "windows" {
+		if dir := windowsPackagedRoamingDir(); dir != "" {
+			return filepath.Join(dir, appDir)
+		}
+	}
 	if runtime.GOOS == "linux" {
 		if base := linuxStateBaseDir(); base != "" {
 			return filepath.Join(base, linuxAppDir)
