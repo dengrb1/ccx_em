@@ -1237,6 +1237,29 @@ func TestProcessStreamEvent_FlushesValidToolUse(t *testing.T) {
 	}
 }
 
+func TestProcessStreamEvent_LogsBufferedToolUseEvents(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	envCfg := &config.EnvConfig{Env: "development", EnableResponseLogs: true}
+	ctx := NewStreamContext(envCfg)
+
+	toolStart := "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_logged\",\"name\":\"Bash\",\"input\":{}}}\n\n"
+	toolDelta := "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"command\\\":\\\"ls\\\"}\"}}\n\n"
+	toolStop := "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+
+	ProcessStreamEvent(c, c.Writer, nopFlusher{}, toolStart, ctx, envCfg, nil)
+	ProcessStreamEvent(c, c.Writer, nopFlusher{}, toolDelta, ctx, envCfg, nil)
+	ProcessStreamEvent(c, c.Writer, nopFlusher{}, toolStop, ctx, envCfg, nil)
+
+	logged := ctx.LogBuffer.String()
+	for _, want := range []string{"toolu_logged", "input_json_delta", "content_block_stop"} {
+		if !strings.Contains(logged, want) {
+			t.Fatalf("expected raw stream log to include %q, got: %s", want, logged)
+		}
+	}
+}
+
 // TestProcessStreamEvent_MalformedAfterValidToolUse 验证有已透传 tool_use 后，畸形的不截断
 func TestProcessStreamEvent_MalformedAfterValidToolUse(t *testing.T) {
 	gin.SetMode(gin.TestMode)

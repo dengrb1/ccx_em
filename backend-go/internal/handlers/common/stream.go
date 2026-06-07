@@ -1255,6 +1255,8 @@ func ProcessStreamEvent(
 		}
 	}
 
+	recordRawStreamEvent(ctx, event)
+
 	// 如果已截断（注入了 end_turn），后续事件只消费不转发
 	if ctx.ToolUseTruncated {
 		// 仍需收集 usage 数据（下方正常路径会处理），但不转发给客户端
@@ -1348,16 +1350,6 @@ func ProcessStreamEvent(
 
 		if IsMessageDeltaEvent(event) {
 			ctx.HasMessageDeltaUsage = true
-		}
-	}
-
-	// 日志缓存
-	if ctx.LoggingEnabled {
-		ctx.LogBuffer.WriteString(event)
-		if ctx.Synthesizer != nil {
-			for _, line := range strings.Split(event, "\n") {
-				ctx.Synthesizer.ProcessLine(line)
-			}
 		}
 	}
 
@@ -1489,6 +1481,19 @@ func ProcessStreamEvent(
 		} else {
 			flusher.Flush()
 		}
+	}
+}
+
+func recordRawStreamEvent(ctx *StreamContext, event string) {
+	if ctx == nil || !ctx.LoggingEnabled {
+		return
+	}
+	ctx.LogBuffer.WriteString(event)
+	if ctx.Synthesizer == nil {
+		return
+	}
+	for _, line := range strings.Split(event, "\n") {
+		ctx.Synthesizer.ProcessLine(line)
 	}
 }
 
