@@ -78,6 +78,15 @@
                   </span>
                 </template>
                 <span v-else class="text-medium-emphasis log-meta">{{ formatDurationSeconds(log.durationMs) }}</span>
+                <span v-if="log.firstContentLatencyMs" class="text-medium-emphasis log-meta">
+                  {{ t('channelLogs.duration.firstContent') }} {{ formatDurationSeconds(log.firstContentLatencyMs) }}
+                </span>
+                <span v-if="log.maxStreamIdleMs" class="text-medium-emphasis log-meta">
+                  {{ t('channelLogs.duration.maxStreamIdle') }} {{ formatDurationSeconds(log.maxStreamIdleMs) }}
+                </span>
+                <span v-if="log.maxToolCallIdleMs" class="text-medium-emphasis log-meta">
+                  {{ t('channelLogs.duration.maxToolCallIdle') }} {{ formatDurationSeconds(log.maxToolCallIdleMs) }}
+                </span>
               </v-list-item-title>
             </v-list-item>
             <!-- 展开的错误详情 -->

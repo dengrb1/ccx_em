@@ -432,6 +432,9 @@ export interface ChannelLogEntry {
   connectedAt?: string
   firstByteAt?: string
   completedAt?: string
+  firstContentLatencyMs?: number
+  maxStreamIdleMs?: number
+  maxToolCallIdleMs?: number
 }
 
 export interface ChannelLogsResponse {

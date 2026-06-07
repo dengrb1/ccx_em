@@ -1078,6 +1078,28 @@
             </v-col>
 
             <!-- 流式超时覆盖 -->
+            <v-col cols="12">
+              <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-2">
+                <span class="section-title">{{ t('addChannel.streamTimeoutStrategyLabel') }}</span>
+                <span class="text-caption text-medium-emphasis">
+                  {{ selectedStreamTimeoutStrategy === 'inherit' ? t('addChannel.streamTimeoutInheritHint') : t('addChannel.streamTimeoutOverrideHint') }}
+                </span>
+              </div>
+              <v-btn-toggle
+                :model-value="selectedStreamTimeoutStrategy"
+                divided
+                variant="outlined"
+                density="comfortable"
+                class="stream-timeout-strategy-toggle"
+                @update:model-value="applyStreamTimeoutStrategy"
+              >
+                <v-btn value="inherit">{{ t('addChannel.streamTimeoutStrategyInherit') }}</v-btn>
+                <v-btn value="gentle">{{ t('dialog.circuitBreaker.presetGentle') }}</v-btn>
+                <v-btn value="balanced">{{ t('dialog.circuitBreaker.presetBalanced') }}</v-btn>
+                <v-btn value="aggressive">{{ t('dialog.circuitBreaker.presetAggressive') }}</v-btn>
+              </v-btn-toggle>
+            </v-col>
+
             <v-col cols="12" md="6">
               <v-card variant="tonal" class="pa-4 h-100">
                 <v-switch
@@ -2009,6 +2031,28 @@ const sortModelNamesDesc = (models: string[]): string[] => {
 }
 
 // 表单数据
+const defaultStreamTimeouts = {
+  firstContentMs: 30000,
+  inactivityMs: 20000,
+  toolCallIdleMs: 30000,
+} as const
+
+const streamTimeoutPresets = {
+  gentle: {
+    firstContentMs: 60000,
+    inactivityMs: 45000,
+    toolCallIdleMs: 45000,
+  },
+  balanced: defaultStreamTimeouts,
+  aggressive: {
+    firstContentMs: 15000,
+    inactivityMs: 10000,
+    toolCallIdleMs: 15000,
+  },
+} as const
+
+type StreamTimeoutPresetKey = keyof typeof streamTimeoutPresets
+
 const form = reactive({
   name: '',
   serviceType: '' as 'openai' | 'gemini' | 'claude' | 'responses' | '',
@@ -2034,11 +2078,11 @@ const form = reactive({
   proxyUrl: '',
   requestTimeoutMs: null as string | number | null,
   streamFirstContentTimeoutEnabled: false,
-  streamFirstContentTimeoutMs: 30000,
+  streamFirstContentTimeoutMs: defaultStreamTimeouts.firstContentMs as number,
   streamInactivityTimeoutEnabled: false,
-  streamInactivityTimeoutMs: 5000,
+  streamInactivityTimeoutMs: defaultStreamTimeouts.inactivityMs as number,
   streamToolCallIdleTimeoutEnabled: false,
-  streamToolCallIdleTimeoutMs: 3000,
+  streamToolCallIdleTimeoutMs: defaultStreamTimeouts.toolCallIdleMs as number,
   routePrefix: '',
   supportedModels: [] as string[],
   autoBlacklistBalance: true,
@@ -2253,6 +2297,44 @@ const dialogMode = ref<'create' | 'edit'>('create')
 const isEditing = computed(() => dialogMode.value === 'edit')
 const hasDisabledKeysAvailable = computed(() => visibleDisabledKeys.value.length > 0)
 const hasConfigurableKeys = computed(() => form.apiKeys.length > 0 || (isEditing.value && hasDisabledKeysAvailable.value))
+
+const selectedStreamTimeoutStrategy = computed(() => {
+  if (!form.streamFirstContentTimeoutEnabled && !form.streamInactivityTimeoutEnabled && !form.streamToolCallIdleTimeoutEnabled) {
+    return 'inherit'
+  }
+  for (const [key, preset] of Object.entries(streamTimeoutPresets) as Array<[StreamTimeoutPresetKey, typeof streamTimeoutPresets[StreamTimeoutPresetKey]]>) {
+    if (
+      form.streamFirstContentTimeoutEnabled
+      && form.streamInactivityTimeoutEnabled
+      && form.streamToolCallIdleTimeoutEnabled
+      && form.streamFirstContentTimeoutMs === preset.firstContentMs
+      && form.streamInactivityTimeoutMs === preset.inactivityMs
+      && form.streamToolCallIdleTimeoutMs === preset.toolCallIdleMs
+    ) {
+      return key
+    }
+  }
+  return 'custom'
+})
+
+const applyStreamTimeoutStrategy = (strategy: string | null) => {
+  if (!strategy) return
+  if (strategy === 'inherit') {
+    form.streamFirstContentTimeoutEnabled = false
+    form.streamInactivityTimeoutEnabled = false
+    form.streamToolCallIdleTimeoutEnabled = false
+    return
+  }
+
+  const preset = streamTimeoutPresets[strategy as StreamTimeoutPresetKey]
+  if (!preset) return
+  form.streamFirstContentTimeoutEnabled = true
+  form.streamFirstContentTimeoutMs = preset.firstContentMs
+  form.streamInactivityTimeoutEnabled = true
+  form.streamInactivityTimeoutMs = preset.inactivityMs
+  form.streamToolCallIdleTimeoutEnabled = true
+  form.streamToolCallIdleTimeoutMs = preset.toolCallIdleMs
+}
 
 const commonSupportedModelFilters = ['claude-*', 'gpt-5*', 'gpt-image-2', 'grok-4*', 'gemini-3*', '!*image*']
 
@@ -2480,11 +2562,11 @@ const resetForm = () => {
   form.proxyUrl = ''
   form.requestTimeoutMs = null
   form.streamFirstContentTimeoutEnabled = false
-  form.streamFirstContentTimeoutMs = 30000
+  form.streamFirstContentTimeoutMs = defaultStreamTimeouts.firstContentMs
   form.streamInactivityTimeoutEnabled = false
-  form.streamInactivityTimeoutMs = 5000
+  form.streamInactivityTimeoutMs = defaultStreamTimeouts.inactivityMs
   form.streamToolCallIdleTimeoutEnabled = false
-  form.streamToolCallIdleTimeoutMs = 3000
+  form.streamToolCallIdleTimeoutMs = defaultStreamTimeouts.toolCallIdleMs
   form.routePrefix = ''
   form.supportedModels = []
   supportedModelsError.value = ''
@@ -2559,11 +2641,11 @@ const loadChannelData = (channel: Channel) => {
   form.proxyUrl = channel.proxyUrl || ''
   form.requestTimeoutMs = channel.requestTimeoutMs || null
   form.streamFirstContentTimeoutEnabled = !!(channel.streamFirstContentTimeoutMs && channel.streamFirstContentTimeoutMs > 0)
-  form.streamFirstContentTimeoutMs = channel.streamFirstContentTimeoutMs && channel.streamFirstContentTimeoutMs > 0 ? channel.streamFirstContentTimeoutMs : 30000
+  form.streamFirstContentTimeoutMs = channel.streamFirstContentTimeoutMs && channel.streamFirstContentTimeoutMs > 0 ? channel.streamFirstContentTimeoutMs : defaultStreamTimeouts.firstContentMs
   form.streamInactivityTimeoutEnabled = !!(channel.streamInactivityTimeoutMs && channel.streamInactivityTimeoutMs > 0)
-  form.streamInactivityTimeoutMs = channel.streamInactivityTimeoutMs && channel.streamInactivityTimeoutMs > 0 ? channel.streamInactivityTimeoutMs : 5000
+  form.streamInactivityTimeoutMs = channel.streamInactivityTimeoutMs && channel.streamInactivityTimeoutMs > 0 ? channel.streamInactivityTimeoutMs : defaultStreamTimeouts.inactivityMs
   form.streamToolCallIdleTimeoutEnabled = !!(channel.streamToolCallIdleTimeoutMs && channel.streamToolCallIdleTimeoutMs > 0)
-  form.streamToolCallIdleTimeoutMs = channel.streamToolCallIdleTimeoutMs && channel.streamToolCallIdleTimeoutMs > 0 ? channel.streamToolCallIdleTimeoutMs : 3000
+  form.streamToolCallIdleTimeoutMs = channel.streamToolCallIdleTimeoutMs && channel.streamToolCallIdleTimeoutMs > 0 ? channel.streamToolCallIdleTimeoutMs : defaultStreamTimeouts.toolCallIdleMs
   form.routePrefix = channel.routePrefix || ''
   const { validPatterns, hasInvalidPatterns } = filterValidSupportedModelPatterns(channel.supportedModels || [])
   form.supportedModels = validPatterns
@@ -3243,6 +3325,17 @@ onUnmounted(() => {
 
 .channel-config-select {
   flex: 0 0 220px;
+}
+
+.stream-timeout-strategy-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.stream-timeout-strategy-toggle :deep(.v-btn) {
+  flex: 1 1 120px;
+  min-width: 0;
 }
 
 @media (max-width: 600px) {

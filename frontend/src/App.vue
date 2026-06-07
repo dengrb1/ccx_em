@@ -1765,15 +1765,15 @@ const cbForm = reactive({
   failureThreshold: 0.5,
   consecutiveFailuresThreshold: 3,
   streamFirstContentTimeoutMs: 30000,
-  streamInactivityTimeoutMs: 5000,
-  streamToolCallIdleTimeoutMs: 3000,
+  streamInactivityTimeoutMs: 20000,
+  streamToolCallIdleTimeoutMs: 30000,
 })
 
 const cbPresets = [
-  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 10000, streamToolCallIdleTimeoutMs: 5000 },
-  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000, streamToolCallIdleTimeoutMs: 3000 },
-  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 10000, streamInactivityTimeoutMs: 3000, streamToolCallIdleTimeoutMs: 2000 },
-  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 5000, streamToolCallIdleTimeoutMs: 3000 },
+  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 45000, streamToolCallIdleTimeoutMs: 45000 },
+  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 20000, streamToolCallIdleTimeoutMs: 30000 },
+  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 15000, streamInactivityTimeoutMs: 10000, streamToolCallIdleTimeoutMs: 15000 },
+  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 20000, streamToolCallIdleTimeoutMs: 30000 },
 ]
 
 const matchPreset = () => {
@@ -1823,8 +1823,8 @@ const openCircuitBreakerDialog = async () => {
     cbForm.failureThreshold = params.failureThreshold
     cbForm.consecutiveFailuresThreshold = params.consecutiveFailuresThreshold
     cbForm.streamFirstContentTimeoutMs = params.streamFirstContentTimeoutMs && params.streamFirstContentTimeoutMs >= 5000 ? params.streamFirstContentTimeoutMs : 30000
-    cbForm.streamInactivityTimeoutMs = params.streamInactivityTimeoutMs && params.streamInactivityTimeoutMs >= 1000 ? params.streamInactivityTimeoutMs : 5000
-    cbForm.streamToolCallIdleTimeoutMs = params.streamToolCallIdleTimeoutMs && params.streamToolCallIdleTimeoutMs >= 1000 ? params.streamToolCallIdleTimeoutMs : 3000
+    cbForm.streamInactivityTimeoutMs = params.streamInactivityTimeoutMs && params.streamInactivityTimeoutMs >= 1000 ? params.streamInactivityTimeoutMs : 20000
+    cbForm.streamToolCallIdleTimeoutMs = params.streamToolCallIdleTimeoutMs && params.streamToolCallIdleTimeoutMs >= 1000 ? params.streamToolCallIdleTimeoutMs : 30000
     matchPreset()
   } catch (e) {
     console.error('Failed to load circuit breaker config:', e)
