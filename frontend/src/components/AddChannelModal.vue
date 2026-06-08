@@ -488,6 +488,22 @@
               />
             </v-col>
 
+            <!-- 历史图片轮次限制 -->
+            <v-col cols="12">
+              <v-text-field
+                v-model="form.historicalImageTurnLimit"
+                :label="t('addChannel.historicalImageTurnLimitLabel')"
+                :placeholder="t('addChannel.historicalImageTurnLimitPlaceholder')"
+                :hint="t('addChannel.historicalImageTurnLimitHint')"
+                type="number"
+                min="0"
+                variant="outlined"
+                density="comfortable"
+                persistent-hint
+                clearable
+              />
+            </v-col>
+
             <!-- 支持的模型白名单 -->
             <v-col cols="12">
               <v-combobox
@@ -2186,6 +2202,7 @@ const form = reactive({
   noVision: false,
   noVisionModels: [] as string[],
   visionFallbackModel: '',
+  historicalImageTurnLimit: 0,
 })
 
 // 多 BaseURL 文本输入（独立变量，保留用户输入的换行）
@@ -2604,6 +2621,7 @@ const hasEditableDraftChanges = computed(() => {
     noVision: !!props.channel.noVision,
     noVisionModels: [...(props.channel.noVisionModels || [])],
     visionFallbackModel: props.channel.visionFallbackModel || '',
+    historicalImageTurnLimit: props.channel.historicalImageTurnLimit ?? 0,
   }
 
   return JSON.stringify(currentPayload) !== JSON.stringify(normalizeComparablePayload(originalPayload as Partial<Channel>))
@@ -2695,6 +2713,7 @@ const resetForm = () => {
   form.noVision = false
   form.noVisionModels = []
   form.visionFallbackModel = ''
+  form.historicalImageTurnLimit = 0
 
   // 重置 baseUrlsText
   baseUrlsText.value = ''
@@ -2780,6 +2799,7 @@ const loadChannelData = (channel: Channel) => {
   form.noVision = !!channel.noVision
   form.noVisionModels = [...(channel.noVisionModels || [])]
   form.visionFallbackModel = channel.visionFallbackModel || ''
+  form.historicalImageTurnLimit = channel.historicalImageTurnLimit ?? 0
 
   // 立即同步 baseUrl 到预览变量，避免等待 debounce
   formBaseUrlPreview.value = channel.baseUrl

@@ -33,6 +33,8 @@ type EnvConfig struct {
 	MetricsRetentionDays      int  // 数据保留天数（3-30）
 	// HTTP 客户端配置
 	ResponseHeaderTimeout int // 等待响应头超时时间（秒）
+	// 历史图片轮次限制
+	HistoricalImageTurnLimit int // 全局历史图片轮次限制（始终开启，默认 5，最低 3，渠道级 >0 覆盖）
 	// 日志文件相关配置
 	LogDir        string
 	LogFile       string
@@ -79,6 +81,8 @@ func NewEnvConfig() *EnvConfig {
 		MetricsRetentionDays:      clampInt(getEnvAsInt("METRICS_RETENTION_DAYS", 30), 3, 90),
 		// HTTP 客户端配置
 		ResponseHeaderTimeout: clampInt(getEnvAsInt("RESPONSE_HEADER_TIMEOUT", 60), 30, 120), // 30-120 秒
+		// 历史图片轮次限制
+		HistoricalImageTurnLimit: getEnvAsInt("HISTORICAL_IMAGE_TURN_LIMIT", HistoricalImageTurnLimitDefault), // 始终开启，默认 5，最低 3
 		// 日志文件配置
 		LogDir:        getEnv("LOG_DIR", "logs"),
 		LogFile:       getEnv("LOG_FILE", "app.log"),

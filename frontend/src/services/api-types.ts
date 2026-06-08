@@ -105,6 +105,7 @@ export interface Channel {
   rateLimitBurst?: number                    // 令牌桶突发容量（0/空=自动取 RPM）
   rateLimitMaxConcurrent?: number            // 最大并发上游请求数（0/空=不限）
   rateLimitAutoFromHeaders?: boolean         // 自动从上游响应头解析限流信息并动态调速（默认 false）
+  historicalImageTurnLimit?: number          // 历史图片轮次限制（0=继承全局）
   rpm?: number                // 能力测试发送速率（仅影响能力测试）
 }
 

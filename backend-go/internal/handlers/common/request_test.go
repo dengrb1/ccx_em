@@ -688,3 +688,41 @@ func TestRestoreRequestBodyAndContextCacheUseAttemptBody(t *testing.T) {
 		t.Fatalf("cached body = %s, want %s", string(cached.([]byte)), string(attemptBody))
 	}
 }
+
+func TestGetEffectiveRequestBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	fallback := []byte(`{"original":true}`)
+
+	t.Run("returns context body when set", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		updated := []byte(`{"updated":true}`)
+		c.Set("requestBodyBytes", updated)
+		if got := GetEffectiveRequestBody(c, fallback); string(got) != string(updated) {
+			t.Fatalf("got %s, want %s", string(got), string(updated))
+		}
+	})
+
+	t.Run("returns fallback when context empty", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		if got := GetEffectiveRequestBody(c, fallback); string(got) != string(fallback) {
+			t.Fatalf("got %s, want fallback %s", string(got), string(fallback))
+		}
+	})
+
+	t.Run("returns fallback when context value wrong type", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set("requestBodyBytes", "not-bytes")
+		if got := GetEffectiveRequestBody(c, fallback); string(got) != string(fallback) {
+			t.Fatalf("got %s, want fallback %s", string(got), string(fallback))
+		}
+	})
+
+	t.Run("returns fallback when context nil", func(t *testing.T) {
+		if got := GetEffectiveRequestBody(nil, fallback); string(got) != string(fallback) {
+			t.Fatalf("got %s, want fallback %s", string(got), string(fallback))
+		}
+	})
+}

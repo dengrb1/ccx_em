@@ -36,7 +36,8 @@ describe('buildChannelPayload', () => {
       stripImageGenerationTool: false,
       noVision: false,
       noVisionModels: [],
-      visionFallbackModel: ''
+      visionFallbackModel: '',
+      historicalImageTurnLimit: 3
     })
 
     expect(result.name).toBe('test-channel')
@@ -51,6 +52,7 @@ describe('buildChannelPayload', () => {
     expect(result.fastMode).toBe(true)
     expect(result.proxyUrl).toBe('http://127.0.0.1:7890')
     expect(result.requestTimeoutMs).toBe(15000)
+    expect((result as any).historicalImageTurnLimit).toBe(3)
   })
 
   it('应对多个 baseUrls 去重并保留 baseUrls 输出', () => {

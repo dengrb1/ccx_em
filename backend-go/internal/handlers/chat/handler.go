@@ -150,7 +150,9 @@ func handleMultiChannel(
 					return cfgManager.GetNextChatAPIKey(upstream, failedKeys)
 				},
 				func(c *gin.Context, upstreamCopy *config.UpstreamConfig, apiKey string) (*http.Request, error) {
-					return buildProviderRequest(c, upstreamCopy, upstreamCopy.BaseURL, apiKey, bodyBytes, model, isStream)
+					// 使用 context 中的最新请求体（已经过 failover 内的 metadata 规范化、
+					// 历史图片轮次限制替换等处理），而非闭包捕获的原始 bodyBytes。
+					return buildProviderRequest(c, upstreamCopy, upstreamCopy.BaseURL, apiKey, common.GetEffectiveRequestBody(c, bodyBytes), model, isStream)
 				},
 				func(apiKey string) {
 					_ = cfgManager.DeprioritizeAPIKey(apiKey)
@@ -230,7 +232,7 @@ func handleSingleChannel(
 			return cfgManager.GetNextChatAPIKey(upstream, failedKeys)
 		},
 		func(c *gin.Context, upstreamCopy *config.UpstreamConfig, apiKey string) (*http.Request, error) {
-			return buildProviderRequest(c, upstreamCopy, upstreamCopy.BaseURL, apiKey, bodyBytes, model, isStream)
+			return buildProviderRequest(c, upstreamCopy, upstreamCopy.BaseURL, apiKey, common.GetEffectiveRequestBody(c, bodyBytes), model, isStream)
 		},
 		func(apiKey string) {
 			_ = cfgManager.DeprioritizeAPIKey(apiKey)

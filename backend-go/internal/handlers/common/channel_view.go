@@ -46,6 +46,7 @@ func BuildChannelView(up config.UpstreamConfig, index int) gin.H {
 		"noVision":                      up.NoVision,
 		"noVisionModels":                up.NoVisionModels,
 		"visionFallbackModel":           up.VisionFallbackModel,
+		"historicalImageTurnLimit":      up.HistoricalImageTurnLimit,
 		// Claude 协议兼容开关
 		"passbackReasoningContent":      up.PassbackReasoningContent,
 		"passbackThinkingBlocks":        up.PassbackThinkingBlocks,

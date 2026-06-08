@@ -25,6 +25,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   // 移除计费头开关
   const stripBillingHeader = ref(true)
 
+  // 历史图片轮次限制（0=不限制）
+  const historicalImageTurnLimit = ref(0)
+
   // UI 语言（默认取运行时配置，persistedstate 有值时会自动覆盖）
   const uiLanguage = ref<SupportedLocale>(getRuntimeLocale())
 
@@ -98,6 +101,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   /**
+   * 设置历史图片轮次限制
+   */
+  function setHistoricalImageTurnLimit(limit: number) {
+    historicalImageTurnLimit.value = limit
+  }
+
+  /**
    * 切换全局统计面板
    */
   function toggleGlobalStats() {
@@ -116,6 +126,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     darkModePreference,
     fuzzyModeEnabled,
     stripBillingHeader,
+    historicalImageTurnLimit,
     uiLanguage,
     showGlobalStats,
     hasSeenGuide,
@@ -127,6 +138,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     toggleFuzzyMode,
     setStripBillingHeader,
     toggleStripBillingHeader,
+    setHistoricalImageTurnLimit,
     setUILanguage,
     initializeUILanguage,
     toggleGlobalStats,

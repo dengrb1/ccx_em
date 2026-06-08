@@ -39,6 +39,10 @@ export const useSystemStore = defineStore('system', () => {
   const stripBillingHeaderLoading = ref(false)
   const stripBillingHeaderLoadError = ref(false)
 
+  // 历史图片轮次限制加载状态
+  const historicalImageTurnLimitLoading = ref(false)
+  const historicalImageTurnLimitLoadError = ref(false)
+
   // 更新对话框
   const updateDialogOpen = ref(false)
 
@@ -102,6 +106,20 @@ export const useSystemStore = defineStore('system', () => {
     stripBillingHeaderLoadError.value = error
   }
 
+  /**
+   * 设置历史图片轮次限制加载状态
+   */
+  function setHistoricalImageTurnLimitLoading(loading: boolean) {
+    historicalImageTurnLimitLoading.value = loading
+  }
+
+  /**
+   * 设置历史图片轮次限制加载错误状态
+   */
+  function setHistoricalImageTurnLimitLoadError(error: boolean) {
+    historicalImageTurnLimitLoadError.value = error
+  }
+
   function setUpdateDialogOpen(open: boolean) {
     updateDialogOpen.value = open
   }
@@ -125,6 +143,8 @@ export const useSystemStore = defineStore('system', () => {
     fuzzyModeLoadError.value = false
     stripBillingHeaderLoading.value = false
     stripBillingHeaderLoadError.value = false
+    historicalImageTurnLimitLoading.value = false
+    historicalImageTurnLimitLoadError.value = false
     updateDialogOpen.value = false
   }
 
@@ -137,6 +157,8 @@ export const useSystemStore = defineStore('system', () => {
     fuzzyModeLoadError,
     stripBillingHeaderLoading,
     stripBillingHeaderLoadError,
+    historicalImageTurnLimitLoading,
+    historicalImageTurnLimitLoadError,
     updateDialogOpen,
 
     // 计算属性
@@ -150,6 +172,8 @@ export const useSystemStore = defineStore('system', () => {
     setFuzzyModeLoadError,
     setStripBillingHeaderLoading,
     setStripBillingHeaderLoadError,
+    setHistoricalImageTurnLimitLoading,
+    setHistoricalImageTurnLimitLoadError,
     setUpdateDialogOpen,
     resetSystemState,
   }

@@ -129,6 +129,22 @@ func RestoreRequestBody(c *gin.Context, bodyBytes []byte) {
 	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 }
 
+// GetEffectiveRequestBody 返回 context 中缓存的最新请求体（key: requestBodyBytes）。
+// failover 在每次尝试前会把规范化、历史图片裁剪后的 body 写入该 key，
+// 因此绕过 provider 直接构建请求的 handler（chat/gemini）应使用本函数获取实际生效 body，
+// 而非闭包捕获的原始 bodyBytes。读取失败时回退到 fallback。
+func GetEffectiveRequestBody(c *gin.Context, fallback []byte) []byte {
+	if c == nil {
+		return fallback
+	}
+	if cached, ok := c.Get("requestBodyBytes"); ok {
+		if body, ok := cached.([]byte); ok && body != nil {
+			return body
+		}
+	}
+	return fallback
+}
+
 // PassthroughResponse 直接将上游响应转发给客户端，不在内存中整包缓存。
 func PassthroughResponse(c *gin.Context, resp *http.Response) error {
 	utils.ForwardResponseHeaders(resp.Header, c.Writer)

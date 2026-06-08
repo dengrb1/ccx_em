@@ -662,6 +662,68 @@ func TestRequestTimeoutMsEffectiveAndUpdates(t *testing.T) {
 	}
 }
 
+func TestHistoricalImageTurnLimitUpdates(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.json")
+	initialConfig := `{
+		"upstream": [{"name":"messages","baseUrl":"https://messages.example.com","apiKeys":["sk-m"],"serviceType":"claude"}],
+		"chatUpstream": [{"name":"chat","baseUrl":"https://chat.example.com","apiKeys":["sk-c"],"serviceType":"openai"}],
+		"responsesUpstream": [{"name":"responses","baseUrl":"https://responses.example.com","apiKeys":["sk-r"],"serviceType":"responses"}],
+		"geminiUpstream": [{"name":"gemini","baseUrl":"https://gemini.example.com","apiKeys":["sk-g"],"serviceType":"gemini"}],
+		"imagesUpstream": [{"name":"images","baseUrl":"https://images.example.com","apiKeys":["sk-i"],"serviceType":"openai"}]
+	}`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("写入初始配置失败: %v", err)
+	}
+
+	cm, err := NewConfigManager(configPath, "")
+	if err != nil {
+		t.Fatalf("初始化配置管理器失败: %v", err)
+	}
+	defer cm.Close()
+
+	tests := []struct {
+		name   string
+		update func(UpstreamUpdate) error
+		read   func(Config) int
+	}{
+		{name: "messages", update: func(u UpstreamUpdate) error { _, err := cm.UpdateUpstream(0, u); return err }, read: func(c Config) int { return c.Upstream[0].HistoricalImageTurnLimit }},
+		{name: "chat", update: func(u UpstreamUpdate) error { _, err := cm.UpdateChatUpstream(0, u); return err }, read: func(c Config) int { return c.ChatUpstream[0].HistoricalImageTurnLimit }},
+		{name: "responses", update: func(u UpstreamUpdate) error { _, err := cm.UpdateResponsesUpstream(0, u); return err }, read: func(c Config) int { return c.ResponsesUpstream[0].HistoricalImageTurnLimit }},
+		{name: "gemini", update: func(u UpstreamUpdate) error { _, err := cm.UpdateGeminiUpstream(0, u); return err }, read: func(c Config) int { return c.GeminiUpstream[0].HistoricalImageTurnLimit }},
+		{name: "images", update: func(u UpstreamUpdate) error { _, err := cm.UpdateImagesUpstream(0, u); return err }, read: func(c Config) int { return c.ImagesUpstream[0].HistoricalImageTurnLimit }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			limit := 3
+			if err := tt.update(UpstreamUpdate{HistoricalImageTurnLimit: &limit}); err != nil {
+				t.Fatalf("设置 historicalImageTurnLimit 失败: %v", err)
+			}
+			if got := tt.read(cm.GetConfig()); got != limit {
+				t.Fatalf("HistoricalImageTurnLimit = %d, want %d", got, limit)
+			}
+
+			zero := 0
+			if err := tt.update(UpstreamUpdate{HistoricalImageTurnLimit: &zero}); err != nil {
+				t.Fatalf("清除 historicalImageTurnLimit 失败: %v", err)
+			}
+			if got := tt.read(cm.GetConfig()); got != 0 {
+				t.Fatalf("cleared HistoricalImageTurnLimit = %d, want 0 (inherit global)", got)
+			}
+
+			// 0 < limit < 3 应归一到最低值 3
+			belowMin := 1
+			if err := tt.update(UpstreamUpdate{HistoricalImageTurnLimit: &belowMin}); err != nil {
+				t.Fatalf("设置 historicalImageTurnLimit=1 失败: %v", err)
+			}
+			if got := tt.read(cm.GetConfig()); got != 3 {
+				t.Fatalf("normalized HistoricalImageTurnLimit = %d, want 3 (min)", got)
+			}
+		})
+	}
+}
+
 func TestAddUpstreamRejectsNegativeRequestTimeoutMs(t *testing.T) {
 	tempDir := t.TempDir()
 	configPath := filepath.Join(tempDir, "config.json")

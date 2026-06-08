@@ -313,6 +313,10 @@ func (cm *ConfigManager) UpdateUpstream(index int, updates UpstreamUpdate) (shou
 		v := *updates.RateLimitAutoFromHeaders
 		upstream.RateLimitAutoFromHeaders = &v
 	}
+	if updates.HistoricalImageTurnLimit != nil {
+		upstream.HistoricalImageTurnLimit = NormalizeChannelHistoricalImageTurnLimit(*updates.HistoricalImageTurnLimit)
+
+	}
 
 	// 检测配置是否真的发生了变化
 	if !cm.hasConfigChanged(originalConfig, cm.config) {

@@ -654,7 +654,7 @@ func TestRunRedirectVerification_CodexAutoReview(t *testing.T) {
 		APIKeys:     []string{"test-key"},
 		ModelMapping: map[string]string{
 			"codex-auto-review": "deepseek-v4-flash",
-			"gpt-5.5":          "deepseek-v4",
+			"gpt-5.5":           "deepseek-v4",
 		},
 	}
 
@@ -711,8 +711,8 @@ func TestRunRedirectVerification_CodexAutoReviewDedup(t *testing.T) {
 		APIKeys:     []string{"test-key"},
 		ModelMapping: map[string]string{
 			"codex-auto-review": "deepseek-v4-flash",
-			"gpt-5.4-mini":     "deepseek-v4-flash",
-			"gpt-5.5":          "deepseek-v4",
+			"gpt-5.4-mini":      "deepseek-v4-flash",
+			"gpt-5.5":           "deepseek-v4",
 		},
 	}
 

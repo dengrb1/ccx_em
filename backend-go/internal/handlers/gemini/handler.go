@@ -386,6 +386,18 @@ func buildProviderRequest(
 	// 应用模型映射
 	mappedModel := config.RedirectModel(model, upstream)
 
+	// 使用 context 中的最新请求体（已经过 failover 内的历史图片轮次限制替换等处理）。
+	// 若替换后的 body 与原始不同，需同步重新解析 geminiReq，使 claude/openai/responses
+	// 等转换分支也使用替换后的数据，而非闭包捕获的原始 geminiReq。
+	effectiveBody := common.GetEffectiveRequestBody(c, bodyBytes)
+	if !bytes.Equal(effectiveBody, bodyBytes) {
+		bodyBytes = effectiveBody
+		var reparsed types.GeminiRequest
+		if err := json.Unmarshal(effectiveBody, &reparsed); err == nil {
+			geminiReq = &reparsed
+		}
+	}
+
 	var requestBody []byte
 	var url string
 	var err error

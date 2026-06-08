@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### 新增
+
+- **历史图片轮次限制与占位符替换** - 新增全局/渠道级历史图片轮次限制配置（`historicalImageTurnLimit`），超过指定轮次的历史对话图片自动替换为 `[Image]` 占位符，避免不必要的 vision 回退模型切换。覆盖 Claude Messages、OpenAI Chat、Responses API、Gemini 四种协议格式。新增环境变量 `HISTORICAL_IMAGE_TURN_LIMIT`、Settings API（`/api/settings/historical-image-turn-limit`）、Web 管理界面全局设置入口与渠道级配置 UI
+
 ## [v2.8.25] - 2026-06-07
 
 ### 新增

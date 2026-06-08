@@ -385,6 +385,24 @@
               </template>
               <span>{{ t('tooltip.circuitBreakerSettings') }}</span>
             </v-tooltip>
+
+            <!-- 历史图片轮次限制按钮 -->
+            <v-tooltip location="bottom" content-class="ccx-tooltip">
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  variant="tonal"
+                  size="large"
+                  color="default"
+                  class="action-btn"
+                  @click="openHistoricalImageDialog"
+                >
+                  <v-icon start size="20">mdi-image-sync</v-icon>
+                  HL
+                </v-btn>
+              </template>
+              <span>{{ t('tooltip.historicalImageTurnLimit') }}</span>
+            </v-tooltip>
           </div>
         </div>
         <router-view
@@ -591,6 +609,38 @@
             {{ t('app.actions.cancel') }}
           </v-btn>
           <v-btn color="primary" variant="flat" class="cb-dialog-btn cb-dialog-btn-primary" :loading="cbSaving" @click="saveCircuitBreaker">
+            {{ t('app.actions.confirm') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 历史图片轮次限制设置对话框 -->
+    <v-dialog v-model="historicalImageDialogOpen" max-width="400">
+      <v-card rounded="lg">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-3">mdi-image-sync</v-icon>
+          {{ t('dialog.historicalImageTurnLimit.title') }}
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model.number="historicalImageForm.limit"
+            :label="t('dialog.historicalImageTurnLimit.label')"
+            :hint="t('dialog.historicalImageTurnLimit.hint')"
+            type="number"
+            min="3"
+            variant="outlined"
+            density="comfortable"
+            persistent-hint
+          />
+        </v-card-text>
+        <v-divider />
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="flat" @click="historicalImageDialogOpen = false">
+            {{ t('app.actions.cancel') }}
+          </v-btn>
+          <v-btn color="primary" variant="flat" :loading="systemStore.historicalImageTurnLimitLoading" @click="saveHistoricalImageTurnLimit">
             {{ t('app.actions.confirm') }}
           </v-btn>
         </v-card-actions>
@@ -1740,6 +1790,41 @@ const toggleStripBillingHeader = async () => {
   }
 }
 
+// 历史图片轮次限制
+const historicalImageDialogOpen = ref(false)
+const historicalImageForm = ref({ limit: 0 })
+
+const loadHistoricalImageTurnLimit = async () => {
+  systemStore.setHistoricalImageTurnLimitLoadError(false)
+  try {
+    const { historicalImageTurnLimit: limit } = await api.getHistoricalImageTurnLimit()
+    preferencesStore.setHistoricalImageTurnLimit(limit)
+  } catch (e) {
+    console.error('Failed to load historical image turn limit:', e)
+    systemStore.setHistoricalImageTurnLimitLoadError(true)
+    showToast(t('toast.loadHistoricalImageTurnLimitFailed'), 'warning')
+  }
+}
+
+const openHistoricalImageDialog = async () => {
+  historicalImageForm.value.limit = preferencesStore.historicalImageTurnLimit
+  historicalImageDialogOpen.value = true
+}
+
+const saveHistoricalImageTurnLimit = async () => {
+  systemStore.setHistoricalImageTurnLimitLoading(true)
+  try {
+    await api.setHistoricalImageTurnLimit(historicalImageForm.value.limit)
+    preferencesStore.setHistoricalImageTurnLimit(historicalImageForm.value.limit)
+    historicalImageDialogOpen.value = false
+    showToast(t('toast.historicalImageTurnLimitSaved'), 'success')
+  } catch (e) {
+    showToast(t('toast.historicalImageTurnLimitFailed', { message: e instanceof Error ? e.message : t('system.unknown') }), 'error')
+  } finally {
+    systemStore.setHistoricalImageTurnLimitLoading(false)
+  }
+}
+
 // 新用户指引
 const showGuide = ref(false)
 
@@ -2182,6 +2267,8 @@ onMounted(async () => {
     await loadFuzzyModeStatus()
     // 加载移除计费头状态
     await loadStripBillingHeaderStatus()
+    // 加载历史图片轮次限制状态
+    await loadHistoricalImageTurnLimit()
     // 启动自动刷新
     startAutoRefresh()
     // 初始化完成后根据最新刷新结果设置系统状态

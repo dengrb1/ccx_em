@@ -124,6 +124,16 @@ func TryUpstreamWithAllKeys(
 		originalModel = model // 仅当发生重定向时记录原始模型
 	}
 
+	// 历史图片轮次限制：替换历史图片为占位符，避免不必要的 vision 回退
+	if kind != scheduler.ChannelKindImages {
+		effectiveLimit := resolveHistoricalImageTurnLimit(envCfg, cfgManager, upstream)
+		if effectiveLimit > 0 {
+			if replaced, modified := StripHistoricalImagesWithContext(c, requestBody, effectiveLimit, envCfg.EnableRequestLogs, apiType); modified {
+				requestBody = replaced
+			}
+		}
+	}
+
 	// Vision 能力检查：含图请求跳过不支持 vision 的渠道/模型
 	if kind != scheduler.ChannelKindImages && HasImageContent(c, requestBody) {
 		if upstream.NoVision {
