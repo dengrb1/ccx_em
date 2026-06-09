@@ -940,3 +940,311 @@ func TestResolveCodexSessionModelProvider(t *testing.T) {
 }
 
 // ── helpers ──
+
+// ── config.toml / auth.json 一致性诊断 ──
+
+func TestGetStatusCodex_ConfigConsistent_QuickMode(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "apikey"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if !status.ConfigConsistent {
+		t.Errorf("ConfigConsistent should be true, got diagnostic %q", status.DiagnosticCode)
+	}
+	if status.AuthMode != "apikey" {
+		t.Errorf("AuthMode = %q, want apikey", status.AuthMode)
+	}
+}
+
+func TestGetStatusCodex_QuickModeMissingAuthMode(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Fatal("missing auth_mode should be treated as mismatch for quick mode")
+	}
+	if status.DiagnosticCode != "codex.auth_mode_mismatch" {
+		t.Fatalf("DiagnosticCode = %q, want codex.auth_mode_mismatch", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_QuickModeProxyKeyMismatch(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "stale-proxy-key", "auth_mode": "apikey"})
+	if err := os.WriteFile(filepath.Join(svc.currentDataDir(), ".env"), []byte("PROXY_ACCESS_KEY = current-proxy-key\n"), 0o600); err != nil {
+		t.Fatalf("write .env failed: %v", err)
+	}
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Fatal("stale proxy key should be treated as mismatch")
+	}
+	if status.DiagnosticCode != "codex.proxy_key_mismatch" {
+		t.Fatalf("DiagnosticCode = %q, want codex.proxy_key_mismatch", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_MissingApiKey(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"auth_mode": "apikey"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Error("ConfigConsistent should be false when OPENAI_API_KEY is missing")
+	}
+	if status.DiagnosticCode != "codex.missing_api_key" {
+		t.Errorf("DiagnosticCode = %q, want codex.missing_api_key", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_AuthModeMismatch_QuickMode(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "openai"
+openai_base_url = "http://127.0.0.1:3688/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	// CCS 污染：指向本地 CCX 但 auth_mode 仍是 chatgpt
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "chatgpt"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Error("ConfigConsistent should be false on auth_mode mismatch")
+	}
+	if status.DiagnosticCode != "codex.auth_mode_mismatch" {
+		t.Errorf("DiagnosticCode = %q, want codex.auth_mode_mismatch", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_PluginMissingBearer(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	// 旧式 ccx provider + requires_openai_auth（插件意图）但缺少 experimental_bearer_token
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+requires_openai_auth = true
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "chatgpt"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Error("ConfigConsistent should be false when plugin mode lacks bearer token")
+	}
+	if status.DiagnosticCode != "codex.plugin_missing_bearer" {
+		t.Errorf("DiagnosticCode = %q, want codex.plugin_missing_bearer", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_PluginCommentedBearerStillMissing(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	// bearer token 被注释掉时，不应视为有效配置。
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+requires_openai_auth=true
+# experimental_bearer_token = "commented-out"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "chatgpt"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Fatal("commented bearer token should still be treated as missing")
+	}
+	if status.DiagnosticCode != "codex.plugin_missing_bearer" {
+		t.Fatalf("DiagnosticCode = %q, want codex.plugin_missing_bearer", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_PluginConsistent(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+requires_openai_auth = true
+experimental_bearer_token = "test-key"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "chatgpt"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if !status.ConfigConsistent {
+		t.Errorf("ConfigConsistent should be true for valid plugin config, got %q", status.DiagnosticCode)
+	}
+	if status.Mode != "plugin" {
+		t.Errorf("Mode = %q, want plugin", status.Mode)
+	}
+}
+
+func TestGetStatusCodex_PluginBearerTokenMismatch(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+requires_openai_auth = true
+experimental_bearer_token = "stale-bearer"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "stale-bearer", "auth_mode": "chatgpt"})
+	if err := os.WriteFile(filepath.Join(svc.currentDataDir(), ".env"), []byte("PROXY_ACCESS_KEY=current-proxy-key\n"), 0o600); err != nil {
+		t.Fatalf("write .env failed: %v", err)
+	}
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if status.ConfigConsistent {
+		t.Fatal("stale bearer token should be treated as mismatch")
+	}
+	if status.DiagnosticCode != "codex.proxy_key_mismatch" {
+		t.Fatalf("DiagnosticCode = %q, want codex.proxy_key_mismatch", status.DiagnosticCode)
+	}
+}
+
+func TestGetStatusCodex_LegacyQuickIgnoresThirdPartyBearerBlock(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	// 当前 provider 是旧式 ccx quick，但文件里残留了第三方 provider 的 bearer token 块。
+	tomlContent := `model_provider = "ccx"
+
+[model_providers.ccx]
+name = "CCX Proxy"
+base_url = "http://127.0.0.1:3688/v1"
+wire_api = "responses"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = false
+
+[model_providers.runapi]
+base_url = "https://runapi.co/v1"
+wire_api = "responses"
+experimental_bearer_token = "stale-runapi-token"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "test-key", "auth_mode": "apikey"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if !status.ConfigConsistent {
+		t.Fatalf("legacy quick config should stay consistent, got diagnostic %q", status.DiagnosticCode)
+	}
+	if status.Mode != "quick" {
+		t.Fatalf("Mode = %q, want quick", status.Mode)
+	}
+}
+
+func TestGetStatusCodex_ThirdPartyNotDiagnosed(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	// 第三方直连不应被本地 CCX 一致性诊断误报
+	tomlContent := `model_provider = "openai"
+openai_base_url = "https://runapi.co/v1"
+`
+	os.WriteFile(configPath, []byte(tomlContent), 0o644)
+	writeJSON(authPath, map[string]any{"OPENAI_API_KEY": "runapi-key", "auth_mode": "apikey"})
+
+	status, err := svc.GetStatus(PlatformCodex, 3688)
+	if err != nil {
+		t.Fatalf("GetStatus failed: %v", err)
+	}
+	if !status.ConfigConsistent {
+		t.Errorf("third-party direct should not be flagged, got %q", status.DiagnosticCode)
+	}
+}

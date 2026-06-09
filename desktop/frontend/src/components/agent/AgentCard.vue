@@ -43,6 +43,17 @@ const props = defineProps<{
   openCodeProviderLabel?: (value?: string) => string
   openCodeTargetBaseUrl?: () => string
   migrateLoading?: boolean
+  codexDiagnosticVisible?: boolean
+  codexDiagnosticSeverity?: 'ok' | 'warn'
+  codexDiagnosticSummary?: string
+  codexDiagnosticSuggestions?: string[]
+  responsesChannelDiagnosticVisible?: boolean
+  responsesChannelDiagnosticSeverity?: 'ok' | 'warn'
+  responsesChannelDiagnosticSummary?: string
+  responsesChannelDiagnosticSuggestions?: string[]
+  recentFailedLogsDiagnosticVisible?: boolean
+  recentFailedLogsDiagnosticSummary?: string
+  recentFailedLogsDiagnosticSuggestions?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -336,6 +347,77 @@ const openFileInEditor = async (editorPath: string, filePath: string) => {
       </div>
 
       <p v-if="agentStatus?.lastError" class="text-sm text-destructive-foreground">{{ agentStatus.lastError }}</p>
+
+      <div v-if="platform === 'codex' && (codexDiagnosticVisible || (responsesChannelDiagnosticVisible && responsesChannelDiagnosticSeverity === 'warn') || recentFailedLogsDiagnosticVisible)" class="rounded-lg border border-border/60 bg-secondary/20 px-3 py-3">
+        <p class="text-xs text-muted-foreground leading-relaxed">{{ t('agent.codexDiagnosticIntro') }}</p>
+      </div>
+
+      <div
+        v-if="platform === 'codex' && codexDiagnosticVisible"
+        class="rounded-lg border px-3 py-3 space-y-2"
+        :class="codexDiagnosticSeverity === 'warn'
+          ? 'border-amber-500/30 bg-amber-500/8'
+          : 'border-emerald-500/30 bg-emerald-500/8'"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="text-sm font-semibold">{{ t('agent.codexDiagnosticLayerConfig') }}</h4>
+        </div>
+        <p class="text-xs text-muted-foreground leading-relaxed">{{ codexDiagnosticSummary }}</p>
+        <div class="grid grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 text-xs">
+          <span class="text-muted-foreground">{{ t('agent.codexDiagnosticAuthMode') }}</span>
+          <code class="inline-block max-w-full rounded bg-secondary px-2 py-0.5 text-right break-all">{{ agentStatus?.authMode || t('agent.notSet') }}</code>
+        </div>
+        <ul v-if="codexDiagnosticSuggestions && codexDiagnosticSuggestions.length > 0" class="space-y-1 pt-1">
+          <li
+            v-for="(suggestion, i) in codexDiagnosticSuggestions"
+            :key="`codex-${i}`"
+            class="text-xs text-muted-foreground flex items-start gap-1.5"
+          >
+            <span class="text-muted mt-px">-</span>
+            <span>{{ suggestion }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div
+        v-if="platform === 'codex' && responsesChannelDiagnosticVisible && responsesChannelDiagnosticSeverity === 'warn'"
+        class="rounded-lg border border-cyan-500/30 bg-cyan-500/8 px-3 py-3 space-y-2"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="text-sm font-semibold">{{ t('agent.codexDiagnosticLayerChannels') }}</h4>
+        </div>
+        <p class="text-xs text-muted-foreground leading-relaxed">{{ responsesChannelDiagnosticSummary }}</p>
+        <ul v-if="responsesChannelDiagnosticSuggestions && responsesChannelDiagnosticSuggestions.length > 0" class="space-y-1 pt-1">
+          <li
+            v-for="(suggestion, i) in responsesChannelDiagnosticSuggestions"
+            :key="`responses-${i}`"
+            class="text-xs text-muted-foreground flex items-start gap-1.5"
+          >
+            <span class="text-muted mt-px">-</span>
+            <span>{{ suggestion }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div
+        v-if="platform === 'codex' && recentFailedLogsDiagnosticVisible"
+        class="rounded-lg border border-rose-500/30 bg-rose-500/8 px-3 py-3 space-y-2"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="text-sm font-semibold">{{ t('agent.codexDiagnosticLayerLogs') }}</h4>
+        </div>
+        <p class="text-xs text-muted-foreground leading-relaxed">{{ recentFailedLogsDiagnosticSummary }}</p>
+        <ul v-if="recentFailedLogsDiagnosticSuggestions && recentFailedLogsDiagnosticSuggestions.length > 0" class="space-y-1 pt-1">
+          <li
+            v-for="(suggestion, i) in recentFailedLogsDiagnosticSuggestions"
+            :key="`logs-${i}`"
+            class="text-xs text-muted-foreground flex items-start gap-1.5"
+          >
+            <span class="text-muted mt-px">-</span>
+            <span>{{ suggestion }}</span>
+          </li>
+        </ul>
+      </div>
 
       <div class="flex flex-wrap gap-2">
         <Button size="sm" :disabled="!canApply" @click="emit('apply')">

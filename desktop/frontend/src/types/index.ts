@@ -44,6 +44,10 @@ export type AgentConfigStatus = {
   authPath?: string
   hasState: boolean
   lastError?: string
+  authMode?: string
+  configConsistent?: boolean
+  diagnosticCode?: string
+  diagnosticMessage?: string
 }
 
 export type ApplyAgentConfigRequest = {

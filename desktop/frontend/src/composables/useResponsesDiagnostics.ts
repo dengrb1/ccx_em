@@ -1,0 +1,338 @@
+import { computed, ref, watch } from 'vue'
+import { useAgentConfig } from '@/composables/useAgentConfig'
+import { useLanguage } from '@/composables/useLanguage'
+import { useAdminApi } from '@/composables/useAdminApi'
+import { useStatus } from '@/composables/useStatus'
+import type { ChannelDashboardResponse, Channel, ChannelLogsResponse, ChannelLogEntry } from '@/services/admin-api'
+
+const diagnosticMessageKeyMap: Record<string, Parameters<ReturnType<typeof useLanguage>['t']>[0]> = {
+  'codex.missing_api_key': 'agent.codexDiagnosticCodeMissingApiKey',
+  'codex.proxy_key_mismatch': 'agent.codexDiagnosticCodeProxyKeyMismatch',
+  'codex.auth_mode_mismatch': 'agent.codexDiagnosticCodeAuthModeMismatch',
+  'codex.plugin_missing_bearer': 'agent.codexDiagnosticCodePluginMissingBearer',
+  'codex.legacy_incomplete': 'agent.codexDiagnosticCodeLegacyIncomplete',
+  'codex.config_polluted': 'agent.codexDiagnosticCodeConfigPolluted',
+  'codex.auth_unreadable': 'agent.codexDiagnosticCodeAuthUnreadable',
+}
+
+// 模块级共享状态：Status 页与 Agent 页共用同一份诊断缓存，避免各自拉取导致状态不一致。
+const responsesChannels = ref<Channel[]>([])
+const responsesMetrics = ref<ChannelDashboardResponse['metrics']>([])
+const responsesChannelsLoaded = ref(false)
+const responsesChannelError = ref('')
+const recentFailedLogs = ref<ChannelLogEntry[]>([])
+const recentFailedLogsLoaded = ref(false)
+const recentFailedLogsError = ref('')
+let refreshPromise: Promise<void> | null = null
+let diagnosticsWatchRegistered = false
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+export function useResponsesDiagnostics() {
+  const { agentStatuses } = useAgentConfig()
+  const { status } = useStatus()
+  const { t } = useLanguage()
+  const api = useAdminApi()
+
+  const codexStatus = computed(() => agentStatuses.value.codex)
+  const codexUsesLocalGateway = computed(() => codexStatus.value?.provider === 'ccx')
+
+  async function refreshRecentFailedLogs() {
+    const activeChannels = responsesChannels.value.filter(channel => channel.status === 'active' || channel.status === '' || channel.status === undefined)
+    if (activeChannels.length === 0) {
+      recentFailedLogs.value = []
+      recentFailedLogsLoaded.value = true
+      recentFailedLogsError.value = ''
+      return
+    }
+
+    try {
+      const logResults = await Promise.all(
+        activeChannels.map(async (channel) => {
+          const response = await api.get<ChannelLogsResponse>(`/api/responses/channels/${channel.index}/logs`)
+          return Array.isArray(response.logs) ? response.logs : []
+        }),
+      )
+      recentFailedLogs.value = logResults
+        .flat()
+        .filter((log) => {
+          const status = String(log.status || '').toLowerCase()
+          const errorInfo = String(log.errorInfo || '').toLowerCase().trim()
+          const isClientCancelled = status === 'cancelled' || status === 'canceled' || errorInfo === 'client canceled'
+          if (isClientCancelled) return false
+
+          const isTerminalFailure = status === 'failed'
+          return isTerminalFailure || log.statusCode >= 400 || !!errorInfo
+        })
+        .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+        .slice(0, 10)
+      recentFailedLogsLoaded.value = true
+      recentFailedLogsError.value = ''
+    } catch (error) {
+      recentFailedLogs.value = []
+      recentFailedLogsLoaded.value = true
+      recentFailedLogsError.value = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  async function refreshResponsesChannels() {
+    if (refreshPromise) return refreshPromise
+
+    refreshPromise = (async () => {
+      if (!status.value.running) {
+        responsesChannels.value = []
+        responsesMetrics.value = []
+        responsesChannelsLoaded.value = false
+        responsesChannelError.value = ''
+        recentFailedLogs.value = []
+        recentFailedLogsLoaded.value = false
+        recentFailedLogsError.value = ''
+        return
+      }
+      try {
+        const dashboard = await api.get<ChannelDashboardResponse>('/api/messages/channels/dashboard?type=responses')
+        responsesChannels.value = Array.isArray(dashboard.channels) ? dashboard.channels : []
+        responsesMetrics.value = Array.isArray(dashboard.metrics) ? dashboard.metrics : []
+        responsesChannelsLoaded.value = true
+        responsesChannelError.value = ''
+        await refreshRecentFailedLogs()
+      } catch (error) {
+        responsesChannelError.value = error instanceof Error ? error.message : String(error)
+        responsesChannels.value = []
+        responsesMetrics.value = []
+        responsesChannelsLoaded.value = true
+        recentFailedLogs.value = []
+        recentFailedLogsLoaded.value = true
+        recentFailedLogsError.value = ''
+      }
+    })()
+
+    try {
+      await refreshPromise
+    } finally {
+      refreshPromise = null
+    }
+  }
+
+  if (!diagnosticsWatchRegistered) {
+    diagnosticsWatchRegistered = true
+    watch(
+      () => status.value.running,
+      (running) => {
+        if (running) {
+          void refreshResponsesChannels()
+          if (!refreshTimer) {
+            refreshTimer = setInterval(() => {
+              void refreshResponsesChannels()
+            }, 10000)
+          }
+        } else {
+          if (refreshTimer) {
+            clearInterval(refreshTimer)
+            refreshTimer = null
+          }
+          responsesChannels.value = []
+          responsesMetrics.value = []
+          responsesChannelsLoaded.value = false
+          responsesChannelError.value = ''
+          recentFailedLogs.value = []
+          recentFailedLogsLoaded.value = false
+          recentFailedLogsError.value = ''
+        }
+      },
+      { immediate: true },
+    )
+  }
+
+  const codexDiagnosticVisible = computed(() => {
+    const current = codexStatus.value
+    return !!current && (!!current.diagnosticMessage || current.configConsistent === false)
+  })
+
+  const codexDiagnosticSeverity = computed<'ok' | 'warn'>(() => {
+    const current = codexStatus.value
+    if (!current || current.configConsistent !== false) return 'ok'
+    return 'warn'
+  })
+
+  const codexDiagnosticSummary = computed(() => {
+    const current = codexStatus.value
+    if (!current) return ''
+    if (current.configConsistent === false) {
+      const key = current.diagnosticCode ? diagnosticMessageKeyMap[current.diagnosticCode] : undefined
+      if (key) {
+        return t(key)
+      }
+      return current.diagnosticMessage || t('agent.codexDiagnosticMismatch')
+    }
+    return t('agent.codexDiagnosticHealthy')
+  })
+
+  const codexDiagnosticSuggestions = computed(() => {
+    const current = codexStatus.value
+    if (!current || current.configConsistent !== false) return [] as string[]
+
+    const suggestions = [t('agent.codexDiagnosticSuggestedApply')]
+    if (current.hasState) {
+      suggestions.push(t('agent.codexDiagnosticSuggestedRestore'))
+    }
+    return suggestions
+  })
+
+  const responsesChannelDiagnosticVisible = computed(() => codexUsesLocalGateway.value && status.value.running && responsesChannelsLoaded.value)
+
+  const responsesMetricByIndex = (index: number) => responsesMetrics.value.find(metric => metric.channelIndex === index)
+
+  const responsesChannelDiagnosticSummary = computed(() => {
+    if (!responsesChannelsLoaded.value) return ''
+    if (responsesChannelError.value) return responsesChannelError.value
+
+    const channels = responsesChannels.value
+    if (channels.length === 0) {
+      return t('agent.responsesDiagnosticNoChannel')
+    }
+
+    const activeChannels = channels.filter(channel => channel.status === 'active' || channel.status === '' || channel.status === undefined)
+    if (activeChannels.length === 0) {
+      return t('agent.responsesDiagnosticAllDisabled')
+    }
+
+    const channelsWithoutKeys = activeChannels.filter(channel => !Array.isArray(channel.apiKeys) || channel.apiKeys.length === 0)
+    if (channelsWithoutKeys.length === activeChannels.length) {
+      return t('agent.responsesDiagnosticNoApiKeys')
+    }
+
+    const circuitOpenChannels = activeChannels.filter(channel => responsesMetricByIndex(channel.index)?.circuitState === 'open')
+    if (circuitOpenChannels.length === activeChannels.length && activeChannels.length > 0) {
+      return t('agent.responsesDiagnosticCircuitOpen')
+    }
+
+    return t('agent.responsesDiagnosticHealthy')
+  })
+
+  const responsesChannelDiagnosticSeverity = computed<'ok' | 'warn'>(() => {
+    if (!responsesChannelsLoaded.value) return 'ok'
+    if (responsesChannelError.value) return 'warn'
+
+    const channels = responsesChannels.value
+    if (channels.length === 0) return 'warn'
+
+    const activeChannels = channels.filter(channel => channel.status === 'active' || channel.status === '' || channel.status === undefined)
+    if (activeChannels.length === 0) return 'warn'
+    if (activeChannels.every(channel => !Array.isArray(channel.apiKeys) || channel.apiKeys.length === 0)) return 'warn'
+    if (activeChannels.length > 0 && activeChannels.every(channel => responsesMetricByIndex(channel.index)?.circuitState === 'open')) return 'warn'
+
+    return 'ok'
+  })
+
+  const responsesChannelDiagnosticSuggestions = computed(() => {
+    if (!responsesChannelsLoaded.value) return [] as string[]
+    if (responsesChannelError.value) return [t('agent.responsesDiagnosticSuggestedRefresh')]
+
+    const channels = responsesChannels.value
+    if (channels.length === 0) {
+      return [t('agent.responsesDiagnosticSuggestedCreate')]
+    }
+
+    const activeChannels = channels.filter(channel => channel.status === 'active' || channel.status === '' || channel.status === undefined)
+    if (activeChannels.length === 0) {
+      return [t('agent.responsesDiagnosticSuggestedEnable')]
+    }
+
+    if (activeChannels.every(channel => !Array.isArray(channel.apiKeys) || channel.apiKeys.length === 0)) {
+      return [t('agent.responsesDiagnosticSuggestedAddKey')]
+    }
+
+    if (activeChannels.length > 0 && activeChannels.every(channel => responsesMetricByIndex(channel.index)?.circuitState === 'open')) {
+      return [t('agent.responsesDiagnosticSuggestedResume')]
+    }
+
+    return [] as string[]
+  })
+
+  const recentFailedLogsDiagnosticVisible = computed(() => codexUsesLocalGateway.value && status.value.running && recentFailedLogsLoaded.value && (recentFailedLogs.value.length > 0 || !!recentFailedLogsError.value))
+
+  const recentFailedLogsDiagnosticSummary = computed(() => {
+    if (!recentFailedLogsLoaded.value) return ''
+    if (recentFailedLogsError.value) return recentFailedLogsError.value
+    const latest = recentFailedLogs.value[0]
+    if (!latest) return ''
+
+    if (latest.statusCode === 401 || latest.statusCode === 403) {
+      return t('agent.responsesLogsDiagnosticAuth')
+    }
+    if (latest.statusCode === 429) {
+      return t('agent.responsesLogsDiagnosticRateLimit')
+    }
+    if (latest.statusCode >= 500) {
+      return t('agent.responsesLogsDiagnosticUpstream5xx')
+    }
+
+    const errorInfo = String(latest.errorInfo || '').toLowerCase()
+    if (errorInfo.includes('timeout') || errorInfo.includes('stalled')) {
+      return t('agent.responsesLogsDiagnosticTimeout')
+    }
+
+    return t('agent.responsesLogsDiagnosticGeneric')
+  })
+
+  const recentFailedLogsDiagnosticSuggestions = computed(() => {
+    if (recentFailedLogsError.value) return [t('agent.responsesLogsDiagnosticSuggestedRefresh')]
+    if (!recentFailedLogsLoaded.value || recentFailedLogs.value.length === 0) return [] as string[]
+
+    const latest = recentFailedLogs.value[0]
+    if (!latest) return [] as string[]
+
+    if (latest.statusCode === 401 || latest.statusCode === 403) {
+      return [t('agent.responsesLogsDiagnosticSuggestedAuth')]
+    }
+    if (latest.statusCode === 429) {
+      return [t('agent.responsesLogsDiagnosticSuggestedRateLimit')]
+    }
+    if (latest.statusCode >= 500) {
+      return [t('agent.responsesLogsDiagnosticSuggestedUpstream5xx')]
+    }
+
+    const errorInfo = String(latest.errorInfo || '').toLowerCase()
+    if (errorInfo.includes('timeout') || errorInfo.includes('stalled')) {
+      return [t('agent.responsesLogsDiagnosticSuggestedTimeout')]
+    }
+
+    return [t('agent.responsesLogsDiagnosticSuggestedGeneric')]
+  })
+
+  const statusSummaryVisible = computed(() => {
+    return codexDiagnosticVisible.value || (responsesChannelDiagnosticVisible.value && responsesChannelDiagnosticSeverity.value === 'warn') || recentFailedLogsDiagnosticVisible.value
+  })
+
+  const statusSummaryText = computed(() => {
+    if (codexDiagnosticVisible.value) return codexDiagnosticSummary.value
+    if (responsesChannelDiagnosticVisible.value && responsesChannelDiagnosticSeverity.value === 'warn') {
+      return responsesChannelDiagnosticSummary.value
+    }
+    if (recentFailedLogsDiagnosticVisible.value) {
+      return recentFailedLogsDiagnosticSummary.value
+    }
+    return ''
+  })
+
+  return {
+    codexStatus,
+    codexDiagnosticVisible,
+    codexDiagnosticSeverity,
+    codexDiagnosticSummary,
+    codexDiagnosticSuggestions,
+    responsesChannels,
+    responsesChannelsLoaded,
+    responsesChannelDiagnosticVisible,
+    responsesChannelDiagnosticSeverity,
+    responsesChannelDiagnosticSummary,
+    responsesChannelDiagnosticSuggestions,
+    recentFailedLogs,
+    recentFailedLogsDiagnosticVisible,
+    recentFailedLogsDiagnosticSummary,
+    recentFailedLogsDiagnosticSuggestions,
+    statusSummaryVisible,
+    statusSummaryText,
+    refreshResponsesChannels,
+  }
+}

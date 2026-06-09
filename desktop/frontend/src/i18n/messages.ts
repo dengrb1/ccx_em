@@ -309,6 +309,53 @@ export type MessageKey =
   | 'agent.placeholderMimo'
   | 'agent.placeholderDashScope'
   | 'agent.placeholderRequired'
+  | 'agent.codexDiagnosticTitle'
+  | 'agent.codexDiagnosticHealthy'
+  | 'agent.codexDiagnosticMismatch'
+  | 'agent.codexDiagnosticCheck'
+  | 'agent.codexDiagnosticAuthMode'
+  | 'agent.codexDiagnosticConfigPath'
+  | 'agent.codexDiagnosticAuthPath'
+  | 'agent.codexDiagnosticSuggestedApply'
+  | 'agent.codexDiagnosticSuggestedRestore'
+  | 'agent.codexDiagnosticStatusTitle'
+  | 'agent.codexDiagnosticStatusHint'
+  | 'agent.codexDiagnosticCodeMissingApiKey'
+  | 'agent.codexDiagnosticCodeProxyKeyMismatch'
+  | 'agent.codexDiagnosticCodeAuthModeMismatch'
+  | 'agent.codexDiagnosticCodePluginMissingBearer'
+  | 'agent.codexDiagnosticCodeLegacyIncomplete'
+  | 'agent.codexDiagnosticCodeConfigPolluted'
+  | 'agent.codexDiagnosticCodeAuthUnreadable'
+  | 'agent.responsesDiagnosticTitle'
+  | 'agent.responsesDiagnosticHealthy'
+  | 'agent.responsesDiagnosticNoChannel'
+  | 'agent.responsesDiagnosticAllDisabled'
+  | 'agent.responsesDiagnosticNoApiKeys'
+  | 'agent.responsesDiagnosticProtocolMismatch'
+  | 'agent.responsesDiagnosticCircuitOpen'
+  | 'agent.responsesDiagnosticSuggestedRefresh'
+  | 'agent.responsesDiagnosticSuggestedCreate'
+  | 'agent.responsesDiagnosticSuggestedEnable'
+  | 'agent.responsesDiagnosticSuggestedAddKey'
+  | 'agent.responsesDiagnosticSuggestedProtocolMismatch'
+  | 'agent.responsesDiagnosticSuggestedResume'
+  | 'agent.responsesLogsDiagnosticTitle'
+  | 'agent.responsesLogsDiagnosticAuth'
+  | 'agent.responsesLogsDiagnosticRateLimit'
+  | 'agent.responsesLogsDiagnosticUpstream5xx'
+  | 'agent.responsesLogsDiagnosticTimeout'
+  | 'agent.responsesLogsDiagnosticGeneric'
+  | 'agent.responsesLogsDiagnosticSuggestedRefresh'
+  | 'agent.responsesLogsDiagnosticSuggestedAuth'
+  | 'agent.responsesLogsDiagnosticSuggestedRateLimit'
+  | 'agent.responsesLogsDiagnosticSuggestedUpstream5xx'
+  | 'agent.responsesLogsDiagnosticSuggestedTimeout'
+  | 'agent.responsesLogsDiagnosticSuggestedGeneric'
+  | 'agent.codexDiagnosticIntro'
+  | 'agent.codexDiagnosticLayerConfig'
+  | 'agent.codexDiagnosticLayerChannels'
+  | 'agent.codexDiagnosticLayerLogs'
   | 'env.groupAccess'
   | 'env.groupAccessDesc'
   | 'env.fieldProxyAccessKey'
@@ -956,6 +1003,53 @@ export const messages: Record<SupportedLocale, Messages> = {
     'agent.placeholderMimo': 'Required: MiMo API Key (tp-xxx or account key)',
     'agent.placeholderDashScope': 'Required: DashScope API Key (sk-xxx or sk-sp-xxx)',
     'agent.placeholderRequired': 'Required: enter API Key',
+    'agent.codexDiagnosticTitle': 'Codex troubleshooting',
+    'agent.codexDiagnosticHealthy': 'Current Codex config looks consistent with CCX.',
+    'agent.codexDiagnosticMismatch': 'config.toml and auth.json may be inconsistent.',
+    'agent.codexDiagnosticCheck': 'Check item',
+    'agent.codexDiagnosticAuthMode': 'Auth mode',
+    'agent.codexDiagnosticConfigPath': 'config.toml',
+    'agent.codexDiagnosticAuthPath': 'auth.json',
+    'agent.codexDiagnosticSuggestedApply': 'Suggested action: re-apply Codex -> CCX config.',
+    'agent.codexDiagnosticSuggestedRestore': 'If the issue persists, restore first and then apply again.',
+    'agent.codexDiagnosticStatusTitle': 'Codex diagnostic summary',
+    'agent.codexDiagnosticStatusHint': 'Open the Agent tab to inspect Codex config consistency.',
+    'agent.codexDiagnosticCodeMissingApiKey': 'config.toml points to local CCX, but auth.json is missing OPENAI_API_KEY.',
+    'agent.codexDiagnosticCodeProxyKeyMismatch': 'The proxy key stored in Codex no longer matches the current CCX proxy key.',
+    'agent.codexDiagnosticCodeAuthModeMismatch': 'config.toml and auth.json disagree on the required auth mode.',
+    'agent.codexDiagnosticCodePluginMissingBearer': 'Plugin mode is missing experimental_bearer_token.',
+    'agent.codexDiagnosticCodeLegacyIncomplete': 'Legacy ccx provider config is incomplete.',
+    'agent.codexDiagnosticCodeConfigPolluted': 'config.toml may have been polluted by another tool and no longer matches CCX expectations.',
+    'agent.codexDiagnosticCodeAuthUnreadable': 'auth.json cannot be parsed and may be corrupted.',
+    'agent.responsesDiagnosticTitle': 'Responses channel diagnostic',
+    'agent.responsesDiagnosticHealthy': 'Responses channels look available.',
+    'agent.responsesDiagnosticNoChannel': 'No Responses channel is configured in CCX.',
+    'agent.responsesDiagnosticAllDisabled': 'Responses channels exist, but none is currently active.',
+    'agent.responsesDiagnosticNoApiKeys': 'Active Responses channels are missing API keys.',
+    'agent.responsesDiagnosticProtocolMismatch': 'Responses channels exist, but their protocol routing does not look compatible with /v1/responses.',
+    'agent.responsesDiagnosticCircuitOpen': 'All active Responses channels are currently circuit-open.',
+    'agent.responsesDiagnosticSuggestedRefresh': 'Suggested action: refresh channel dashboard and logs.',
+    'agent.responsesDiagnosticSuggestedCreate': 'Suggested action: add a Responses channel for your Codex provider.',
+    'agent.responsesDiagnosticSuggestedEnable': 'Suggested action: enable or resume at least one Responses channel.',
+    'agent.responsesDiagnosticSuggestedAddKey': 'Suggested action: add an API key to an active Responses channel.',
+    'agent.responsesDiagnosticSuggestedProtocolMismatch': 'Suggested action: check serviceType and baseUrl so the channel resolves to a /responses endpoint.',
+    'agent.responsesDiagnosticSuggestedResume': 'Suggested action: inspect logs and resume the affected channels after recovery.',
+    'agent.responsesLogsDiagnosticTitle': 'Recent failed requests',
+    'agent.responsesLogsDiagnosticAuth': 'Recent Responses requests failed with authentication errors (401/403).',
+    'agent.responsesLogsDiagnosticRateLimit': 'Recent Responses requests were rate limited (429).',
+    'agent.responsesLogsDiagnosticUpstream5xx': 'Recent Responses requests failed with upstream 5xx errors.',
+    'agent.responsesLogsDiagnosticTimeout': 'Recent Responses requests look stalled or timed out.',
+    'agent.responsesLogsDiagnosticGeneric': 'Recent Responses requests failed. Check channel logs for details.',
+    'agent.responsesLogsDiagnosticSuggestedRefresh': 'Suggested action: refresh the latest channel logs.',
+    'agent.responsesLogsDiagnosticSuggestedAuth': 'Suggested action: verify the upstream API key, account quota, and auth settings.',
+    'agent.responsesLogsDiagnosticSuggestedRateLimit': 'Suggested action: reduce request rate or wait for the upstream limit window to recover.',
+    'agent.responsesLogsDiagnosticSuggestedUpstream5xx': 'Suggested action: switch channel, inspect upstream status, or retry later.',
+    'agent.responsesLogsDiagnosticSuggestedTimeout': 'Suggested action: inspect upstream latency, timeout settings, and recent logs.',
+    'agent.responsesLogsDiagnosticSuggestedGeneric': 'Suggested action: open the Responses channel logs and inspect the latest failures.',
+    'agent.codexDiagnosticIntro': 'Checks run from top to bottom: config consistency → Responses channel availability → recent failed requests.',
+    'agent.codexDiagnosticLayerConfig': 'Layer 1 · Codex config',
+    'agent.codexDiagnosticLayerChannels': 'Layer 2 · Responses channels',
+    'agent.codexDiagnosticLayerLogs': 'Layer 3 · Recent failed requests',
     'env.groupAccess': 'Access control',
     'env.groupAccessDesc': 'Access keys for the proxy and admin endpoints.',
     'env.fieldProxyAccessKey': 'Proxy access key',
@@ -1600,6 +1694,53 @@ export const messages: Record<SupportedLocale, Messages> = {
     'agent.placeholderMimo': '必填：MiMo API Key（tp-xxx 或账号 key）',
     'agent.placeholderDashScope': '必填：DashScope API Key（sk-xxx 或 sk-sp-xxx）',
     'agent.placeholderRequired': '必填：输入 API Key',
+    'agent.codexDiagnosticTitle': 'Codex 排障诊断',
+    'agent.codexDiagnosticHealthy': '当前 Codex 配置与 CCX 看起来是一致的。',
+    'agent.codexDiagnosticMismatch': 'config.toml 与 auth.json 可能不一致。',
+    'agent.codexDiagnosticCheck': '检查项',
+    'agent.codexDiagnosticAuthMode': '认证模式',
+    'agent.codexDiagnosticConfigPath': 'config.toml',
+    'agent.codexDiagnosticAuthPath': 'auth.json',
+    'agent.codexDiagnosticSuggestedApply': '建议动作：重新应用 Codex -> CCX 配置。',
+    'agent.codexDiagnosticSuggestedRestore': '如果问题仍在，先恢复原始配置，再重新应用。',
+    'agent.codexDiagnosticStatusTitle': 'Codex 排障摘要',
+    'agent.codexDiagnosticStatusHint': '请前往 Agent 页检查 Codex 配置一致性。',
+    'agent.codexDiagnosticCodeMissingApiKey': 'config.toml 已指向本地 CCX，但 auth.json 缺少 OPENAI_API_KEY。',
+    'agent.codexDiagnosticCodeProxyKeyMismatch': 'Codex 当前保存的代理密钥与 CCX 当前代理密钥不一致。',
+    'agent.codexDiagnosticCodeAuthModeMismatch': 'config.toml 与 auth.json 要求的认证模式不一致。',
+    'agent.codexDiagnosticCodePluginMissingBearer': '插件模式缺少 experimental_bearer_token。',
+    'agent.codexDiagnosticCodeLegacyIncomplete': '旧式 ccx provider 配置不完整。',
+    'agent.codexDiagnosticCodeConfigPolluted': 'config.toml 可能被其他工具污染，已不符合 CCX 预期。',
+    'agent.codexDiagnosticCodeAuthUnreadable': 'auth.json 无法解析，可能已经损坏。',
+    'agent.responsesDiagnosticTitle': 'Responses 渠道诊断',
+    'agent.responsesDiagnosticHealthy': 'Responses 渠道当前看起来可用。',
+    'agent.responsesDiagnosticNoChannel': 'CCX 当前没有配置任何 Responses 渠道。',
+    'agent.responsesDiagnosticAllDisabled': '已存在 Responses 渠道，但当前没有任何活跃渠道。',
+    'agent.responsesDiagnosticNoApiKeys': '活跃的 Responses 渠道缺少 API Key。',
+    'agent.responsesDiagnosticProtocolMismatch': '已存在 Responses 渠道，但它们的协议路由看起来并不兼容 /v1/responses。',
+    'agent.responsesDiagnosticCircuitOpen': '所有活跃的 Responses 渠道当前都处于熔断状态。',
+    'agent.responsesDiagnosticSuggestedRefresh': '建议动作：刷新渠道状态和日志。',
+    'agent.responsesDiagnosticSuggestedCreate': '建议动作：为当前 Codex provider 新增一个 Responses 渠道。',
+    'agent.responsesDiagnosticSuggestedEnable': '建议动作：启用或恢复至少一个 Responses 渠道。',
+    'agent.responsesDiagnosticSuggestedAddKey': '建议动作：给活跃的 Responses 渠道补充 API Key。',
+    'agent.responsesDiagnosticSuggestedProtocolMismatch': '建议动作：检查 serviceType 和 baseUrl，确保该渠道最终落到 /responses 端点。',
+    'agent.responsesDiagnosticSuggestedResume': '建议动作：查看日志并在恢复后重新启用相关渠道。',
+    'agent.responsesLogsDiagnosticTitle': '最近失败请求',
+    'agent.responsesLogsDiagnosticAuth': '最近的 Responses 请求出现了认证错误（401/403）。',
+    'agent.responsesLogsDiagnosticRateLimit': '最近的 Responses 请求触发了限流（429）。',
+    'agent.responsesLogsDiagnosticUpstream5xx': '最近的 Responses 请求出现了上游 5xx 错误。',
+    'agent.responsesLogsDiagnosticTimeout': '最近的 Responses 请求看起来发生了超时或卡住。',
+    'agent.responsesLogsDiagnosticGeneric': '最近的 Responses 请求失败了，请查看渠道日志获取细节。',
+    'agent.responsesLogsDiagnosticSuggestedRefresh': '建议动作：刷新最近的渠道日志。',
+    'agent.responsesLogsDiagnosticSuggestedAuth': '建议动作：检查上游 API Key、账户额度和认证设置。',
+    'agent.responsesLogsDiagnosticSuggestedRateLimit': '建议动作：降低请求频率，或等待上游限流窗口恢复。',
+    'agent.responsesLogsDiagnosticSuggestedUpstream5xx': '建议动作：切换渠道、检查上游状态，或稍后再试。',
+    'agent.responsesLogsDiagnosticSuggestedTimeout': '建议动作：检查上游延迟、超时配置和最近日志。',
+    'agent.responsesLogsDiagnosticSuggestedGeneric': '建议动作：打开 Responses 渠道日志并检查最近失败项。',
+    'agent.codexDiagnosticIntro': '诊断按顺序执行：配置一致性 → Responses 渠道可用性 → 最近失败请求。',
+    'agent.codexDiagnosticLayerConfig': '第 1 层 · Codex 配置',
+    'agent.codexDiagnosticLayerChannels': '第 2 层 · Responses 渠道',
+    'agent.codexDiagnosticLayerLogs': '第 3 层 · 最近失败请求',
     'env.groupAccess': '访问控制',
     'env.groupAccessDesc': '代理入口与管理入口的访问密钥。',
     'env.fieldProxyAccessKey': '代理访问密钥',

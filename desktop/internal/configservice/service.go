@@ -65,6 +65,13 @@ type AgentConfigStatus struct {
 	AuthPath           string `json:"authPath,omitempty"`
 	HasState           bool   `json:"hasState"`
 	LastError          string `json:"lastError,omitempty"`
+
+	// Codex 专属：config.toml 与 auth.json 一致性诊断。
+	// 用于识别 CCS 等工具或手工编辑导致的配置污染，避免用户只看到上游 503。
+	AuthMode          string `json:"authMode,omitempty"`          // auth.json 的 auth_mode："apikey" | "chatgpt"
+	ConfigConsistent  bool   `json:"configConsistent"`            // config.toml 与 auth.json 语义是否一致
+	DiagnosticCode    string `json:"diagnosticCode,omitempty"`    // 不一致时的诊断码，如 codex.missing_api_key
+	DiagnosticMessage string `json:"diagnosticMessage,omitempty"` // 面向用户的诊断说明
 }
 
 type ApplyAgentConfigRequest struct {
@@ -347,13 +354,14 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 	authPath := s.codexAuthPath()
 	target := codexBaseURL(port)
 	status := AgentConfigStatus{
-		Platform:       PlatformCodex,
-		Provider:       ProviderCustom,
-		TargetProvider: ProviderCCX,
-		TargetBaseURL:  target,
-		ConfigPath:     path,
-		AuthPath:       authPath,
-		HasState:       fileExists(s.codexStatePath()),
+		Platform:         PlatformCodex,
+		Provider:         ProviderCustom,
+		TargetProvider:   ProviderCCX,
+		TargetBaseURL:    target,
+		ConfigPath:       path,
+		AuthPath:         authPath,
+		HasState:         fileExists(s.codexStatePath()),
+		ConfigConsistent: true,
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -374,13 +382,23 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 
 	// 检测插件模式
 	isNativeCCX := false
+	isLegacyQuickCCX := false
+	ccxBearerToken := ""
 	if isOldStyleCCX {
 		ccxBlock, hasBlock := extractNamedTomlBlock(text, "model_providers.ccx")
-		if hasBlock && strings.Contains(ccxBlock, "requires_openai_auth") {
-			isNativeCCX = true
+		if hasBlock {
+			requiresOpenAIAuth, hasRequiresOpenAIAuth := extractTomlBoolField(ccxBlock, "requires_openai_auth")
+			if hasRequiresOpenAIAuth && requiresOpenAIAuth {
+				isNativeCCX = true
+			}
+			if _, hasEnvKey := extractTomlStringField(ccxBlock, "env_key"); hasEnvKey || (hasRequiresOpenAIAuth && !requiresOpenAIAuth) {
+				isLegacyQuickCCX = true
+			}
+			if bearerToken, hasBearerToken := extractTomlStringField(ccxBlock, "experimental_bearer_token"); hasBearerToken {
+				ccxBearerToken = strings.TrimSpace(bearerToken)
+			}
 		}
 	}
-	hasBearerToken := strings.Contains(text, "experimental_bearer_token")
 
 	// 检测第三方 provider 快捷模式：model_provider="openai" + 非本地 openai_base_url
 	isThirdPartyQuickMode := false
@@ -401,7 +419,7 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 	normalized := normalizeCodexProvider(modelProvider)
 	if isNewStyleCCX || isNativeCCX || isOldStyleCCX {
 		status.Provider = ProviderCCX
-		if isNativeCCX || hasBearerToken {
+		if isNativeCCX || ccxBearerToken != "" {
 			status.Mode = "plugin"
 		} else if isOldStyleCCX {
 			status.Mode = "quick"
@@ -426,7 +444,123 @@ func (s *Service) getCodexStatus(port int) (AgentConfigStatus, error) {
 	status.MatchesCurrentPort = (isNewStyleCCX || isOldStyleCCX) && effectiveBaseURL == target
 	status.Configured = status.MatchesCurrentPort || (normalized == ProviderOpenAI && !isNewStyleCCX && !isThirdPartyQuickMode) || isCodexThirdPartyProvider(normalized) || isThirdPartyQuickMode
 	status.NeedsUpdate = (isOldStyleCCX || isLocalBaseURL(effectiveBaseURL)) && !status.MatchesCurrentPort
+
+	s.diagnoseCodexConfigAuth(&status, text, modelProvider, openaiBaseURL, isNewStyleCCX, isOldStyleCCX, isNativeCCX, isLegacyQuickCCX, ccxBearerToken)
 	return status, nil
+}
+
+// diagnoseCodexConfigAuth 识别 config.toml 与 auth.json 的常见语义冲突。
+// 这类冲突多由 CCS 等工具或手工编辑导致：config.toml 改成指向本地 CCX，
+// 但 auth.json 的 auth_mode / OPENAI_API_KEY 没有同步，运行时表现为上游 503/鉴权失败。
+// 仅针对“当前意图指向本地 CCX”的配置做判定，避免误报第三方直连。
+func (s *Service) diagnoseCodexConfigAuth(
+	status *AgentConfigStatus,
+	configText string,
+	modelProvider string,
+	openaiBaseURL string,
+	isNewStyleCCX bool,
+	isOldStyleCCX bool,
+	isNativeCCX bool,
+	isLegacyQuickCCX bool,
+	ccxBearerToken string,
+) {
+	// 默认视为一致，无法读取 auth.json 时不武断报错。
+	status.ConfigConsistent = true
+
+	authData, authExisted, err := readJSONMap(status.AuthPath)
+	if err != nil {
+		// auth.json 存在但解析失败本身就是污染信号。
+		status.ConfigConsistent = false
+		status.DiagnosticCode = "codex.auth_unreadable"
+		status.DiagnosticMessage = "auth.json 解析失败，可能已损坏；建议重新应用 Codex -> CCX 配置"
+		return
+	}
+
+	authMode, _ := authData["auth_mode"].(string)
+	status.AuthMode = authMode
+	apiKey, _ := authData["OPENAI_API_KEY"].(string)
+	apiKey = strings.TrimSpace(apiKey)
+	expectedProxyKey := strings.TrimSpace(s.readCurrentProxyAccessKey())
+
+	// 仅诊断“指向本地 CCX”的两类配置；第三方/OpenAI 直连不在此判定范围。
+	pointsToLocalCCX := isNewStyleCCX || isOldStyleCCX
+
+	switch {
+	case isNativeCCX || ccxBearerToken != "":
+		// 插件模式：依赖 ChatGPT OAuth + experimental_bearer_token。
+		if ccxBearerToken == "" {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.plugin_missing_bearer"
+			status.DiagnosticMessage = "插件模式缺少 experimental_bearer_token；建议重新应用 Codex -> CCX 插件模式"
+			return
+		}
+		if expectedProxyKey != "" && ccxBearerToken != expectedProxyKey {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.proxy_key_mismatch"
+			status.DiagnosticMessage = "config.toml 中的 experimental_bearer_token 与当前 CCX 代理密钥不一致；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+		if !strings.EqualFold(authMode, "chatgpt") {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.auth_mode_mismatch"
+			status.DiagnosticMessage = "插件模式要求 auth.json 的 auth_mode 为 chatgpt，但当前为 " + authMode + "；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+	case isLegacyQuickCCX:
+		// 旧式 quick 配置：model_provider="ccx" + [model_providers.ccx]（env_key/requires_openai_auth=false），
+		// 仍由 OPENAI_API_KEY 驱动，可正常工作；缺 key 或 auth_mode 缺失/错误时才需提示。
+		if !authExisted || apiKey == "" {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.missing_api_key"
+			status.DiagnosticMessage = "config.toml 指向本地 CCX，但 auth.json 缺少 OPENAI_API_KEY；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+		if expectedProxyKey != "" && apiKey != expectedProxyKey {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.proxy_key_mismatch"
+			status.DiagnosticMessage = "auth.json 中的 OPENAI_API_KEY 与当前 CCX 代理密钥不一致；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+		if !strings.EqualFold(authMode, "apikey") {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.auth_mode_mismatch"
+			status.DiagnosticMessage = "快捷模式要求 auth.json 的 auth_mode 为 apikey，但当前为 " + authMode + "；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+	case isNewStyleCCX:
+		// 快捷模式：openai_base_url 指向本地 CCX，需要 OPENAI_API_KEY + auth_mode=apikey。
+		if !authExisted || apiKey == "" {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.missing_api_key"
+			status.DiagnosticMessage = "config.toml 指向本地 CCX，但 auth.json 缺少 OPENAI_API_KEY；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+		if expectedProxyKey != "" && apiKey != expectedProxyKey {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.proxy_key_mismatch"
+			status.DiagnosticMessage = "auth.json 中的 OPENAI_API_KEY 与当前 CCX 代理密钥不一致；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+		if !strings.EqualFold(authMode, "apikey") {
+			status.ConfigConsistent = false
+			status.DiagnosticCode = "codex.auth_mode_mismatch"
+			status.DiagnosticMessage = "快捷模式要求 auth.json 的 auth_mode 为 apikey，但当前为 " + authMode + "；建议重新应用 Codex -> CCX 配置"
+			return
+		}
+	case isOldStyleCCX:
+		// 旧格式 model_provider="ccx"，但既不是插件块也不是旧式 quick 块，说明配置残缺。
+		status.ConfigConsistent = false
+		status.DiagnosticCode = "codex.legacy_incomplete"
+		status.DiagnosticMessage = "config.toml 使用旧式 ccx provider 但缺少必要字段；建议重新应用 Codex -> CCX 配置"
+		return
+	}
+
+	// model_provider 指向本地但格式无法识别为任何已知 CCX 形态：典型的 CCS 污染。
+	if !pointsToLocalCCX && isLocalBaseURL(openaiBaseURL) && !strings.EqualFold(modelProvider, "openai") {
+		status.ConfigConsistent = false
+		status.DiagnosticCode = "codex.config_polluted"
+		status.DiagnosticMessage = "config.toml 指向本地端口但 model_provider 配置异常；建议先恢复再重新应用 Codex -> CCX 配置"
+	}
 }
 
 func (s *Service) applyClaude(req ApplyAgentConfigRequest, port int, accessKey string) error {
@@ -1070,6 +1204,20 @@ func (s *Service) providerKeysPath() string {
 	return filepath.Join(s.stateDir, "provider-keys.json")
 }
 
+func (s *Service) currentDataDir() string {
+	return filepath.Dir(s.stateDir)
+}
+
+func (s *Service) readCurrentProxyAccessKey() string {
+	if key := readEnvValueFromFile(filepath.Join(s.currentDataDir(), ".env"), "PROXY_ACCESS_KEY"); strings.TrimSpace(key) != "" {
+		return key
+	}
+	if key := strings.TrimSpace(os.Getenv("PROXY_ACCESS_KEY")); key != "" {
+		return key
+	}
+	return ""
+}
+
 type OpenCodeProxyState struct {
 	Version              int     `json:"version"`
 	ProviderID           string  `json:"providerId"`
@@ -1582,6 +1730,39 @@ func extractTomlStringField(content string, key string) (string, bool) {
 		return "", false
 	}
 	return match[1], true
+}
+
+func extractTomlBoolField(content string, key string) (bool, bool) {
+	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(key) + `\s*=\s*(true|false)\s*(?:#.*)?$`)
+	match := re.FindStringSubmatch(content)
+	if len(match) < 2 {
+		return false, false
+	}
+	return strings.EqualFold(match[1], "true"), true
+}
+
+func readEnvValueFromFile(path, key string) string {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+		if rest, ok := strings.CutPrefix(line, "export "); ok {
+			line = strings.TrimSpace(rest)
+		}
+		k, value, _ := strings.Cut(line, "=")
+		k = strings.TrimSpace(k)
+		if k != key {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		return strings.Trim(value, `"'`)
+	}
+	return ""
 }
 
 // findNamedTomlBlock 返回 [table] 块的起止偏移量。

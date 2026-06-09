@@ -5,9 +5,24 @@ import ConfigDiffDialog from '@/components/agent/ConfigDiffDialog.vue'
 import MigrateSessionsDialog from '@/components/agent/MigrateSessionsDialog.vue'
 import { useStatus } from '@/composables/useStatus'
 import { useAgentConfig } from '@/composables/useAgentConfig'
+import { useResponsesDiagnostics } from '@/composables/useResponsesDiagnostics'
 import type { AgentPlatform } from '@/types'
 
 const { actionError } = useStatus()
+const {
+  codexDiagnosticVisible,
+  codexDiagnosticSeverity,
+  codexDiagnosticSummary,
+  codexDiagnosticSuggestions,
+  responsesChannelDiagnosticVisible,
+  responsesChannelDiagnosticSeverity,
+  responsesChannelDiagnosticSummary,
+  responsesChannelDiagnosticSuggestions,
+  recentFailedLogsDiagnosticVisible,
+  recentFailedLogsDiagnosticSummary,
+  recentFailedLogsDiagnosticSuggestions,
+  refreshResponsesChannels,
+} = useResponsesDiagnostics()
 const {
   agentStatuses,
   configLoading,
@@ -60,6 +75,7 @@ const {
 
 onMounted(() => {
   loadAgentStatuses()
+  void refreshResponsesChannels()
 })
 
 const handleApply = async (platform: AgentPlatform) => {
@@ -94,6 +110,7 @@ const handleConfirm = async () => {
       await confirmRestore()
     }
     await loadAgentStatuses()
+    await refreshResponsesChannels()
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : String(error)
   }
@@ -134,6 +151,17 @@ const handleConfirm = async () => {
         :open-code-provider-label="openCodeProviderLabel"
         :open-code-target-base-url="openCodeTargetBaseUrl"
         :migrate-loading="migrateLoading"
+        :codex-diagnostic-visible="platform === 'codex' ? codexDiagnosticVisible : false"
+        :codex-diagnostic-severity="platform === 'codex' ? codexDiagnosticSeverity : 'ok'"
+        :codex-diagnostic-summary="platform === 'codex' ? codexDiagnosticSummary : ''"
+        :codex-diagnostic-suggestions="platform === 'codex' ? codexDiagnosticSuggestions : []"
+        :responses-channel-diagnostic-visible="platform === 'codex' ? responsesChannelDiagnosticVisible : false"
+        :responses-channel-diagnostic-severity="platform === 'codex' ? responsesChannelDiagnosticSeverity : 'ok'"
+        :responses-channel-diagnostic-summary="platform === 'codex' ? responsesChannelDiagnosticSummary : ''"
+        :responses-channel-diagnostic-suggestions="platform === 'codex' ? responsesChannelDiagnosticSuggestions : []"
+        :recent-failed-logs-diagnostic-visible="platform === 'codex' ? recentFailedLogsDiagnosticVisible : false"
+        :recent-failed-logs-diagnostic-summary="platform === 'codex' ? recentFailedLogsDiagnosticSummary : ''"
+        :recent-failed-logs-diagnostic-suggestions="platform === 'codex' ? recentFailedLogsDiagnosticSuggestions : []"
         @apply="handleApply(platform)"
         @restore="handleRestore(platform)"
         @migrate="handleMigrate"
