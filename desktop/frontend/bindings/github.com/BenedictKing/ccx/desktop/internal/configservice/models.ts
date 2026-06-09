@@ -24,6 +24,28 @@ export class AgentConfigStatus {
     "hasState": boolean;
     "lastError"?: string;
 
+    /**
+     * Codex 专属：config.toml 与 auth.json 一致性诊断。
+     * 用于识别 CCS 等工具或手工编辑导致的配置污染，避免用户只看到上游 503。
+     * auth.json 的 auth_mode："apikey" | "chatgpt"
+     */
+    "authMode"?: string;
+
+    /**
+     * config.toml 与 auth.json 语义是否一致
+     */
+    "configConsistent": boolean;
+
+    /**
+     * 不一致时的诊断码，如 codex.missing_api_key
+     */
+    "diagnosticCode"?: string;
+
+    /**
+     * 面向用户的诊断说明
+     */
+    "diagnosticMessage"?: string;
+
     /** Creates a new AgentConfigStatus instance. */
     constructor($$source: Partial<AgentConfigStatus> = {}) {
         if (!("platform" in $$source)) {
@@ -49,6 +71,9 @@ export class AgentConfigStatus {
         }
         if (!("hasState" in $$source)) {
             this["hasState"] = false;
+        }
+        if (!("configConsistent" in $$source)) {
+            this["configConsistent"] = false;
         }
 
         Object.assign(this, $$source);
