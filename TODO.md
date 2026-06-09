@@ -121,6 +121,11 @@ Web 端与后端已支持渠道级「去除 image_generation 工具」开关（R
 
 ## 上游版本变更
 
-- [Claude Code v2.1.169] 发现协议/工具/用法变更：stream。请评估对 ccx Messages 渠道的影响。
-- [Codex rust-v0.138.0] 发现协议/工具/用法变更：code mode, code-mode, compact, effort, environment, goal extension, image generation, multi-agent, permission, plugin, Plugin, reasoning, Reasoning, remote control, remote-control, sandbox, Sandbox, session, skill。请评估对 ccx Responses 渠道的影响。
+## [ ] Claude Code v2.1.169 上游协议/工具变更评估
+
+发现协议/工具/用法变更：stream。请评估对 ccx Messages 渠道的影响。
+
+## [ ] Codex rust-v0.138.0 上游协议/工具变更评估
+
+发现协议/工具/用法变更：code mode, code-mode, compact, effort, environment, goal extension, image generation, multi-agent, permission, plugin, Plugin, reasoning, Reasoning, remote control, remote-control, sandbox, Sandbox, session, skill。请评估对 ccx Responses 渠道的影响。
 

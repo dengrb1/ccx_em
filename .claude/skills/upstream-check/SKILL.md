@@ -59,11 +59,19 @@ cat .claude/skills/upstream-check/scripts/upstream-state.json
 **TODO.md 更新**：
 
 - 检查 TODO.md 是否已有 `## 上游版本变更` 标题，如无则追加
-- 追加格式：
+- 追加格式必须遵循仓库 TODO 规范：**每个待办项前面都要有 `[ ]`**
+- 推荐追加为独立任务块，而不是普通列表项，例如：
 
 ```markdown
-- [Claude Code vX.Y.Z] 发现协议/工具/用法变更：keyword1, keyword2。请评估对 ccx Messages 渠道的影响。
-- [Codex rust-vX.Y.Z] 发现协议/工具/用法变更：keyword1, keyword2。请评估对 ccx Responses 渠道的影响。
+## 上游版本变更
+
+## [ ] Claude Code vX.Y.Z 上游协议/工具变更评估
+
+发现协议/工具/用法变更：keyword1, keyword2。请评估对 ccx Messages 渠道的影响。
+
+## [ ] Codex rust-vX.Y.Z 上游协议/工具变更评估
+
+发现协议/工具/用法变更：keyword1, keyword2。请评估对 ccx Responses 渠道的影响。
 ```
 
 ### 6. 更新状态文件
