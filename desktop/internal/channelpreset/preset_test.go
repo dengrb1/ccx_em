@@ -56,9 +56,9 @@ func TestBuildPayload(t *testing.T) {
 			wantNativeTool: true,
 			wantNormalize:  true,
 			wantModelMap: map[string]string{
-				"gpt":               "deepseek-v4-pro",
-				"mini":              "deepseek-v4-flash",
-				"codex-auto-review": "deepseek-v4-flash",
+				"codex": "deepseek-v4-flash",
+				"gpt":   "deepseek-v4-pro",
+				"mini":  "deepseek-v4-flash",
 			},
 		},
 		{
@@ -106,8 +106,8 @@ func TestBuildPayload(t *testing.T) {
 			wantBaseURL: "https://api.xiaomimimo.com/v1",
 			wantService: "openai",
 			wantModelMap: map[string]string{
-				"gpt-5":             "mimo-v2.5-pro",
-				"codex-auto-review": "mimo-v2.5",
+				"codex": "mimo-v2.5",
+				"gpt":   "mimo-v2.5-pro",
 			},
 			wantNoVisionModels: []string{"mimo-v2.5-pro"},
 			wantFallback:       "mimo-v2.5",
@@ -147,9 +147,9 @@ func TestBuildPayload(t *testing.T) {
 			wantNativeTool: true,
 			wantNormalize:  true,
 			wantModelMap: map[string]string{
-				"gpt":               "glm-5.1",
-				"mini":              "deepseek-v4-flash",
-				"codex-auto-review": "deepseek-v4-flash",
+				"codex": "deepseek-v4-flash",
+				"gpt":   "glm-5.1",
+				"mini":  "deepseek-v4-flash",
 			},
 			wantNoVisionModels: []string{"deepseek-v4-flash"},
 			wantFallback:       "MiniMax-M2.7",
@@ -243,15 +243,12 @@ func TestBuildPayload(t *testing.T) {
 			wantCodex:      true,
 			wantStripCodex: true,
 			wantModelMap: map[string]string{
-				"gpt-5.5":           "glm-5.1",
-				"gpt-5.4":           "deepseek-v4-pro",
-				"gpt-5.4-mini":      "deepseek-v4-flash",
-				"codex-auto-review": "deepseek-v4-flash",
+				"codex": "deepseek-v4-flash",
+				"gpt":   "deepseek-v4-pro",
+				"mini":  "deepseek-v4-flash",
 			},
 			wantReasoning: map[string]string{
-				"gpt-5.5":      "high",
-				"gpt-5.4":      "max",
-				"gpt-5.4-mini": "high",
+				"gpt": "max",
 			},
 		},
 		{
@@ -262,15 +259,12 @@ func TestBuildPayload(t *testing.T) {
 			wantCodex:      true,
 			wantStripCodex: true,
 			wantModelMap: map[string]string{
-				"gpt-5.5":           "glm-5.1",
-				"gpt-5.4":           "deepseek-v4-pro",
-				"gpt-5.4-mini":      "deepseek-v4-flash",
-				"codex-auto-review": "deepseek-v4-flash",
+				"codex": "deepseek-v4-flash",
+				"gpt":   "deepseek-v4-pro",
+				"mini":  "deepseek-v4-flash",
 			},
 			wantReasoning: map[string]string{
-				"gpt-5.5":      "high",
-				"gpt-5.4":      "max",
-				"gpt-5.4-mini": "high",
+				"gpt": "max",
 			},
 		},
 		{
@@ -307,15 +301,12 @@ func TestBuildPayload(t *testing.T) {
 			wantCodex:      true,
 			wantStripCodex: true,
 			wantModelMap: map[string]string{
-				"gpt-5.5":           "glm-5.1",
-				"gpt-5.4":           "deepseek-v4-pro",
-				"gpt-5.4-mini":      "deepseek-v4-flash",
-				"codex-auto-review": "deepseek-v4-flash",
+				"codex": "deepseek-v4-flash",
+				"gpt":   "deepseek-v4-pro",
+				"mini":  "deepseek-v4-flash",
 			},
 			wantReasoning: map[string]string{
-				"gpt-5.5":      "high",
-				"gpt-5.4":      "max",
-				"gpt-5.4-mini": "high",
+				"gpt": "max",
 			},
 		},
 		{
@@ -339,7 +330,7 @@ func TestBuildPayload(t *testing.T) {
 			wantService:    "openai",
 			wantCodex:      true,
 			wantStripCodex: true,
-			wantModelMap:   map[string]string{"gpt-5": "glm-5.1", "codex-auto-review": "glm-5.1"},
+			wantModelMap:   map[string]string{"codex": "glm-5.1", "gpt": "glm-5.1"},
 		},
 		{
 			name:           "opencode go responses",
@@ -348,7 +339,7 @@ func TestBuildPayload(t *testing.T) {
 			wantService:    "openai",
 			wantCodex:      true,
 			wantStripCodex: true,
-			wantModelMap:   map[string]string{"gpt-5": "glm-5.1", "codex-auto-review": "glm-5.1"},
+			wantModelMap:   map[string]string{"codex": "glm-5.1", "gpt": "glm-5.1"},
 		},
 		{
 			name:           "kimi responses auto-review redirect",
@@ -357,7 +348,7 @@ func TestBuildPayload(t *testing.T) {
 			wantService:    "openai",
 			wantCodex:      true,
 			wantStripCodex: true,
-			wantModelMap:   map[string]string{"gpt-5": "kimi-k2.6", "codex-auto-review": "kimi-k2.6"},
+			wantModelMap:   map[string]string{"codex": "kimi-k2.6", "gpt": "kimi-k2.6"},
 		},
 		{
 			name:           "glm responses auto-review redirect",
@@ -366,7 +357,7 @@ func TestBuildPayload(t *testing.T) {
 			wantService:    "openai",
 			wantCodex:      true,
 			wantStripCodex: true,
-			wantModelMap:   map[string]string{"gpt-5": "glm-5.1", "codex-auto-review": "glm-5.1"},
+			wantModelMap:   map[string]string{"codex": "glm-5.1", "gpt": "glm-5.1"},
 		},
 	}
 	for _, tt := range tests {
@@ -460,7 +451,7 @@ func TestChannelTargetConfigsExcludeRetiredGPTModels(t *testing.T) {
 	}
 }
 
-func TestResponsesTargetMustIncludeCodexAutoReview(t *testing.T) {
+func TestResponsesTargetMustIncludeCodexMapping(t *testing.T) {
 	responsesConfigs, ok := channelTargetConfigs[TargetResponses]
 	if !ok {
 		t.Fatal("channelTargetConfigs[TargetResponses] not found")
@@ -469,15 +460,8 @@ func TestResponsesTargetMustIncludeCodexAutoReview(t *testing.T) {
 		if len(config.ModelMapping) == 0 {
 			continue
 		}
-		hasCodexReview := false
-		for key := range config.ModelMapping {
-			if key == "codex-auto-review" || key == "codex" {
-				hasCodexReview = true
-				break
-			}
-		}
-		if !hasCodexReview {
-			t.Fatalf("provider %q responses config missing codex-auto-review or codex mapping", provider)
+		if _, found := config.ModelMapping["codex"]; !found {
+			t.Fatalf("provider %q responses config missing codex mapping", provider)
 		}
 	}
 }

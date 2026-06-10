@@ -1997,8 +1997,8 @@ const codexResponsesChannelPresets: Record<
 > = {
   mimo: {
     modelMapping: {
-      'gpt-5': 'mimo-v2.5-pro',
-      'codex-auto-review': 'mimo-v2.5'
+      'codex': 'mimo-v2.5',
+      'gpt': 'mimo-v2.5-pro'
     },
     reasoningMapping: {},
     reasoningParamStyle: 'reasoning',
@@ -2013,9 +2013,9 @@ const codexResponsesChannelPresets: Record<
   },
   deepseek: {
     modelMapping: {
+      codex: 'deepseek-v4-flash',
       gpt: 'deepseek-v4-pro',
-      mini: 'deepseek-v4-flash',
-      'codex-auto-review': 'deepseek-v4-flash'
+      mini: 'deepseek-v4-flash'
     },
     reasoningMapping: {
       gpt: 'max'

@@ -705,8 +705,8 @@ const codexResponsesPresets: Record<string, {
 }> = {
   mimo: {
     mapping: [
-      { source: 'gpt-5', target: 'mimo-v2.5-pro' },
-      { source: 'codex-auto-review', target: 'mimo-v2.5' },
+      { source: 'codex', target: 'mimo-v2.5' },
+      { source: 'gpt', target: 'mimo-v2.5-pro' },
     ],
     reasoningParamStyle: 'reasoning',
     codexNativeToolPassthrough: false,
@@ -720,9 +720,9 @@ const codexResponsesPresets: Record<string, {
   },
   deepseek: {
     mapping: [
+      { source: 'codex', target: 'deepseek-v4-flash' },
       { source: 'gpt', target: 'deepseek-v4-pro', reasoning: 'max' },
       { source: 'mini', target: 'deepseek-v4-flash' },
-      { source: 'codex-auto-review', target: 'deepseek-v4-flash' },
     ],
     reasoningParamStyle: 'reasoning',
     codexNativeToolPassthrough: true,
@@ -736,9 +736,9 @@ const codexResponsesPresets: Record<string, {
   },
   compshare: {
     mapping: [
+      { source: 'codex', target: 'deepseek-v4-flash' },
       { source: 'gpt', target: 'glm-5.1' },
       { source: 'mini', target: 'deepseek-v4-flash' },
-      { source: 'codex-auto-review', target: 'deepseek-v4-flash' },
     ],
     reasoningParamStyle: 'reasoning',
     codexNativeToolPassthrough: true,
@@ -768,10 +768,9 @@ const codexResponsesPresets: Record<string, {
   },
   dashscope: {
     mapping: [
-      { source: 'gpt-5.5', target: 'glm-5.1', reasoning: 'high' },
-      { source: 'gpt-5.4', target: 'deepseek-v4-pro', reasoning: 'max' },
-      { source: 'gpt-5.4-mini', target: 'deepseek-v4-flash', reasoning: 'high' },
-      { source: 'codex-auto-review', target: 'deepseek-v4-flash' },
+      { source: 'codex', target: 'deepseek-v4-flash' },
+      { source: 'gpt', target: 'deepseek-v4-pro', reasoning: 'max' },
+      { source: 'mini', target: 'deepseek-v4-flash' },
     ],
     reasoningParamStyle: 'reasoning',
     codexNativeToolPassthrough: false,
@@ -785,8 +784,8 @@ const codexResponsesPresets: Record<string, {
   },
   kimi: {
     mapping: [
-      { source: 'gpt-5', target: 'kimi-k2.6' },
-      { source: 'codex-auto-review', target: 'kimi-k2.6' },
+      { source: 'codex', target: 'kimi-k2.6' },
+      { source: 'gpt', target: 'kimi-k2.6' },
     ],
     reasoningParamStyle: '',
     codexNativeToolPassthrough: false,
@@ -800,8 +799,8 @@ const codexResponsesPresets: Record<string, {
   },
   glm: {
     mapping: [
-      { source: 'gpt-5', target: 'glm-5.1' },
-      { source: 'codex-auto-review', target: 'glm-5.1' },
+      { source: 'codex', target: 'glm-5.1' },
+      { source: 'gpt', target: 'glm-5.1' },
     ],
     reasoningParamStyle: '',
     codexNativeToolPassthrough: false,
@@ -815,8 +814,8 @@ const codexResponsesPresets: Record<string, {
   },
   'opencode-zen': {
     mapping: [
-      { source: 'gpt-5', target: 'glm-5.1' },
-      { source: 'codex-auto-review', target: 'glm-5.1' },
+      { source: 'codex', target: 'glm-5.1' },
+      { source: 'gpt', target: 'glm-5.1' },
     ],
     reasoningParamStyle: '',
     codexNativeToolPassthrough: false,
@@ -830,8 +829,8 @@ const codexResponsesPresets: Record<string, {
   },
   'opencode-go': {
     mapping: [
-      { source: 'gpt-5', target: 'glm-5.1' },
-      { source: 'codex-auto-review', target: 'glm-5.1' },
+      { source: 'codex', target: 'glm-5.1' },
+      { source: 'gpt', target: 'glm-5.1' },
     ],
     reasoningParamStyle: '',
     codexNativeToolPassthrough: false,
