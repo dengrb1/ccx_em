@@ -82,6 +82,9 @@ func (cm *ConfigManager) loadConfig() error {
 	if cm.applyCodexToolCompatMigration(data) {
 		needSaveDefaults = true
 	}
+	if cm.migrateFableModelMapping() {
+		needSaveDefaults = true
+	}
 
 	// 兼容旧格式：检测是否需要迁移
 	needMigration := cm.migrateOldFormat()
@@ -257,6 +260,34 @@ func (cm *ConfigManager) applyCodexToolCompatMigration(rawJSON []byte) bool {
 	if raw, ok := rawMap["imagesUpstream"]; ok {
 		apply(raw, &cm.config.ImagesUpstream, "Images")
 	}
+	return updated
+}
+
+// migrateFableModelMapping 自动为现有渠道补齐 fable 模型映射。
+// 若渠道 modelMapping 中存在 "opus" 映射但缺少 "fable"，则将 "fable" 指向同一目标。
+// 确保已有 opus 转发配置的渠道在升级后无需手动添加 fable 条目。
+func (cm *ConfigManager) migrateFableModelMapping() bool {
+	updated := false
+	apply := func(channels []UpstreamConfig, channelName string) {
+		for i := range channels {
+			mm := channels[i].ModelMapping
+			if mm == nil {
+				continue
+			}
+			opusTarget, hasOpus := mm["opus"]
+			_, hasFable := mm["fable"]
+			if hasOpus && !hasFable {
+				mm["fable"] = opusTarget
+				updated = true
+				log.Printf("[Config-Migration] %s 渠道 [%d] %s modelMapping 已自动补齐 fable -> %s（与 opus 一致）", channelName, i, channels[i].Name, opusTarget)
+			}
+		}
+	}
+	apply(cm.config.Upstream, "Messages")
+	apply(cm.config.ResponsesUpstream, "Responses")
+	apply(cm.config.GeminiUpstream, "Gemini")
+	apply(cm.config.ChatUpstream, "Chat")
+	apply(cm.config.ImagesUpstream, "Images")
 	return updated
 }
 
