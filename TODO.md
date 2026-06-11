@@ -66,3 +66,15 @@ OpenRouter `:free` 变体模型被路由到受限 provider 池，这些 provider
 - 补齐 Windows Store/磁贴完整静态资产：`Square30x30Logo` 到 `Square310x310Logo`、`StoreLogo`、`Wide310x150Logo`、`SplashScreen`
 - MSIX `package.ps1` 改为优先复制静态磁贴资产，回退到动态生成；`sourceIcon` 改用 `appicon-windows.png`
 - 重新生成 `.icns` 和 `.ico`
+
+## [ ] 桌面端管理面板显示用量信息 (#199)
+
+在桌面端管理面板上直接显示使用情况（如 WebUI 中的用量图表），无需再打开网页版面板。
+
+## [ ] Codex remote compaction v2 在 DeepSeek think 响应下失败 (#179)
+
+当 Codex 对话触发远程 compaction v2 时，CCX 将 `<think>...</think>` 内容无条件拆分为独立的 reasoning output item，导致 compaction 响应产生两个 output items（reasoning + message），而 Codex compaction v2 解析器期望恰好一个 compaction output item，报错退出。
+
+修复方向：检测 compaction 响应时跳过 think tag 拆分，将 reasoning 合并回 message output item；或增加渠道/模型级 toggle 控制 think 内容是否拆分为独立 reasoning item。
+
+相关 Issue：#97（reasoning_tokens 缺失）、#83/#82（MiniMax think tag 拆分问题）。
