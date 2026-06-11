@@ -438,6 +438,7 @@ const chartOptions = computed<ApexOptions>(() => {
       zoom: { enabled: false },
       background: 'transparent',
       fontFamily: 'inherit',
+      defaultLocale: 'en',
       sparkline: { enabled: false },
       stacked: mode === 'traffic',
       animations: {

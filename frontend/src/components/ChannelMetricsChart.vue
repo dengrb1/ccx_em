@@ -119,6 +119,7 @@ const baseChartOptions = computed<ApexOptions>(() => ({
     zoom: { enabled: false },
     background: 'transparent',
     fontFamily: 'inherit',
+    defaultLocale: 'en',
     sparkline: { enabled: false }
   },
   theme: {

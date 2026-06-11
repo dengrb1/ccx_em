@@ -322,6 +322,7 @@ const chartOptions = computed<ApexOptions>(() => {
       background: 'transparent',
       fontFamily: 'inherit',
       stacked: isTrafficMultiModel,
+      defaultLocale: 'en',
       animations: {
         enabled: true,
         speed: 400,

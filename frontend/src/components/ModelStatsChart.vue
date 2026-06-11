@@ -155,6 +155,7 @@ const chartOptions = computed<ApexOptions>(() => ({
     zoom: { enabled: false },
     background: 'transparent',
     fontFamily: 'inherit',
+    defaultLocale: 'en',
     animations: { enabled: true, speed: 400 }
   },
   theme: { mode: isDark.value ? 'dark' : 'light' },

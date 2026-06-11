@@ -119,12 +119,12 @@
       <div class="mb-4">
         <div class="d-flex align-center ga-2 mb-2">
           <v-icon size="16" color="medium-emphasis">mdi-web</v-icon>
-          <span class="text-body-2 font-weight-medium">Base URL:</span>
+          <span class="text-body-2 font-weight-medium">{{ t('addChannel.baseUrl') }}:</span>
           <div class="flex-1-1 text-truncate">
             <code class="text-caption bg-surface pa-1 rounded">{{ channel.baseUrl }}</code>
           </div>
         </div>
-        
+
       </div>
 
       <!-- 状态和延迟（右对齐、间距更紧凑） -->
