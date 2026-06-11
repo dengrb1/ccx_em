@@ -55,22 +55,6 @@ const kindFilterOptions = [
   { label: 'GEMINI', value: 'gemini', class: 'border-orange-500/50 text-orange-500 data-[active=true]:bg-orange-500/10' },
 ]
 
-const systemState = computed(() => {
-  if (status.value.running) return 'running'
-  if (status.value.starting) return 'connecting'
-  if (status.value.lastError) return 'error'
-  return 'unknown'
-})
-
-const systemStatusText = computed(() => {
-  switch (systemState.value) {
-    case 'running': return tf('system.running', '运行中')
-    case 'error': return tf('system.error', '连接失败')
-    case 'connecting': return tf('system.connecting', '连接中')
-    default: return tf('system.unknown', '未知')
-  }
-})
-
 const sortedConversations = computed(() => {
   return [...conversations.value].sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime())
 })
@@ -97,15 +81,15 @@ const overrideCount = computed(() => Object.keys(overrides.value).length)
 const shouldRefresh = computed(() => status.value.running)
 
 const durationOptions = computed(() => [
-  { label: tf('cockpit.durationDefault', '30 min（默认）'), value: '1800' },
-  { label: '15 min', value: '900' },
-  { label: '1 hour', value: '3600' },
-  { label: '2 hours', value: '7200' },
-  { label: '4 hours', value: '14400' },
-  { label: '8 hours', value: '28800' },
-  { label: '12 hours', value: '43200' },
-  { label: '24 hours', value: '86400' },
-  { label: tf('cockpit.durationNever', '永不恢复'), value: '-1' },
+  { label: tf('console.conversations.duration.default', '30 分钟（默认）'), value: '1800' },
+  { label: tf('console.conversations.duration.15min', '15 分钟'), value: '900' },
+  { label: tf('console.conversations.duration.1hour', '1 小时'), value: '3600' },
+  { label: tf('console.conversations.duration.2hours', '2 小时'), value: '7200' },
+  { label: tf('console.conversations.duration.4hours', '4 小时'), value: '14400' },
+  { label: tf('console.conversations.duration.8hours', '8 小时'), value: '28800' },
+  { label: tf('console.conversations.duration.12hours', '12 小时'), value: '43200' },
+  { label: tf('console.conversations.duration.24hours', '24 小时'), value: '86400' },
+  { label: tf('console.conversations.duration.never', '永不恢复'), value: '-1' },
 ])
 
 function overrideDurationAsNumber(): number {
@@ -352,14 +336,11 @@ watch(shouldRefresh, running => {
         </SelectContent>
       </Select>
 
-      <span class="system-status-indicator" :class="`status-${systemState}`">
-        <span class="status-dot" />
-        {{ systemStatusText }}
-      </span>
-
       <span class="text-xs text-muted-foreground">
-        Active: {{ visibleConversations.length }}
-        <span v-if="overrideCount > 0" class="ml-2 text-amber-500">Override: {{ overrideCount }}</span>
+        {{ tf('console.conversations.active', '活跃: {count}').replace('{count}', String(visibleConversations.length)) }}
+        <span v-if="overrideCount > 0" class="ml-2 text-amber-500">
+          {{ tf('console.conversations.override', '覆盖: {count}').replace('{count}', String(overrideCount)) }}
+        </span>
       </span>
     </div>
 

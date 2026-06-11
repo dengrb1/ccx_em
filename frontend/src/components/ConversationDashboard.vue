@@ -41,13 +41,11 @@
         class="override-duration-select"
         :label="t('cockpit.overrideDuration')"
       />
-      <span class="system-status-indicator" :class="'status-' + systemStore.systemStatus">
-        <span class="status-dot"></span>
-        {{ systemStatusText }}
-      </span>
       <span class="text-caption text-medium-emphasis">
-        Active: {{ visibleConversations.length }}
-        <span v-if="overrideCount > 0" class="ml-2 text-warning">Override: {{ overrideCount }}</span>
+        {{ t('cockpit.active', { count: visibleConversations.length }) }}
+        <span v-if="overrideCount > 0" class="ml-2 text-warning">
+          {{ t('cockpit.override', { count: overrideCount }) }}
+        </span>
       </span>
     </div>
 
@@ -118,15 +116,6 @@ const emit = defineEmits<{
   success: [message: string]
   error: [message: string]
 }>()
-
-const systemStatusText = computed(() => {
-  switch (systemStore.systemStatus) {
-    case 'running': return t('system.running')
-    case 'error': return t('system.error')
-    case 'connecting': return t('system.connecting')
-    default: return t('system.unknown')
-  }
-})
 
 const loading = ref(true)
 const conversations = ref<ConversationInfo[]>([])
@@ -208,13 +197,13 @@ const overrideCount = computed(() => Object.keys(overrides.value).length)
 
 const durationOptions = computed(() => [
   { title: t('cockpit.durationDefault'), value: 1800 },
-  { title: '15 min', value: 900 },
-  { title: '1 hour', value: 3600 },
-  { title: '2 hours', value: 7200 },
-  { title: '4 hours', value: 14400 },
-  { title: '8 hours', value: 28800 },
-  { title: '12 hours', value: 43200 },
-  { title: '24 hours', value: 86400 },
+  { title: t('cockpit.duration15min'), value: 900 },
+  { title: t('cockpit.duration1hour'), value: 3600 },
+  { title: t('cockpit.duration2hours'), value: 7200 },
+  { title: t('cockpit.duration4hours'), value: 14400 },
+  { title: t('cockpit.duration8hours'), value: 28800 },
+  { title: t('cockpit.duration12hours'), value: 43200 },
+  { title: t('cockpit.duration24hours'), value: 86400 },
   { title: t('cockpit.durationNever'), value: -1 },
 ])
 

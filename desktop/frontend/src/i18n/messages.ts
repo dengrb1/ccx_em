@@ -675,6 +675,17 @@ export type MessageKey =
   | 'console.conversations.overrideRequired'
   | 'console.conversations.saveOverride'
   | 'console.conversations.noChannelsForKind'
+  | 'console.conversations.active'
+  | 'console.conversations.override'
+  | 'console.conversations.duration.default'
+  | 'console.conversations.duration.15min'
+  | 'console.conversations.duration.1hour'
+  | 'console.conversations.duration.2hours'
+  | 'console.conversations.duration.4hours'
+  | 'console.conversations.duration.8hours'
+  | 'console.conversations.duration.12hours'
+  | 'console.conversations.duration.24hours'
+  | 'console.conversations.duration.never'
   | 'console.capability.title'
   | 'console.capability.start'
   | 'console.capability.cancel'
@@ -1416,6 +1427,17 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.conversations.overrideRequired': 'Please select at least one channel',
     'console.conversations.saveOverride': 'Save override',
     'console.conversations.noChannelsForKind': 'No channels available for this type',
+    'console.conversations.active': 'Active: {count}',
+    'console.conversations.override': 'Override: {count}',
+    'console.conversations.duration.default': '30 min (default)',
+    'console.conversations.duration.15min': '15 min',
+    'console.conversations.duration.1hour': '1 hour',
+    'console.conversations.duration.2hours': '2 hours',
+    'console.conversations.duration.4hours': '4 hours',
+    'console.conversations.duration.8hours': '8 hours',
+    'console.conversations.duration.12hours': '12 hours',
+    'console.conversations.duration.24hours': '24 hours',
+    'console.conversations.duration.never': 'Never restore',
     'console.capability.title': 'Capability test',
     'console.capability.start': 'Start test',
     'console.capability.cancel': 'Cancel',
@@ -2154,6 +2176,17 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.conversations.overrideRequired': '请至少选择一个渠道',
     'console.conversations.saveOverride': '保存覆盖',
     'console.conversations.noChannelsForKind': '该类型暂无可用渠道',
+    'console.conversations.active': '活跃: {count}',
+    'console.conversations.override': '覆盖: {count}',
+    'console.conversations.duration.default': '30 分钟（默认）',
+    'console.conversations.duration.15min': '15 分钟',
+    'console.conversations.duration.1hour': '1 小时',
+    'console.conversations.duration.2hours': '2 小时',
+    'console.conversations.duration.4hours': '4 小时',
+    'console.conversations.duration.8hours': '8 小时',
+    'console.conversations.duration.12hours': '12 小时',
+    'console.conversations.duration.24hours': '24 小时',
+    'console.conversations.duration.never': '永不恢复',
     'console.capability.title': '能力测试',
     'console.capability.start': '开始测试',
     'console.capability.cancel': '取消',
