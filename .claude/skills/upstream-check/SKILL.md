@@ -118,6 +118,18 @@ cat .claude/skills/upstream-check/scripts/upstream-state.json
 - 协议/工具变更: 发现变更 - multi-agent, skills, plugins, web search
 ```
 
+### 8. 输出功能与体验变更报告
+
+在摘要报告之后，追加一份面向用户的**功能与体验变更报告**：
+
+1. 通过 `gh release view` 获取本地版本到最新远程版本之间所有中间版本的 Release Notes
+2. 从每个版本的 Release Notes 中筛选**新增功能**（New Features）和**体验改进**（Improvements / 性能优化 / UX 修复等）
+3. 按 Claude Code / Codex 分类，以表格和列表结构化呈现
+4. 末尾附「对 CCX 的潜在影响要点」，关联到 CCX 五类渠道（Messages / Chat / Responses / Gemini / Images）
+5. 语调：技术导向但易读，面向开发者
+
+仅当存在版本差异（`up_to_date: false`）时才生成此报告；版本一致时跳过。
+
 ## 说明
 
 - 脚本只输出 JSON 到 stdout，不写磁盘
