@@ -74,14 +74,14 @@ export interface Channel {
   routePrefix?: string                     // 路由前缀（如 "kimi"，访问 /kimi/v1/messages）
   autoBlacklistBalance?: boolean           // 余额不足自动拉黑（默认 true）
   normalizeMetadataUserId?: boolean        // 规范化 metadata.user_id（默认 true）
-  stripBillingHeader?: boolean             // Messages 渠道特定：转发前移除 system 中 cch= 计费参数（默认 false）
+  stripBillingHeader?: boolean             // Messages 渠道特定：转发前移除 system 中 cch= 计费参数（默认 true）
   stripEmptyTextBlocks?: boolean           // Claude 协议特定：转发前移除裸空 text content block（兼容严格校验的第三方上游）
   normalizeSystemRoleToTopLevel?: boolean  // Claude 协议特定：将 messages 中 system 角色抽取回顶层 system 字段（兼容仅支持 user/assistant 的旧上游）
-  codexNativeToolPassthrough?: boolean    // Codex 原生工具透传（默认 false）
-  codexToolCompat?: boolean               // Codex 工具兼容（默认 false）
-  normalizeNonstandardChatRoles?: boolean  // OpenAI Chat 上游：将非标准 role 改写为 user（默认 false）
-  stripCodexClientTools?: boolean          // Responses 上游：透传前剥离 Codex CLI 0.130+ 客户端专属工具条目（默认 false）
-  stripImageGenerationTool?: boolean       // Responses/Chat 上游：移除 image_generation 工具（默认 false）
+  codexNativeToolPassthrough?: boolean    // Codex 原生工具透传（默认 true）
+  codexToolCompat?: boolean               // Codex 工具兼容（默认 true）
+  normalizeNonstandardChatRoles?: boolean  // OpenAI Chat 上游：将非标准 role 改写为 user（默认 true）
+  stripCodexClientTools?: boolean          // Responses 上游：透传前剥离 Codex CLI 0.130+ 客户端专属工具条目（默认 true）
+  stripImageGenerationTool?: boolean       // Responses/Chat 上游：移除 image_generation 工具（默认 true）
   latency?: number
   status?: ChannelStatus | 'healthy' | 'error' | 'unknown' | ''
   index: number
@@ -106,7 +106,7 @@ export interface Channel {
   rateLimitWindowMinutes?: number            // 滑动窗口时长（秒，0/空=默认60秒）
   rateLimitBurst?: number                    // 已废弃，保留仅为兼容性
   rateLimitMaxConcurrent?: number            // 最大并发上游请求数（0/空=不限）
-  rateLimitAutoFromHeaders?: boolean         // 自动从上游响应头解析限流信息并动态调速（默认 false）
+  rateLimitAutoFromHeaders?: boolean         // 自动从上游响应头解析限流信息并动态调速（默认 true）
   historicalImageTurnLimit?: number          // 历史图片轮次限制（0=继承全局）
   rpm?: number                // 能力测试发送速率（仅影响能力测试）
 }

@@ -133,7 +133,7 @@ const form = reactive({
   rateLimitRpm: '' as string | number,
   rateLimitWindowMinutes: '' as string | number,
   rateLimitMaxConcurrent: '' as string | number,
-  rateLimitAutoFromHeaders: false,
+  rateLimitAutoFromHeaders: true,
   routePrefix: '',
   insecureSkipVerify: false,
   apiKeysText: '',
@@ -190,7 +190,7 @@ function resetForm() {
   form.rateLimitRpm = ''
   form.rateLimitWindowMinutes = ''
   form.rateLimitMaxConcurrent = ''
-  form.rateLimitAutoFromHeaders = false
+  form.rateLimitAutoFromHeaders = true
   form.routePrefix = ''
   form.insecureSkipVerify = false
   form.apiKeysText = ''

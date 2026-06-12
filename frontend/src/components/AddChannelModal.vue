@@ -2176,7 +2176,7 @@ const form = reactive({
   rateLimitRpm: null as string | number | null,
   rateLimitWindowMinutes: null as string | number | null,
   rateLimitMaxConcurrent: null as string | number | null,
-  rateLimitAutoFromHeaders: false,
+  rateLimitAutoFromHeaders: true,
   routePrefix: '',
   supportedModels: [] as string[],
   autoBlacklistBalance: true,
@@ -2689,7 +2689,7 @@ const resetForm = () => {
   form.rateLimitRpm = null
   form.rateLimitWindowMinutes = null
   form.rateLimitMaxConcurrent = null
-  form.rateLimitAutoFromHeaders = false
+  form.rateLimitAutoFromHeaders = true
   form.routePrefix = ''
   form.supportedModels = []
   supportedModelsError.value = ''
