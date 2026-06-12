@@ -268,7 +268,7 @@ export const idMessages: Record<MessageKey, string> = {
     'addChannel.historicalImageTurnLimitHint': 'Gambar dalam riwayat percakapan yang melebihi batas ini akan diganti dengan [Image] placeholder untuk menghindari vision fallback yang tidak perlu. 0 berarti mengikuti pengaturan global; minimum 3 jika diisi.',
     'addChannel.compactModelLabel': 'Model compact',
     'addChannel.compactModelPlaceholder': 'Kosongkan untuk model asli',
-    'addChannel.compactModelHint': 'Nama model upstream untuk compact lokal (kompresi/ringkasan), melewati pemetaan model. Hanya berlaku untuk channel protokol non-Responses (Claude/OpenAI/Gemini). Kosongkan untuk menggunakan model permintaan asli.',
+    'addChannel.compactModelHint': 'Nama model upstream untuk compact lokal (kompresi/ringkasan), melewati pemetaan model. Selalu digunakan untuk channel non-Responses; untuk channel Responses, digunakan sebagai fallback ketika compact native gagal.',
     'addChannel.passbackReasoningContentLabel': 'Teruskan reasoning content',
     'addChannel.passbackReasoningContentHint': 'Ubah thinking block menjadi reasoning_content saat diteruskan ke upstream protokol Claude yang mewajibkan reasoning_content ala OpenAI (misalnya mimo).',
     'addChannel.passbackThinkingBlocksLabel': 'Teruskan thinking block',

@@ -268,7 +268,7 @@ export const enMessages: Record<MessageKey, string> = {
     'addChannel.historicalImageTurnLimitHint': 'Images in historical turns beyond this limit are replaced with [Image] placeholder to avoid unnecessary vision fallback. 0 inherits the global setting; minimum is 3 when set.',
     'addChannel.compactModelLabel': 'Compact model',
     'addChannel.compactModelPlaceholder': 'Leave empty to use original model',
-    'addChannel.compactModelHint': 'Upstream model name for local compact (compression/summary), bypassing model mapping. Only applies to non-Responses protocol channels (Claude/OpenAI/Gemini). Leave empty to use the original request model.',
+    'addChannel.compactModelHint': 'Upstream model name for local compact (compression/summary), bypassing model mapping. Always used for non-Responses protocol channels; for Responses channels, used as fallback when native compact fails.',
     'addChannel.passbackReasoningContentLabel': 'Passback reasoning content',
     'addChannel.passbackReasoningContentHint': 'Convert thinking blocks to reasoning_content when forwarding to Claude-protocol upstreams that require OpenAI-style reasoning_content (e.g. mimo).',
     'addChannel.passbackThinkingBlocksLabel': 'Passback thinking blocks',
