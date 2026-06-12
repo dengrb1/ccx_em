@@ -90,6 +90,8 @@ type UpstreamConfig struct {
 	VisionFallbackModel string   `json:"visionFallbackModel,omitempty"` // 含图请求命中 noVisionModels 时使用的替代模型
 	// 历史图片轮次限制
 	HistoricalImageTurnLimit int `json:"historicalImageTurnLimit,omitempty"` // 超过此轮次的历史图片替换为占位符（0=不限制）
+	// Compact 专用模型配置
+	CompactModel string `json:"compactModel,omitempty"` // 本地 compact 时使用的上游模型名（不经过 modelMapping，为空则使用原始请求的模型）
 }
 
 // DisabledKeyInfo 被拉黑的 API Key 信息

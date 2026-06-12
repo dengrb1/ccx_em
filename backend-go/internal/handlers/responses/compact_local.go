@@ -179,11 +179,11 @@ func truncateRunes(s string, max int) string {
 
 // PLACEHOLDER_BUILD_REQUEST
 
-func buildLocalCompactRequestBody(originalBody []byte, stream bool, sessionManager *session.SessionManager) ([]byte, error) {
-	return buildLocalCompactRequestBodyWithLogTag(originalBody, stream, sessionManager, "")
+func buildLocalCompactRequestBody(originalBody []byte, stream bool, sessionManager *session.SessionManager, upstream *config.UpstreamConfig) ([]byte, error) {
+	return buildLocalCompactRequestBodyWithLogTag(originalBody, stream, sessionManager, "", upstream)
 }
 
-func buildLocalCompactRequestBodyWithLogTag(originalBody []byte, stream bool, sessionManager *session.SessionManager, logTag string) ([]byte, error) {
+func buildLocalCompactRequestBodyWithLogTag(originalBody []byte, stream bool, sessionManager *session.SessionManager, logTag string, upstream *config.UpstreamConfig) ([]byte, error) {
 	var originalReq types.ResponsesRequest
 	if err := json.Unmarshal(originalBody, &originalReq); err != nil {
 		return nil, fmt.Errorf("解析 compact 请求失败: %w", err)
@@ -220,8 +220,15 @@ func buildLocalCompactRequestBodyWithLogTag(originalBody []byte, stream bool, se
 		maxTokens = originalReq.MaxTokens
 	}
 
+	// 选择 compact 模型
+	compactModel := originalReq.Model
+	if upstream != nil && upstream.CompactModel != "" {
+		compactModel = upstream.CompactModel
+		common.LogWithTag(logTag, "[Compact-Local] 使用配置的 compact_model: %s (原始: %s)", compactModel, originalReq.Model)
+	}
+
 	compactReq := map[string]interface{}{
-		"model":             originalReq.Model,
+		"model":             compactModel,
 		"instructions":      localCompactSystemPrompt,
 		"input":             []interface{}{map[string]interface{}{"type": "message", "role": "user", "content": []interface{}{map[string]interface{}{"type": "input_text", "text": transcript}}}},
 		"stream":            stream,
@@ -262,14 +269,23 @@ func tryLocalCompactWithKey(
 	common.RequestLogf(c, "[Compact-Local] 使用本地 compact: serviceType=%s model=%s stream=%v", upstream.ServiceType, originalReq.Model, stream)
 
 	// 构建本地 compact 请求体
-	localBody, err := buildLocalCompactRequestBodyWithLogTag(bodyBytes, stream, sessionManager, common.RequestLogTag(c))
+	localBody, err := buildLocalCompactRequestBodyWithLogTag(bodyBytes, stream, sessionManager, common.RequestLogTag(c), upstream)
 	if err != nil {
 		return false, &compactError{status: 400, body: []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())), shouldFailover: false, err: err}
 	}
 
+	// 如果配置了 CompactModel，临时禁用 ModelMapping 以避免二次映射
+	upstreamForCompact := upstream
+	if upstream.CompactModel != "" {
+		// 创建临时副本，清空 ModelMapping
+		upstreamCopy := *upstream
+		upstreamCopy.ModelMapping = nil
+		upstreamForCompact = &upstreamCopy
+	}
+
 	// 通过 provider 转换并构建上游请求
 	provider := &providers.ResponsesProvider{SessionManager: sessionManager}
-	req, _, err := provider.ConvertBodyToProviderRequest(c, upstream, apiKey, localBody, "/v1/responses")
+	req, _, err := provider.ConvertBodyToProviderRequest(c, upstreamForCompact, apiKey, localBody, "/v1/responses")
 	if err != nil {
 		return false, &compactError{status: 500, body: []byte(`{"error":"构建本地 compact 上游请求失败"}`), shouldFailover: true, err: err}
 	}
