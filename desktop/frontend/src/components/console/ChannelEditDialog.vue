@@ -1400,7 +1400,7 @@ function buildCurrentPayload() {
                   </div>
                 </section>
 
-                <section class="space-y-4 overflow-visible rounded-2xl border border-primary/15 bg-glass p-4 shadow-sm dark:bg-glass-dark lg:col-span-2">
+                <section v-if="isEditMode" class="space-y-4 overflow-visible rounded-2xl border border-primary/15 bg-glass p-4 shadow-sm dark:bg-glass-dark lg:col-span-2">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="space-y-1">
                       <h4 class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-foreground">

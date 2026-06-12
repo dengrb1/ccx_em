@@ -206,7 +206,7 @@
             </v-col>
 
             <!-- 模型重定向配置 -->
-            <v-col v-if="form.serviceType" cols="12">
+            <v-col v-if="form.serviceType && isEditing" cols="12">
               <v-card variant="outlined" rounded="lg">
                 <v-card-title class="d-flex align-center justify-space-between pa-4 pb-2">
                   <div class="d-flex align-center ga-2">
