@@ -87,7 +87,10 @@ const targetInputFilter = ref('')
 function getFilteredTargetModels(filter: string): string[] {
   if (!filter.trim()) return targetModelDatalist.value.slice(0, 20)
   const lower = filter.toLowerCase()
-  return targetModelDatalist.value.filter(m => m.toLowerCase().includes(lower)).slice(0, 20)
+  const filtered = targetModelDatalist.value.filter(m => m.toLowerCase().includes(lower))
+  // 如果过滤后只有1个结果，显示所有模型（避免用户看不到其他选项）
+  if (filtered.length === 1) return targetModelDatalist.value.slice(0, 20)
+  return filtered.slice(0, 20)
 }
 
 function showTargetDropdown(inputId: string, currentValue: string) {
@@ -97,10 +100,11 @@ function showTargetDropdown(inputId: string, currentValue: string) {
 }
 
 function hideTargetDropdown() {
+  // 不要立即隐藏，等待可能的点击事件
   setTimeout(() => {
     showTargetSuggestions.value = false
     activeTargetInputId.value = null
-  }, 200)
+  }, 300)
 }
 
 function selectTargetModel(model: string, rowOrNew: 'new' | number) {
@@ -109,7 +113,9 @@ function selectTargetModel(model: string, rowOrNew: 'new' | number) {
   } else {
     modelMappingRows.value[rowOrNew].target = model
   }
-  hideTargetDropdown()
+  // 立即隐藏（不使用延迟）
+  showTargetSuggestions.value = false
+  activeTargetInputId.value = null
 }
 
 const reasoningParamStyleOptions = [
