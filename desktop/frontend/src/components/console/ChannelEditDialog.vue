@@ -252,9 +252,9 @@ function populateFromChannel(ch: Channel) {
   form.streamInactivityTimeoutMs = ch.streamInactivityTimeoutMs && ch.streamInactivityTimeoutMs > 0 ? ch.streamInactivityTimeoutMs : 20000
   form.streamToolCallIdleTimeoutEnabled = !!(ch.streamToolCallIdleTimeoutMs && ch.streamToolCallIdleTimeoutMs > 0)
   form.streamToolCallIdleTimeoutMs = ch.streamToolCallIdleTimeoutMs && ch.streamToolCallIdleTimeoutMs > 0 ? ch.streamToolCallIdleTimeoutMs : 30000
-  form.rateLimitRpm = ch.rateLimitRpm ?? ''
-  form.rateLimitWindowMinutes = ch.rateLimitWindowMinutes ?? ''
-  form.rateLimitMaxConcurrent = ch.rateLimitMaxConcurrent ?? ''
+  form.rateLimitRpm = (ch.rateLimitRpm && ch.rateLimitRpm > 0) ? ch.rateLimitRpm : ''
+  form.rateLimitWindowMinutes = (ch.rateLimitWindowMinutes && ch.rateLimitWindowMinutes > 0) ? ch.rateLimitWindowMinutes : ''
+  form.rateLimitMaxConcurrent = (ch.rateLimitMaxConcurrent && ch.rateLimitMaxConcurrent > 0) ? ch.rateLimitMaxConcurrent : ''
   form.rateLimitAutoFromHeaders = !!ch.rateLimitAutoFromHeaders
   form.routePrefix = ch.routePrefix || ''
   form.insecureSkipVerify = ch.insecureSkipVerify ?? false
