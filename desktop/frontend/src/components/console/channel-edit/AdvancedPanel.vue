@@ -73,6 +73,24 @@ function toSelectValue(value: string): string {
 function fromSelectValue(value: string): string {
   return value === props.DEFAULT_SELECT_VALUE ? '' : value
 }
+
+const streamTimeoutPresets = {
+  gentle: { firstContentMs: 90000, inactivityMs: 90000, toolCallIdleMs: 300000 },
+  balanced: { firstContentMs: 60000, inactivityMs: 60000, toolCallIdleMs: 180000 },
+  aggressive: { firstContentMs: 30000, inactivityMs: 30000, toolCallIdleMs: 60000 },
+} as const
+
+function applyStreamTimeoutPreset(presetKey: 'gentle' | 'balanced' | 'aggressive') {
+  const preset = streamTimeoutPresets[presetKey]
+  emit('update:form', {
+    streamFirstContentTimeoutEnabled: true,
+    streamFirstContentTimeoutMs: preset.firstContentMs,
+    streamInactivityTimeoutEnabled: true,
+    streamInactivityTimeoutMs: preset.inactivityMs,
+    streamToolCallIdleTimeoutEnabled: true,
+    streamToolCallIdleTimeoutMs: preset.toolCallIdleMs,
+  } as Partial<FormData>)
+}
 </script>
 
 <template>
@@ -325,7 +343,35 @@ function fromSelectValue(value: string): string {
 
       <!-- 流式断流超时控制 -->
       <div class="space-y-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-primary">流式断流超时控制</div>
+        <div class="flex items-center justify-between">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-primary">流式断流超时控制</div>
+          <div class="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 px-2 text-[10px]"
+              @click="applyStreamTimeoutPreset('gentle')"
+            >
+              温和
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 px-2 text-[10px]"
+              @click="applyStreamTimeoutPreset('balanced')"
+            >
+              均衡
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              class="h-6 px-2 text-[10px]"
+              @click="applyStreamTimeoutPreset('aggressive')"
+            >
+              激进
+            </Button>
+          </div>
+        </div>
         <div class="grid gap-3 md:grid-cols-3">
           <!-- 首字等待 -->
           <div class="border border-border/60 bg-background/60 p-3 rounded-xl space-y-2.5">
