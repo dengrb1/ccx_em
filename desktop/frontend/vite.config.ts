@@ -20,4 +20,15 @@ export default defineConfig({
       "@bindings": path.resolve(__dirname, "./bindings"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('apexcharts') || id.includes('vue3-apexcharts')) return 'charts'
+          if (id.includes('vuetify')) return 'vuetify'
+          if (id.includes('vue') || id.includes('pinia')) return 'vue-vendor'
+        }
+      }
+    }
+  }
 });
