@@ -271,6 +271,9 @@ type Config struct {
 	// 历史图片轮次限制：超过此轮次的历史图片替换为占位符（0=不限制）
 	HistoricalImageTurnLimit int `json:"historicalImageTurnLimit,omitempty"`
 
+	// 驾驶舱 override 默认有效期（分钟，1-1440；0 或未设置时使用环境变量 OVERRIDE_TTL_MINUTES）
+	OverrideTTLMinutes int `json:"overrideTtlMinutes,omitempty"`
+
 	// 熔断器运行时配置（可选，nil 使用环境变量或代码默认值）
 	CircuitBreaker *CircuitBreakerConfig `json:"circuitBreaker,omitempty"`
 }
@@ -624,6 +627,42 @@ func (cm *ConfigManager) SetHistoricalImageTurnLimit(limit int) error {
 	}
 
 	log.Printf("[Config-HistoricalImageLimit] 历史图片轮次限制已设置为 %d 轮", normalized)
+
+	cm.fireConfigChangeCallbacks()
+	return nil
+}
+
+// SetOverrideTTLMinutes 设置驾驶舱 override 默认有效期（分钟）
+func (cm *ConfigManager) SetOverrideTTLMinutes(minutes int) error {
+	cm.mu.Lock()
+
+	// 标准化为界面提供的固定选项，不合适的值使用默认 30 分钟
+	// 有效选项：-1（永不恢复）, 15, 30, 60, 120, 240, 480, 720, 1440 分钟
+	validOptions := []int{-1, 15, 30, 60, 120, 240, 480, 720, 1440}
+	normalized := 30 // 默认 30 分钟
+	for _, option := range validOptions {
+		if minutes == option {
+			normalized = minutes
+			break
+		}
+	}
+
+	cm.config.OverrideTTLMinutes = normalized
+
+	if err := cm.saveConfigLocked(cm.config); err != nil {
+		cm.mu.Unlock()
+		return err
+	}
+
+	if normalized == -1 {
+		log.Printf("[Config-OverrideTTL] 驾驶舱 override 默认有效期已设置为永不恢复")
+	} else {
+		if minutes != normalized {
+			log.Printf("[Config-OverrideTTL] 驾驶舱 override 默认有效期已标准化为 %d 分钟（原值: %d）", normalized, minutes)
+		} else {
+			log.Printf("[Config-OverrideTTL] 驾驶舱 override 默认有效期已设置为 %d 分钟", normalized)
+		}
+	}
 
 	cm.fireConfigChangeCallbacks()
 	return nil
