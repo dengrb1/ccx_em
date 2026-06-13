@@ -171,6 +171,89 @@
               </div>
               <v-switch :model-value="form.normalizeNonstandardChatRoles" inset color="primary" hide-details @update:model-value="updateField('normalizeNonstandardChatRoles', $event)" />
             </div>
+
+            <!-- Reasoning Param Style -->
+            <div v-if="supportsOpenAIAdvancedOptions" class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2 flex-1">
+                <v-icon color="primary">mdi-tune</v-icon>
+                <div class="flex-1">
+                  <div class="section-title section-title--soft">{{ t('addChannel.reasoningParamStyleLabel') }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t('addChannel.reasoningParamStyleHint') }}</div>
+                </div>
+              </div>
+              <v-select
+                :model-value="form.reasoningParamStyle"
+                :items="reasoningParamStyleOptions"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+                class="channel-config-select"
+                style="max-width: 200px;"
+                eager
+                @update:model-value="updateField('reasoningParamStyle', $event)"
+                @update:menu="$emit('menu-update', $event)"
+              />
+            </div>
+
+            <!-- Inject Dummy Thought Signature (Gemini) -->
+            <div v-if="(channelType === 'gemini' || channelType === 'messages') && form.serviceType === 'gemini'" class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="secondary">mdi-signature</v-icon>
+                <div>
+                  <div class="section-title section-title--soft">{{ t('addChannel.injectDummyThoughtSignatureLabel') }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t('addChannel.injectDummyThoughtSignatureHint') }}</div>
+                </div>
+              </div>
+              <v-switch :model-value="form.injectDummyThoughtSignature" inset color="secondary" hide-details @update:model-value="updateField('injectDummyThoughtSignature', $event)" />
+            </div>
+
+            <!-- Strip Thought Signature (Gemini) -->
+            <div v-if="form.serviceType === 'gemini' && (channelType === 'gemini' || channelType === 'messages' || channelType === 'chat' || channelType === 'responses')" class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="error">mdi-close-circle</v-icon>
+                <div>
+                  <div class="section-title section-title--soft">{{ t('addChannel.stripThoughtSignatureLabel') }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t('addChannel.stripThoughtSignatureHint') }}</div>
+                </div>
+              </div>
+              <v-switch :model-value="form.stripThoughtSignature" inset color="error" hide-details @update:model-value="updateField('stripThoughtSignature', $event)" />
+            </div>
+
+            <!-- Passback Reasoning Content (Claude) -->
+            <div v-if="(channelType === 'messages' || channelType === 'chat' || channelType === 'responses') && form.serviceType === 'claude'" class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="secondary">mdi-brain</v-icon>
+                <div>
+                  <div class="section-title section-title--soft">{{ t('addChannel.passbackReasoningContentLabel') }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t('addChannel.passbackReasoningContentHint') }}</div>
+                </div>
+              </div>
+              <v-switch :model-value="form.passbackReasoningContent" inset color="secondary" hide-details @update:model-value="updateField('passbackReasoningContent', $event)" />
+            </div>
+
+            <!-- Passback Thinking Blocks (Claude) -->
+            <div v-if="(channelType === 'messages' || channelType === 'chat' || channelType === 'responses') && form.serviceType === 'claude'" class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="secondary">mdi-head-snowflake</v-icon>
+                <div>
+                  <div class="section-title section-title--soft">{{ t('addChannel.passbackThinkingBlocksLabel') }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t('addChannel.passbackThinkingBlocksHint') }}</div>
+                </div>
+              </div>
+              <v-switch :model-value="form.passbackThinkingBlocks" inset color="secondary" hide-details @update:model-value="updateField('passbackThinkingBlocks', $event)" />
+            </div>
+
+            <!-- Strip Empty Text Blocks (Claude) -->
+            <div v-if="channelType === 'messages' && form.serviceType === 'claude'" class="d-flex align-center justify-space-between">
+              <div class="d-flex align-center ga-2">
+                <v-icon color="warning">mdi-filter-remove</v-icon>
+                <div>
+                  <div class="section-title section-title--soft">{{ t('addChannel.stripEmptyTextBlocksLabel') }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ t('addChannel.stripEmptyTextBlocksHint') }}</div>
+                </div>
+              </div>
+              <v-switch :model-value="form.stripEmptyTextBlocks" inset color="warning" hide-details @update:model-value="updateField('stripEmptyTextBlocks', $event)" />
+            </div>
           </div>
         </v-card>
       </v-col>
