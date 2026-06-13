@@ -49,8 +49,8 @@
               />
             </section>
 
-            <!-- 模型映射 -->
-            <section :ref="(el: any) => setSectionRef('model-mapping', el)" data-section-id="model-mapping" class="pa-6 scroll-mt-4">
+            <!-- 模型重定向（模型映射 + Vision 回退 + 模型过滤） -->
+            <section :ref="(el: any) => setSectionRef('redirect', el)" data-section-id="redirect" class="pa-6 scroll-mt-4">
               <ModelMappingSection
                 v-if="form.serviceType"
                 :mappingRows="modelMappingRows"
@@ -72,38 +72,38 @@
                 @apply-preset="applyPreset"
                 @menu-update="onMenuUpdate"
               />
-            </section>
 
-            <!-- Vision 回退模型（仅当有模型级 noVision 标记时显示） -->
-            <section v-if="form.noVisionModels.length > 0" class="pa-6 scroll-mt-4">
-              <v-combobox
-                v-model="form.visionFallbackModel"
-                :label="t('addChannel.visionFallbackLabel')"
-                :placeholder="t('addChannel.visionFallbackPlaceholder')"
-                :hint="t('addChannel.visionFallbackHint')"
-                :items="targetModelOptions"
-                prepend-inner-icon="mdi-eye"
-                persistent-hint
-                clearable
-                variant="outlined"
-                density="comfortable"
-                eager
-                @focus="ensureTargetModelsLoaded"
-                @update:menu="onMenuUpdate"
-              />
-            </section>
+              <!-- Vision 回退模型（仅当有模型级 noVision 标记时显示） -->
+              <div v-if="form.noVisionModels.length > 0" class="mt-4">
+                <v-combobox
+                  v-model="form.visionFallbackModel"
+                  :label="t('addChannel.visionFallbackLabel')"
+                  :placeholder="t('addChannel.visionFallbackPlaceholder')"
+                  :hint="t('addChannel.visionFallbackHint')"
+                  :items="targetModelOptions"
+                  prepend-inner-icon="mdi-eye"
+                  persistent-hint
+                  clearable
+                  variant="outlined"
+                  density="comfortable"
+                  eager
+                  @focus="ensureTargetModelsLoaded"
+                  @update:menu="onMenuUpdate"
+                />
+              </div>
 
-            <!-- 模型过滤 -->
-            <section :ref="(el: any) => setSectionRef('filters', el)" data-section-id="filters" class="pa-6 scroll-mt-4">
-              <SupportedModelsFilter
-                :model-value="form.supportedModels"
-                :error="supportedModelsError"
-                :common-filters="commonSupportedModelFilters"
-                :selected-filters="Array.from(selectedSupportedModelSet)"
-                @update:model-value="handleSupportedModelsChange($event as any)"
-                @append-filter="appendSupportedModelFilter"
-                @menu-update="onMenuUpdate"
-              />
+              <!-- 模型过滤 -->
+              <div class="mt-4">
+                <SupportedModelsFilter
+                  :model-value="form.supportedModels"
+                  :error="supportedModelsError"
+                  :common-filters="commonSupportedModelFilters"
+                  :selected-filters="Array.from(selectedSupportedModelSet)"
+                  @update:model-value="handleSupportedModelsChange($event as any)"
+                  @append-filter="appendSupportedModelFilter"
+                  @menu-update="onMenuUpdate"
+                />
+              </div>
             </section>
 
             <!-- 身份认证 -->
@@ -130,36 +130,31 @@
                 :rules="rules"
                 @update:form="updateForm"
                 @menu-update="onMenuUpdate"
-              >
-                <template #custom-headers>
-                  <!-- 自定义请求头 -->
-                  <v-col :ref="(el: any) => setSectionRef('headers', el)" data-section-id="headers" class="scroll-mt-4" cols="12">
-                    <CustomHeadersSection
-                      :headers="customHeadersArray"
-                      @update:headers="updateCustomHeaders"
-                    />
-                  </v-col>
-                </template>
+              />
+            </section>
 
-                <template #stream-timeout>
-                  <!-- 流式超时 -->
-                  <v-col :ref="(el: any) => setSectionRef('timeout', el)" data-section-id="timeout" class="scroll-mt-4" cols="12">
-                    <StreamTimeoutSection
-                      :selected-strategy="selectedStreamTimeoutStrategy"
-                      :first-content-enabled="form.streamFirstContentTimeoutEnabled"
-                      :first-content-ms="form.streamFirstContentTimeoutMs"
-                      :inactivity-enabled="form.streamInactivityTimeoutEnabled"
-                      :inactivity-ms="form.streamInactivityTimeoutMs"
-                      :tool-call-idle-enabled="form.streamToolCallIdleTimeoutEnabled"
-                      :tool-call-idle-ms="form.streamToolCallIdleTimeoutMs"
-                      @apply-strategy="applyStreamTimeoutStrategy"
-                      @update:first-content-ms="form.streamFirstContentTimeoutMs = $event"
-                      @update:inactivity-ms="form.streamInactivityTimeoutMs = $event"
-                      @update:tool-call-idle-ms="form.streamToolCallIdleTimeoutMs = $event"
-                    />
-                  </v-col>
-                </template>
-              </AdvancedOptionsSection>
+            <!-- 自定义参数（自定义请求头 + 流式超时） -->
+            <section :ref="(el: any) => setSectionRef('custom', el)" data-section-id="custom" class="pa-6 scroll-mt-4">
+              <CustomHeadersSection
+                :headers="customHeadersArray"
+                @update:headers="updateCustomHeaders"
+              />
+
+              <div class="mt-6">
+                <StreamTimeoutSection
+                  :selected-strategy="selectedStreamTimeoutStrategy"
+                  :first-content-enabled="form.streamFirstContentTimeoutEnabled"
+                  :first-content-ms="form.streamFirstContentTimeoutMs"
+                  :inactivity-enabled="form.streamInactivityTimeoutEnabled"
+                  :inactivity-ms="form.streamInactivityTimeoutMs"
+                  :tool-call-idle-enabled="form.streamToolCallIdleTimeoutEnabled"
+                  :tool-call-idle-ms="form.streamToolCallIdleTimeoutMs"
+                  @apply-strategy="applyStreamTimeoutStrategy"
+                  @update:first-content-ms="form.streamFirstContentTimeoutMs = $event"
+                  @update:inactivity-ms="form.streamInactivityTimeoutMs = $event"
+                  @update:tool-call-idle-ms="form.streamToolCallIdleTimeoutMs = $event"
+                />
+              </div>
             </section>
           </v-form>
         </div>
@@ -269,15 +264,13 @@ function detachScrollListener() {
   scrollHandler = null
 }
 
-// 导航 section 定义
+// 导航 section 定义（与桌面端保持一致）
 const sections = [
-  { id: 'basic', icon: 'mdi-information', label: t('addChannel.basicInfo') },
-  { id: 'model-mapping', icon: 'mdi-swap-horizontal', label: t('addChannel.modelMapping') },
-  { id: 'filters', icon: 'mdi-filter', label: t('addChannel.modelFilters') },
-  { id: 'auth', icon: 'mdi-key', label: t('addChannel.authentication') },
-  { id: 'advanced', icon: 'mdi-tune', label: t('addChannel.advancedOptions') },
-  { id: 'headers', icon: 'mdi-web', label: t('addChannel.customHeaders') },
-  { id: 'timeout', icon: 'mdi-timer', label: t('addChannel.streamTimeout') },
+  { id: 'basic', label: t('addChannel.basicInfo') },
+  { id: 'auth', label: t('addChannel.authentication') },
+  { id: 'redirect', label: t('addChannel.modelRedirect') },
+  { id: 'advanced', label: t('addChannel.advancedOptions') },
+  { id: 'custom', label: t('addChannel.customParams') },
 ]
 
 function scrollToSection(id: string) {

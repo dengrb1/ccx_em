@@ -10,17 +10,7 @@
       ]"
       @click="$emit('navigate', item.id)"
     >
-      <!-- 左侧 active 指示条 -->
       <div v-if="activeSection === item.id" class="sidebar-nav-indicator" />
-
-      <v-icon
-        size="18"
-        class="sidebar-nav-icon"
-        :color="activeSection === item.id ? 'primary' : undefined"
-      >
-        {{ item.icon }}
-      </v-icon>
-
       <span class="sidebar-nav-label">{{ item.label }}</span>
     </button>
   </div>
@@ -29,7 +19,6 @@
 <script setup lang="ts">
 interface NavSection {
   id: string
-  icon: string
   label: string
 }
 
@@ -51,8 +40,8 @@ defineEmits<{
 
 <style scoped>
 .sidebar-nav {
-  width: 220px;
-  min-width: 220px;
+  width: 192px;
+  min-width: 192px;
   flex-shrink: 0;
   border-right: 1px solid rgba(var(--v-border-color), 0.12);
   background: rgba(var(--v-theme-surface), 1);
@@ -66,19 +55,17 @@ defineEmits<{
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(var(--v-theme-on-surface), 0.4);
-  padding: 0 8px 12px;
+  padding: 0 12px 8px;
 }
 
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 0.875rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
   font-weight: 500;
-  letter-spacing: normal;
-  text-transform: none;
   color: rgba(var(--v-theme-on-surface), 0.65);
   background: transparent;
   border: 1px solid transparent;
@@ -86,8 +73,7 @@ defineEmits<{
   transition: all 0.2s ease;
   text-align: left;
   position: relative;
-  margin-bottom: 4px;
-  gap: 10px;
+  margin-bottom: 2px;
 }
 
 .sidebar-nav-item:hover {
@@ -100,31 +86,18 @@ defineEmits<{
   background: rgba(var(--v-theme-primary), 0.08);
   border-color: rgba(var(--v-theme-primary), 0.12);
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .sidebar-nav-indicator {
   position: absolute;
   left: 0;
-  top: 10px;
-  bottom: 10px;
+  top: 8px;
+  bottom: 8px;
   width: 3px;
   border-radius: 0 3px 3px 0;
   background: rgb(var(--v-theme-primary));
   box-shadow: 0 0 8px rgba(var(--v-theme-primary), 0.4);
-}
-
-.sidebar-nav-icon {
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-  flex-shrink: 0;
-}
-
-.sidebar-nav-item:hover .sidebar-nav-icon {
-  opacity: 1;
-}
-
-.sidebar-nav-item--active .sidebar-nav-icon {
-  opacity: 1;
 }
 
 .sidebar-nav-label {

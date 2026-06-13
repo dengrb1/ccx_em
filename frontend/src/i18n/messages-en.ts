@@ -187,6 +187,7 @@ export const enMessages = {
     'addChannel.modelMapping': 'Model Mapping',
     'addChannel.modelFilters': 'Model Filters',
     'addChannel.customHeaders': 'Custom Headers',
+    'addChannel.customParams': 'Custom Parameters',
     'addChannel.streamTimeout': 'Stream Timeout',
     'addChannel.advancedOptions': 'Advanced Options',
 
@@ -246,7 +247,7 @@ export const enMessages = {
     'addChannel.baseUrlPlaceholder': 'One URL per line, supports multiple Base URLs\nExample:\nhttps://api.openai.com/v1\nhttps://api2.openai.com/v1',
     'addChannel.websiteLabel': 'Website / console (optional)',
     'addChannel.websitePlaceholder': 'Example: https://platform.openai.com',
-    'addChannel.modelRedirect': 'Model redirect (optional)',
+    'addChannel.modelRedirect': 'Model redirect',
     'addChannel.autoConvertModelNames': 'Automatically convert model names',
     'addChannel.configuredMappings': 'Configured',
     'addChannel.oneClickSetup': 'One-click setup',

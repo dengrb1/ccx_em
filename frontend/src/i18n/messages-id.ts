@@ -187,6 +187,7 @@ export const idMessages = {
     'addChannel.modelMapping': 'Pemetaan Model',
     'addChannel.modelFilters': 'Filter Model',
     'addChannel.customHeaders': 'Header Kustom',
+    'addChannel.customParams': 'Parameter Kustom',
     'addChannel.streamTimeout': 'Timeout Stream',
     'addChannel.advancedOptions': 'Opsi Lanjutan',
 
@@ -246,7 +247,7 @@ export const idMessages = {
     'addChannel.baseUrlPlaceholder': 'Satu URL per baris, mendukung beberapa Base URL\nContoh:\nhttps://api.openai.com/v1\nhttps://api2.openai.com/v1',
     'addChannel.websiteLabel': 'Website / console (opsional)',
     'addChannel.websitePlaceholder': 'Contoh: https://platform.openai.com',
-    'addChannel.modelRedirect': 'Redirect model (opsional)',
+    'addChannel.modelRedirect': 'Redirect model',
     'addChannel.autoConvertModelNames': 'Konversi nama model otomatis',
     'addChannel.configuredMappings': 'Dikonfigurasi',
     'addChannel.oneClickSetup': 'Setup sekali klik',

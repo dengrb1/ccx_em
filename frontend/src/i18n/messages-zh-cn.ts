@@ -186,6 +186,7 @@ export const zhCNMessages = {
     'addChannel.modelMapping': '模型映射',
     'addChannel.modelFilters': '模型过滤',
     'addChannel.customHeaders': '自定义请求头',
+    'addChannel.customParams': '自定义参数',
     'addChannel.streamTimeout': '流式超时',
     'addChannel.advancedOptions': '高级选项',
 
@@ -245,7 +246,7 @@ export const zhCNMessages = {
     'addChannel.baseUrlPlaceholder': '每行一个 URL，支持多个 BaseURL\n例如：\nhttps://api.openai.com/v1\nhttps://api2.openai.com/v1',
     'addChannel.websiteLabel': '官网/控制台 (可选)',
     'addChannel.websitePlaceholder': '例如：https://platform.openai.com',
-    'addChannel.modelRedirect': '模型重定向 (可选)',
+    'addChannel.modelRedirect': '模型重定向',
     'addChannel.autoConvertModelNames': '自动转换模型名称',
     'addChannel.configuredMappings': '已配置',
     'addChannel.oneClickSetup': '一键设置',
