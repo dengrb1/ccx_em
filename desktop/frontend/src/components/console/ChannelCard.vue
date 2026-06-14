@@ -46,6 +46,7 @@ const props = withDefaults(defineProps<{
   activity?: ChannelRecentActivity
   priority?: number
   inactive?: boolean
+  expanded?: boolean
   supportsCapability?: boolean
   canDelete?: boolean
   canMoveTop?: boolean
@@ -53,6 +54,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   priority: 0,
   inactive: false,
+  expanded: false,
   supportsCapability: true,
   canDelete: true,
   canMoveTop: false,
@@ -71,6 +73,7 @@ const emit = defineEmits<{
   moveBottom: []
   disable: []
   enable: []
+  toggle: []
 }>()
 
 const { tf } = useLanguage()
@@ -377,5 +380,21 @@ async function copyChannelInfo() {
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+
+    <!-- Expand/collapse toggle button -->
+    <button
+      type="button"
+      class="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 z-20 flex h-5 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+      :title="expanded ? tf('chart.collapse', '收起') : tf('chart.expandChart', '展开图表')"
+      @click.stop="emit('toggle')"
+    >
+      <svg
+        class="w-3 h-3 transition-transform"
+        :class="{ 'rotate-180': expanded }"
+        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      >
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
   </div>
 </template>

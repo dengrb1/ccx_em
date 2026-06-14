@@ -15,8 +15,10 @@ import ChannelLogsDialog from '@/components/console/ChannelLogsDialog.vue'
 import CapabilityTestDialog from '@/components/console/CapabilityTestDialog.vue'
 import CircuitBreakerDialog from '@/components/console/CircuitBreakerDialog.vue'
 import GlobalStatsChart from '@/components/console/charts/GlobalStatsChart.vue'
+import ModelStatsChart from '@/components/console/charts/ModelStatsChart.vue'
+import KeyTrendChart from '@/components/console/charts/KeyTrendChart.vue'
 import type { ManagedChannelType } from '@/utils/channel-type-api'
-import type { Channel, ChannelMetrics, ChannelRecentActivity, GlobalStatsHistoryResponse } from '@/services/admin-api'
+import type { Channel, ChannelMetrics, ChannelRecentActivity, GlobalStatsHistoryResponse, ModelStatsHistoryResponse, KeyHistoryData, GlobalStatsSummary } from '@/services/admin-api'
 
 interface Props {
   type: ManagedChannelType
@@ -109,6 +111,16 @@ const showCbDialog = ref(false)
 const globalStatsChartRef = ref<InstanceType<typeof GlobalStatsChart> | null>(null)
 const statsLoading = ref(false)
 
+// 模型统计
+const modelStatsChartRef = ref<InstanceType<typeof ModelStatsChart> | null>(null)
+const showModelStats = ref(false)
+
+// 渠道级 Key 趋势图
+const expandedChannelId = ref<number | null>(null)
+const keyMetricsData = ref<KeyHistoryData[]>([])
+const keyMetricsSummary = ref<GlobalStatsSummary | null>(null)
+const keyMetricsLoading = ref(false)
+
 async function loadGlobalStats(duration?: string) {
   statsLoading.value = true
   globalStatsChartRef.value?.setLoading(true)
@@ -130,6 +142,65 @@ async function loadGlobalStats(duration?: string) {
   } finally {
     statsLoading.value = false
     globalStatsChartRef.value?.setLoading(false)
+  }
+}
+
+async function loadModelStats(duration?: string) {
+  modelStatsChartRef.value?.setLoading(true)
+  try {
+    const adminApi = useAdminApi()
+    const typeMap: Record<ManagedChannelType, string> = {
+      messages: 'messages',
+      chat: 'chat',
+      responses: 'responses',
+      gemini: 'gemini',
+      images: 'images'
+    }
+    const apiPath = typeMap[props.type]
+    const dur = duration || '6h'
+    const data = await adminApi.get<ModelStatsHistoryResponse>(`/api/${apiPath}/models/stats/history?duration=${dur}`)
+    modelStatsChartRef.value?.updateData(data.models)
+  } catch {
+    // Silently fail
+  } finally {
+    modelStatsChartRef.value?.setLoading(false)
+  }
+}
+
+async function loadKeyMetrics(channelId: number, duration?: string) {
+  keyMetricsLoading.value = true
+  try {
+    const adminApi = useAdminApi()
+    const typeMap: Record<ManagedChannelType, string> = {
+      messages: 'messages',
+      chat: 'chat',
+      responses: 'responses',
+      gemini: 'gemini',
+      images: 'images'
+    }
+    const apiPath = typeMap[props.type]
+    const dur = duration || '1h'
+    const data = await adminApi.get<{ keys: KeyHistoryData[]; summary?: GlobalStatsSummary }>(
+      `/api/${apiPath}/channels/${channelId}/keys/metrics/history?duration=${dur}`
+    )
+    keyMetricsData.value = data.keys || []
+    keyMetricsSummary.value = data.summary || null
+  } catch {
+    keyMetricsData.value = []
+    keyMetricsSummary.value = null
+  } finally {
+    keyMetricsLoading.value = false
+  }
+}
+
+function handleToggleChart(channelId: number) {
+  if (expandedChannelId.value === channelId) {
+    expandedChannelId.value = null
+    keyMetricsData.value = []
+    keyMetricsSummary.value = null
+  } else {
+    expandedChannelId.value = channelId
+    loadKeyMetrics(channelId)
   }
 }
 
@@ -378,6 +449,7 @@ watch(() => status.value.running, (running) => {
   if (running) {
     loadFuzzyMode()
     loadGlobalStats()
+    if (showModelStats.value)loadModelStats()
   }
 }, { immediate: true })
 
@@ -385,6 +457,7 @@ watch(() => status.value.running, (running) => {
 watch(() => props.type, () => {
   if (status.value.running) {
     loadGlobalStats()
+    if (showModelStats.value)loadModelStats()
   }
 })
 </script>
@@ -466,6 +539,30 @@ watch(() => props.type, () => {
           @refresh="loadGlobalStats"
         />
       </div>
+
+      <!-- 模型统计折叠面板 -->
+      <div v-if="showModelStats" class="mt-3 border border-border bg-background/60">
+        <ModelStatsChart
+          ref="modelStatsChartRef"
+          :api-type="props.type"
+          @refresh="loadModelStats"
+        />
+      </div>
+      <button
+        v-if="status.running"
+        type="button"
+        class="mt-2 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/40 rounded transition-colors flex items-center justify-center gap-1"
+        @click="showModelStats = !showModelStats; if (showModelStats) loadModelStats()"
+      >
+        <svg
+          class="w-3.5 h-3.5 transition-transform"
+          :class="{ 'rotate-180': showModelStats }"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+        {{ showModelStats ? tf('chart.collapse', '收起模型统计') : tf('chart.expandModelStats', '展开模型统计') }}
+      </button>
     </div>
 
     <div v-if="isInitialLoading" class="space-y-2">
@@ -520,6 +617,7 @@ watch(() => props.type, () => {
               :can-delete="canDeleteChannel(channel)"
               :can-move-top="index > 0 && !normalizedSearch"
               :can-move-bottom="index < activeChannels.length - 1 && !normalizedSearch"
+              :expanded="expandedChannelId === channel.index"
               @edit="handleEdit(channel)"
               @delete="handleDelete(channel)"
               @status="handleStatusToggle(channel.index, channel.status || 'active')"
@@ -531,7 +629,18 @@ watch(() => props.type, () => {
               @move-bottom="handleMoveBottom(channel.index)"
               @logs="handleLogs(channel)"
               @capability="handleCapability(channel)"
+              @toggle="handleToggleChart(channel.index)"
             />
+            <!-- Expanded key trend chart area -->
+            <div v-if="expandedChannelId === channel.index" class="border-x border-b border-border bg-background/40 px-3 py-2">
+              <KeyTrendChart
+                :data="keyMetricsData"
+                :channel-name="channel.name"
+                :loading="keyMetricsLoading"
+                :duration="'1h'"
+                :summary="keyMetricsSummary"
+              />
+            </div>
           </div>
         </div>
       </section>

@@ -1,7 +1,28 @@
 <template>
   <div class="key-trend-chart">
+    <!-- Header: view switcher -->
+    <div class="flex items-center justify-end mb-3">
+      <div class="inline-flex rounded-md border border-border divide-x divide-border">
+        <button
+          v-for="view in viewOptions"
+          :key="view.value"
+          type="button"
+          class="px-2 py-1 text-[11px] font-semibold transition-colors hover:bg-accent/40 flex items-center gap-1"
+          :class="{ 'bg-accent text-accent-foreground': selectedView === view.value }"
+          @click="selectedView = view.value"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path v-if="view.value === 'traffic'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            <path v-else-if="view.value === 'tokens'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {{ t(view.label) }}
+        </button>
+      </div>
+    </div>
+
     <!-- Summary cards -->
-    <div v-if="summary" class="flex flex-wrap gap-2 mb-3">
+    <div v-if="summary && !loading" class="flex flex-wrap gap-2 mb-3">
       <div class="flex-1 min-w-[80px] p-2 rounded-lg text-center bg-secondary/30 dark:bg-secondary/20">
         <div class="text-xs text-muted-foreground font-medium mb-1">{{ t('chart.totalRequests') }}</div>
         <div class="text-sm font-semibold">{{ formatNumber(summary.totalRequests) }}</div>
@@ -27,6 +48,15 @@
         <div class="text-xs text-muted-foreground font-medium mb-1">{{ t('chart.outputTokens') }}</div>
         <div class="text-sm font-semibold">{{ formatNumber(summary.totalOutputTokens) }}</div>
       </div>
+      <div
+        v-if="summary.totalCacheReadTokens > 0 || summary.totalCacheCreationTokens > 0"
+        class="flex-1 min-w-[80px] p-2 rounded-lg text-center bg-secondary/30 dark:bg-secondary/20"
+      >
+        <div class="text-xs text-muted-foreground font-medium mb-1">Cache R/W</div>
+        <div class="text-sm font-semibold">
+          {{ formatNumber(summary.totalCacheReadTokens) }} / {{ formatNumber(summary.totalCacheCreationTokens) }}
+        </div>
+      </div>
     </div>
 
     <!-- Loading state -->
@@ -41,7 +71,7 @@
       style="height: 200px"
     >
       <div class="text-2xl mb-2 opacity-40">&#x1F517;</div>
-      <div class="text-xs">暂无 Key 使用数据</div>
+      <div class="text-xs">{{ t('chart.noKeyUsageInRange') }}</div>
     </div>
 
     <!-- Chart -->
@@ -99,6 +129,16 @@ const KEY_COLORS = [
   '#eab308', '#06b6d4', '#f43f5e', '#84cc16', '#6366f1',
 ]
 
+// View mode
+type ViewMode = 'traffic' | 'tokens' | 'cache'
+const selectedView = ref<ViewMode>('traffic')
+
+const viewOptions = computed(() => [
+  { label: 'chart.traffic', value: 'traffic' as ViewMode },
+  { label: 'chart.tokens', value: 'tokens' as ViewMode },
+  { label: 'chart.cacheRw', value: 'cache' as ViewMode },
+])
+
 const hasData = computed(() => {
   if (!props.data?.length) return false
   return props.data.some(k => k.dataPoints && k.dataPoints.length > 0)
@@ -128,6 +168,7 @@ const getFailureOpacity = (failureRate: number): number => {
 }
 
 const failureAnnotations = computed(() => {
+  if (selectedView.value !== 'traffic') return []
   if (!props.data?.length) return []
 
   const interval = AGGREGATION_INTERVALS[props.duration] || 60000
@@ -177,9 +218,127 @@ const failureAnnotations = computed(() => {
     })
 })
 
+// Helper: format number abbreviation
+function formatNumber(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
+  return num.toFixed(0)
+}
+
+// Helper: format axis value based on view mode
+function formatAxisValue(val: number, mode: ViewMode): string {
+  switch (mode) {
+    case 'traffic':
+      return Math.round(val).toString()
+    case 'tokens':
+    case 'cache':
+      return formatNumber(Math.abs(val))
+    default:
+      return val.toString()
+  }
+}
+
+// Helper: format tooltip value
+function formatTooltipValue(val: number, mode: ViewMode): string {
+  switch (mode) {
+    case 'traffic':
+      return `${Math.round(val)} ${t('chart.requestUnit')}`
+    case 'tokens':
+    case 'cache':
+      return `${formatNumber(Math.abs(val))} ${t('chart.tokenUnit')}`
+    default:
+      return val.toString()
+  }
+}
+
+// Helper: get display name for a key
+function getDisplayName(keyData: KeyHistoryData): string {
+  return keyData.model ? `${keyData.keyMask}/${keyData.model}` : keyData.keyMask
+}
+
+// Helper: get dash array (solid for forward, dashed for reverse)
+function getDashArray(): number | number[] {
+  if (selectedView.value === 'traffic') return 0
+  const keyCount = props.data?.length || 0
+  const dashArray: number[] = []
+  for (let i = 0; i < keyCount; i++) {
+    dashArray.push(0)  // Forward (Input/Read) - solid
+    dashArray.push(5)  // Reverse (Output/Write) - dashed
+  }
+  return dashArray.length > 0 ? dashArray : 0
+}
+
+// Helper: get chart colors (duplicate for bidirectional mode)
+function getChartColors(): string[] {
+  const keyCount = props.data?.length || 0
+  if (keyCount === 0) return KEY_COLORS
+  if (selectedView.value === 'traffic') {
+    return props.data.map((_, i) => KEY_COLORS[i % KEY_COLORS.length])
+  }
+  const colors: string[] = []
+  for (let i = 0; i < keyCount; i++) {
+    const color = KEY_COLORS[i % KEY_COLORS.length]
+    colors.push(color)  // Forward
+    colors.push(color)  // Reverse (same color)
+  }
+  return colors
+}
+
+// Token/cache mode: determine Y-axis anchor series names
+function getYaxisConfig() {
+  const mode = selectedView.value
+  if (mode === 'traffic') {
+    return {
+      labels: {
+        formatter: (val: number) => formatAxisValue(val, mode),
+        style: { fontSize: '11px', colors: textColor.value },
+      },
+      min: 0,
+    }
+  }
+
+  const keyCount = props.data?.length || 1
+  const inLabel = mode === 'tokens' ? t('chart.input') : t('chart.cacheRead')
+  const outLabel = mode === 'tokens' ? t('chart.output') : t('chart.cacheWrite')
+
+  const firstKey = props.data?.[0]
+  const firstName = firstKey ? getDisplayName(firstKey) : undefined
+  const anchorInName = firstName ? `${firstName} ${inLabel}` : undefined
+  const anchorOutName = firstName ? `${firstName} ${outLabel}` : undefined
+
+  const axes: any[] = [
+    {
+      seriesName: anchorInName,
+      show: true,
+      labels: {
+        formatter: (val: number) => formatAxisValue(val, mode),
+        style: { fontSize: '11px', colors: textColor.value },
+      },
+      min: 0,
+    },
+    {
+      seriesName: anchorOutName,
+      opposite: true,
+      show: true,
+      labels: {
+        formatter: (val: number) => formatAxisValue(val, mode),
+        style: { fontSize: '11px', colors: textColor.value },
+      },
+      min: 0,
+    },
+  ]
+
+  // Bind later key series to the same Y-axis pair
+  for (let i = 1; i < keyCount; i++) {
+    axes.push({ seriesName: anchorInName, show: false, min: 0 })
+    axes.push({ seriesName: anchorOutName, show: false, min: 0 })
+  }
+
+  return axes
+}
+
 const chartOptions = computed<ApexOptions>(() => {
   const keyCount = props.data?.length || 0
-  const colors = props.data?.map((_, i) => KEY_COLORS[i % KEY_COLORS.length]) || KEY_COLORS
 
   return {
     chart: {
@@ -188,17 +347,17 @@ const chartOptions = computed<ApexOptions>(() => {
       background: 'transparent',
       fontFamily: 'inherit',
       defaultLocale: 'en',
-      stacked: true,
+      stacked: selectedView.value === 'traffic',
       animations: { enabled: true, speed: 400 },
     },
     theme: { mode: isDark.value ? 'dark' : 'light' },
-    colors,
+    colors: getChartColors(),
     fill: {
       type: 'gradient',
       gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.08, stops: [0, 90, 100] },
     },
     dataLabels: { enabled: false },
-    stroke: { curve: 'smooth', width: 2 },
+    stroke: { curve: 'smooth', width: 2, dashArray: getDashArray() },
     grid: { borderColor: gridBorder.value, padding: { left: 10, right: 10 } },
     xaxis: {
       type: 'datetime',
@@ -210,21 +369,15 @@ const chartOptions = computed<ApexOptions>(() => {
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    yaxis: {
-      labels: {
-        formatter: (val: number) => Math.round(val).toString(),
-        style: { fontSize: '11px', colors: textColor.value },
-      },
-      min: 0,
-    },
+    yaxis: getYaxisConfig(),
     tooltip: {
       x: { format: 'MM-dd HH:mm' },
-      y: { formatter: (val: number) => `${Math.round(val)} 次` },
-      custom: keyCount > 1 ? buildTrafficTooltip : undefined,
+      y: { formatter: (val: number) => formatTooltipValue(val, selectedView.value) },
+      custom: selectedView.value === 'traffic' && keyCount > 1 ? buildTrafficTooltip : undefined,
     },
     annotations: { xaxis: failureAnnotations.value },
     legend: {
-      show: keyCount > 1,
+      show: selectedView.value !== 'traffic' || keyCount > 1,
       position: 'top',
       horizontalAlign: 'right',
       fontSize: '11px',
@@ -234,7 +387,7 @@ const chartOptions = computed<ApexOptions>(() => {
   }
 })
 
-// Custom tooltip showing per-key success/failure breakdown
+// Custom tooltip for traffic mode
 const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string => {
   if (!props.data?.length) return ''
 
@@ -281,9 +434,8 @@ const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string =>
       )
 
       if (aggregated.total > 0) {
-        const displayName = keyData.model ? `${keyData.keyMask}/${keyData.model}` : keyData.keyMask
         keyStats.push({
-          displayName: escapeHtml(displayName),
+          displayName: escapeHtml(getDisplayName(keyData)),
           total: aggregated.total,
           failure: aggregated.failure,
           color: KEY_COLORS[keyIndex % KEY_COLORS.length],
@@ -307,7 +459,7 @@ const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string =>
     html += `<span style="flex: 1;">${stat.displayName}</span>`
     html += `<span style="margin-left: 12px; font-weight: 500;">${stat.total}</span>`
     if (stat.failure > 0) {
-      html += `<span style="margin-left: 6px; color: #ef4444; font-size: 12px;">(${stat.failure} 失败, ${failureRate}%)</span>`
+      html += `<span style="margin-left: 6px; color: #ef4444; font-size: 12px;">(${stat.failure} ${t('chart.issueCount')}, ${failureRate}%)</span>`
     }
     html += `</div>`
   })
@@ -315,9 +467,9 @@ const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string =>
   if (keyStats.length > 1) {
     const grandFailureRate = grandTotal > 0 ? ((grandFailure / grandTotal) * 100).toFixed(1) : '0'
     html += `<div style="border-top: 1px solid rgba(128,128,128,0.3); margin-top: 6px; padding-top: 6px; font-weight: 600;">`
-    html += `<span>总计: ${grandTotal} 次</span>`
+    html += `<span>${t('chart.total')}: ${grandTotal} ${t('chart.requestUnit')}</span>`
     if (hasFailure) {
-      html += `<span style="color: #ef4444; margin-left: 8px;">${grandFailure} 失败 (${grandFailureRate}%)</span>`
+      html += `<span style="color: #ef4444; margin-left: 8px;">${grandFailure} ${t('chart.issueCount')} (${grandFailureRate}%)</span>`
     }
     html += `</div>`
   }
@@ -328,24 +480,45 @@ const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string =>
 
 const chartSeries = computed(() => {
   if (!props.data?.length) return []
+  const mode = selectedView.value
 
-  return props.data.map(keyData => {
-    const displayName = keyData.model ? `${keyData.keyMask}/${keyData.model}` : keyData.keyMask
-    return {
-      name: displayName,
+  if (mode === 'traffic') {
+    return props.data.map(keyData => ({
+      name: getDisplayName(keyData),
       data: keyData.dataPoints.map(dp => ({
         x: new Date(dp.timestamp).getTime(),
         y: dp.requestCount,
       })),
-    }
-  })
-})
+    }))
+  }
 
-function formatNumber(num: number): string {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-  return num.toFixed(0)
-}
+  // Bidirectional mode: two series per key (Input/Output or Read/Write)
+  const result: { name: string; data: { x: number; y: number }[] }[] = []
+  const inLabel = mode === 'tokens' ? t('chart.input') : t('chart.cacheRead')
+  const outLabel = mode === 'tokens' ? t('chart.output') : t('chart.cacheWrite')
+
+  props.data.forEach(keyData => {
+    const displayName = getDisplayName(keyData)
+
+    result.push({
+      name: `${displayName} ${inLabel}`,
+      data: keyData.dataPoints.map(dp => ({
+        x: new Date(dp.timestamp).getTime(),
+        y: mode === 'tokens' ? dp.inputTokens : dp.cacheReadTokens,
+      })),
+    })
+
+    result.push({
+      name: `${displayName} ${outLabel}`,
+      data: keyData.dataPoints.map(dp => ({
+        x: new Date(dp.timestamp).getTime(),
+        y: mode === 'tokens' ? dp.outputTokens : dp.cacheCreationTokens,
+      })),
+    })
+  })
+
+  return result
+})
 
 defineExpose({ chartRef })
 </script>
