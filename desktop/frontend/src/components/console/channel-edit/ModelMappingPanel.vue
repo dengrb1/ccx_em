@@ -71,7 +71,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
           {{ tf('console.form.modelRedirect', '模型重定向') }}
         </h4>
         <p class="text-[10px] text-muted-foreground">
-          拦截调用请求中的 Source 别名并定向投递至上游 Target 真实模型
+          {{ tf('console.form.mappingHint', '拦截调用请求中的 Source 别名并定向投递至上游 Target 真实模型') }}
         </p>
       </div>
       <Button
@@ -213,7 +213,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
           placeholder="mimo-v2.5"
           @update:model-value="(val) => emit('update:visionFallbackModel', val as string)"
         />
-        <p class="text-[10px] text-muted-foreground">已通过模型重定向行的视觉开关标记禁用视觉模型；这些模型遇到图像输入时会自动切换到此模型处理</p>
+        <p class="text-[10px] text-muted-foreground">{{ tf('console.form.visionFallbackHint', '已通过模型重定向行的视觉开关标记禁用视觉模型；这些模型遇到图像输入时会自动切换到此模型处理') }}</p>
       </div>
     </div>
 

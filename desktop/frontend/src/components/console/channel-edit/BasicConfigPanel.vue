@@ -95,7 +95,7 @@ function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
     <div class="grid gap-4 lg:grid-cols-2">
       <!-- 基础信息 -->
       <section class="space-y-4 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-primary">基础信息</h4>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-primary">{{ tf('console.form.basicInfoTitle', '基础信息') }}</h4>
         <div class="grid grid-cols-[2fr_1fr] gap-3">
           <div class="space-y-1.5">
             <Label class="text-xs font-semibold text-muted-foreground">
@@ -132,7 +132,7 @@ function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
             :model-value="form.description"
             rows="2"
             class="min-h-[74px] resize-none"
-            placeholder="可选填，用于备注此节点供应商..."
+            :placeholder="tf('console.form.descriptionPlaceholder', '可选填，用于备注此节点供应商...')"
             @update:model-value="(val) => updateField('description', val as string)"
           />
         </div>
@@ -140,13 +140,13 @@ function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
 
       <!-- 连接终点 -->
       <section class="space-y-4 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-primary">连接终点</h4>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-primary">{{ tf('console.form.connectionTitle', '连接终点') }}</h4>
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
             <Label class="text-xs font-semibold text-muted-foreground">
               Base URL <span class="text-destructive">*</span>
             </Label>
-            <span class="text-[10px] text-muted-foreground/80 scale-95 origin-right">多行实现故障轮换</span>
+            <span class="text-[10px] text-muted-foreground/80 scale-95 origin-right">{{ tf('console.form.multiLineFailover', '多行实现故障轮换') }}</span>
           </div>
           <Textarea
             :model-value="form.baseUrlsText"
@@ -158,7 +158,7 @@ function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
           <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground/70 bg-accent/40 px-2 py-1 rounded-md border border-border/30">
             <span class="inline-block size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span class="font-mono truncate">
-              预期终点: {{ expectedRequestUrls[0]?.expectedUrl || 'N/A' }}
+              {{ tf('console.form.expectedEndpoint', '预期终点:') }} {{ expectedRequestUrls[0]?.expectedUrl || 'N/A' }}
             </span>
           </div>
           <p v-if="errors.baseUrl" class="text-[10px] text-destructive">{{ errors.baseUrl }}</p>

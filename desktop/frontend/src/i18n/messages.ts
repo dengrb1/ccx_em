@@ -651,6 +651,13 @@ export type MessageKey =
   | 'console.form.toolCallIdleHint'
   | 'console.form.timeoutThreshold'
   | 'console.form.supportedModelsLabel'
+  | 'console.form.basicInfoTitle'
+  | 'console.form.connectionTitle'
+  | 'console.form.multiLineFailover'
+  | 'console.form.expectedEndpoint'
+  | 'console.form.descriptionPlaceholder'
+  | 'console.form.mappingHint'
+  | 'console.form.visionFallbackHint'
   | 'console.form.modelRedirect'
   | 'console.form.modelMappingExisting'
   | 'console.form.modelMappingAdd'
@@ -1455,6 +1462,13 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.toolCallIdleHint': 'FunctionCall delay timeout',
     'console.form.timeoutThreshold': 'Timeout:',
     'console.form.supportedModelsLabel': 'Supported models (whitelist, leave empty for no restriction)',
+    'console.form.basicInfoTitle': 'Basic info',
+    'console.form.connectionTitle': 'Connection',
+    'console.form.multiLineFailover': 'Multi-line for failover',
+    'console.form.expectedEndpoint': 'Expected endpoint:',
+    'console.form.descriptionPlaceholder': 'Optional: note about this provider...',
+    'console.form.mappingHint': 'Intercept source aliases in requests and route to the real upstream target model',
+    'console.form.visionFallbackHint': 'Models disabled via the vision toggle on redirect rows will auto-fallback to this model for image requests',
     'console.form.modelRedirect': 'Model redirect',
     'console.form.modelMappingExisting': 'Configured',
     'console.form.modelMappingAdd': 'Add redirect',
@@ -2251,6 +2265,13 @@ export const messages: Record<SupportedLocale, Messages> = {
     'console.form.toolCallIdleHint': 'FunctionCall 延迟',
     'console.form.timeoutThreshold': '超时阈值:',
     'console.form.supportedModelsLabel': '限定可支持模型范围（白名单模式，留空表示不限制）',
+    'console.form.basicInfoTitle': '基础信息',
+    'console.form.connectionTitle': '连接终点',
+    'console.form.multiLineFailover': '多行实现故障轮换',
+    'console.form.expectedEndpoint': '预期终点:',
+    'console.form.descriptionPlaceholder': '可选填，用于备注此节点供应商...',
+    'console.form.mappingHint': '拦截调用请求中的 Source 别名并定向投递至上游 Target 真实模型',
+    'console.form.visionFallbackHint': '已通过模型重定向行的视觉开关标记禁用视觉模型；这些模型遇到图像输入时会自动切换到此模型处理',
     'console.form.modelRedirect': '模型重定向',
     'console.form.modelMappingExisting': '已配置',
     'console.form.modelMappingAdd': '添加新重定向',
