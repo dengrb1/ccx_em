@@ -65,7 +65,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
       <div class="space-y-0.5">
         <h4 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
           <span class="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] animate-pulse"></span>
-          {{ tf('console.form.modelMapping', '模型重定向映射') }}
+          {{ tf('console.form.modelRedirect', '模型重定向') }}
         </h4>
         <p class="text-[10px] text-muted-foreground">
           拦截调用请求中的 Source 别名并定向投递至上游 Target 真实模型
@@ -195,6 +195,25 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
       </div>
     </div>
 
+    <!-- 视觉回退配置 -->
+    <div v-if="hasNoVisionRows" class="rounded-xl border border-border/60 bg-card/30 p-4 space-y-3">
+      <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 border-b border-border/30 pb-1.5">
+        {{ tf('console.form.visionFallback', '视觉回退配置') }}
+      </div>
+      <div class="space-y-1.5">
+        <Label class="text-xs font-semibold text-muted-foreground">
+          {{ tf('console.form.visionFallbackModel', '视觉回退目标模型') }}
+        </Label>
+        <Input
+          :model-value="visionFallbackModel"
+          class="h-9 w-full font-mono text-xs"
+          placeholder="mimo-v2.5"
+          @update:model-value="(val) => emit('update:visionFallbackModel', val as string)"
+        />
+        <p class="text-[10px] text-muted-foreground">已通过模型重定向行的视觉开关标记禁用视觉模型；这些模型遇到图像输入时会自动切换到此模型处理</p>
+      </div>
+    </div>
+
     <!-- 添加新映射 -->
     <div class="rounded-xl border border-primary/20 bg-primary/[0.02] p-3 space-y-2">
       <div class="text-[10px] font-bold uppercase tracking-wider text-primary">
@@ -254,25 +273,6 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
           <Plus class="h-3.5 w-3.5 mr-1" />
           {{ tf('console.form.createMapping', '建立映射') }}
         </Button>
-      </div>
-    </div>
-
-    <!-- 视觉回退配置 -->
-    <div v-if="hasNoVisionRows" class="rounded-xl border border-border/60 bg-card/30 p-4 space-y-3">
-      <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 border-b border-border/30 pb-1.5">
-        {{ tf('console.form.visionFallback', '视觉回退配置') }}
-      </div>
-      <div class="space-y-1.5">
-        <Label class="text-xs font-semibold text-muted-foreground">
-          {{ tf('console.form.visionFallbackModel', '视觉回退目标模型') }}
-        </Label>
-        <Input
-          :model-value="visionFallbackModel"
-          class="h-9 w-full font-mono text-xs"
-          placeholder="mimo-v2.5"
-          @update:model-value="(val) => emit('update:visionFallbackModel', val as string)"
-        />
-        <p class="text-[10px] text-muted-foreground">已通过模型重定向行的视觉开关标记禁用视觉模型；这些模型遇到图像输入时会自动切换到此模型处理</p>
       </div>
     </div>
   </section>
