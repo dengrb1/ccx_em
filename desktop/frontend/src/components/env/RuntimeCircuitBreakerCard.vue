@@ -27,6 +27,11 @@ const form = reactive({
   streamToolCallIdleTimeoutMs: 120000,
 })
 
+const sliderStyle = (value: number, min: number, max: number) => {
+  const percent = ((value - min) / (max - min)) * 100
+  return { '--cb-slider-progress': `${Math.min(100, Math.max(0, percent))}%` }
+}
+
 // 工具调用 idle 预设按低速 5 TPS 粗估：60/120/300s 分别预留约 300/600/1500 token 的参数生成窗口。
 const presets = [
   { key: 'gentle', labelKey: 'env.runtimeCbPresetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 90000, streamInactivityTimeoutMs: 90000, streamToolCallIdleTimeoutMs: 300000 },
@@ -248,16 +253,25 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbWindowSize') }}</span>
             <span class="text-xs font-medium">{{ form.windowSize }}</span>
           </div>
-          <input
-            type="range"
-            :value="form.windowSize"
-            :min="3"
-            :max="100"
-            step="1"
-            class="cb-slider w-full"
-            :disabled="!status.running"
-            @input="onSliderChange('windowSize', $event)"
-          />
+          <div class="cb-slider-shell" :style="sliderStyle(form.windowSize, 3, 100)">
+            <input
+              type="range"
+              :value="form.windowSize"
+              :min="3"
+              :max="100"
+              step="1"
+              class="cb-slider-input"
+              :disabled="!status.running"
+              :aria-label="t('env.runtimeCbWindowSize')"
+              @input="onSliderChange('windowSize', $event)"
+            />
+            <div class="cb-slider-visual" aria-hidden="true">
+              <div class="cb-slider-track">
+                <div class="cb-slider-fill" />
+              </div>
+              <div class="cb-slider-thumb" />
+            </div>
+          </div>
           <div class="flex justify-between text-xs text-muted-foreground"><span>3</span><span>100</span></div>
         </div>
 
@@ -269,16 +283,25 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbFailureThreshold') }}</span>
             <span class="text-xs font-medium">{{ form.failureThreshold.toFixed(2) }}</span>
           </div>
-          <input
-            type="range"
-            :value="form.failureThreshold"
-            :min="0.01"
-            :max="1"
-            step="0.01"
-            class="cb-slider w-full"
-            :disabled="!status.running"
-            @input="onSliderChange('failureThreshold', $event)"
-          />
+          <div class="cb-slider-shell" :style="sliderStyle(form.failureThreshold, 0.01, 1)">
+            <input
+              type="range"
+              :value="form.failureThreshold"
+              :min="0.01"
+              :max="1"
+              step="0.01"
+              class="cb-slider-input"
+              :disabled="!status.running"
+              :aria-label="t('env.runtimeCbFailureThreshold')"
+              @input="onSliderChange('failureThreshold', $event)"
+            />
+            <div class="cb-slider-visual" aria-hidden="true">
+              <div class="cb-slider-track">
+                <div class="cb-slider-fill" />
+              </div>
+              <div class="cb-slider-thumb" />
+            </div>
+          </div>
           <div class="flex justify-between text-xs text-muted-foreground"><span>0.01</span><span>1.00</span></div>
         </div>
 
@@ -290,16 +313,25 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbConsecutiveFailures') }}</span>
             <span class="text-xs font-medium">{{ form.consecutiveFailuresThreshold }}</span>
           </div>
-          <input
-            type="range"
-            :value="form.consecutiveFailuresThreshold"
-            :min="1"
-            :max="100"
-            step="1"
-            class="cb-slider w-full"
-            :disabled="!status.running"
-            @input="onSliderChange('consecutiveFailuresThreshold', $event)"
-          />
+          <div class="cb-slider-shell" :style="sliderStyle(form.consecutiveFailuresThreshold, 1, 100)">
+            <input
+              type="range"
+              :value="form.consecutiveFailuresThreshold"
+              :min="1"
+              :max="100"
+              step="1"
+              class="cb-slider-input"
+              :disabled="!status.running"
+              :aria-label="t('env.runtimeCbConsecutiveFailures')"
+              @input="onSliderChange('consecutiveFailuresThreshold', $event)"
+            />
+            <div class="cb-slider-visual" aria-hidden="true">
+              <div class="cb-slider-track">
+                <div class="cb-slider-fill" />
+              </div>
+              <div class="cb-slider-thumb" />
+            </div>
+          </div>
           <div class="flex justify-between text-xs text-muted-foreground"><span>1</span><span>100</span></div>
         </div>
       </div>
@@ -312,16 +344,25 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbStreamFirstContentTimeout') }}</span>
             <span class="text-xs font-medium">{{ (form.streamFirstContentTimeoutMs / 1000) + 's' }}</span>
           </div>
-          <input
-            type="range"
-            :value="form.streamFirstContentTimeoutMs"
-            :min="5000"
-            :max="300000"
-            step="1000"
-            class="cb-slider w-full"
-            :disabled="!status.running"
-            @input="onSliderChange('streamFirstContentTimeoutMs', $event)"
-          />
+          <div class="cb-slider-shell" :style="sliderStyle(form.streamFirstContentTimeoutMs, 5000, 300000)">
+            <input
+              type="range"
+              :value="form.streamFirstContentTimeoutMs"
+              :min="5000"
+              :max="300000"
+              step="1000"
+              class="cb-slider-input"
+              :disabled="!status.running"
+              :aria-label="t('env.runtimeCbStreamFirstContentTimeout')"
+              @input="onSliderChange('streamFirstContentTimeoutMs', $event)"
+            />
+            <div class="cb-slider-visual" aria-hidden="true">
+              <div class="cb-slider-track">
+                <div class="cb-slider-fill" />
+              </div>
+              <div class="cb-slider-thumb" />
+            </div>
+          </div>
           <div class="flex justify-between text-xs text-muted-foreground"><span>5s</span><span>300s</span></div>
         </div>
 
@@ -333,16 +374,25 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbStreamInactivityTimeout') }}</span>
             <span class="text-xs font-medium">{{ (form.streamInactivityTimeoutMs / 1000) + 's' }}</span>
           </div>
-          <input
-            type="range"
-            :value="form.streamInactivityTimeoutMs"
-            :min="1000"
-            :max="180000"
-            step="1000"
-            class="cb-slider w-full"
-            :disabled="!status.running"
-            @input="onSliderChange('streamInactivityTimeoutMs', $event)"
-          />
+          <div class="cb-slider-shell" :style="sliderStyle(form.streamInactivityTimeoutMs, 1000, 180000)">
+            <input
+              type="range"
+              :value="form.streamInactivityTimeoutMs"
+              :min="1000"
+              :max="180000"
+              step="1000"
+              class="cb-slider-input"
+              :disabled="!status.running"
+              :aria-label="t('env.runtimeCbStreamInactivityTimeout')"
+              @input="onSliderChange('streamInactivityTimeoutMs', $event)"
+            />
+            <div class="cb-slider-visual" aria-hidden="true">
+              <div class="cb-slider-track">
+                <div class="cb-slider-fill" />
+              </div>
+              <div class="cb-slider-thumb" />
+            </div>
+          </div>
           <div class="flex justify-between text-xs text-muted-foreground"><span>1s</span><span>180s</span></div>
         </div>
 
@@ -354,16 +404,25 @@ onMounted(() => {
             <span class="text-xs text-muted-foreground">{{ t('env.runtimeCbStreamToolCallIdleTimeout') }}</span>
             <span class="text-xs font-medium">{{ (form.streamToolCallIdleTimeoutMs / 1000) + 's' }}</span>
           </div>
-          <input
-            type="range"
-            :value="form.streamToolCallIdleTimeoutMs"
-            :min="30000"
-            :max="300000"
-            step="1000"
-            class="cb-slider w-full"
-            :disabled="!status.running"
-            @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
-          />
+          <div class="cb-slider-shell" :style="sliderStyle(form.streamToolCallIdleTimeoutMs, 30000, 300000)">
+            <input
+              type="range"
+              :value="form.streamToolCallIdleTimeoutMs"
+              :min="30000"
+              :max="300000"
+              step="1000"
+              class="cb-slider-input"
+              :disabled="!status.running"
+              :aria-label="t('env.runtimeCbStreamToolCallIdleTimeout')"
+              @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
+            />
+            <div class="cb-slider-visual" aria-hidden="true">
+              <div class="cb-slider-track">
+                <div class="cb-slider-fill" />
+              </div>
+              <div class="cb-slider-thumb" />
+            </div>
+          </div>
           <div class="flex justify-between text-xs text-muted-foreground"><span>30s</span><span>300s</span></div>
         </div>
       </div>
@@ -406,37 +465,115 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.cb-slider {
+.cb-slider-shell {
+  --cb-slider-progress: 0%;
+  position: relative;
+  width: 100%;
+  height: 28px;
+}
+.cb-slider-input {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
-  border-radius: 3px;
-  background: hsl(var(--muted));
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  opacity: 0;
   outline: none;
   cursor: pointer;
 }
-.cb-slider::-webkit-slider-thumb {
+.cb-slider-input::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+.cb-slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  width: 26px;
+  height: 28px;
+  background: transparent;
+  border: 0;
 }
-.cb-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+.cb-slider-input::-moz-range-track {
+  height: 28px;
+  background: transparent;
+  border: 0;
 }
-.cb-slider:disabled {
-  opacity: 0.5;
+.cb-slider-input::-moz-range-thumb {
+  width: 26px;
+  height: 28px;
+  background: transparent;
+  border: 0;
+}
+.cb-slider-input:disabled {
   cursor: not-allowed;
+}
+.cb-slider-visual {
+  position: absolute;
+  top: 0;
+  right: 13px;
+  bottom: 0;
+  left: 13px;
+  pointer-events: none;
+}
+.cb-slider-track {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--color-border);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.16);
+}
+.cb-slider-fill {
+  width: var(--cb-slider-progress);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 56%, transparent));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+.cb-slider-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--cb-slider-progress);
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg,
+    var(--color-primary) 0%,
+    color-mix(in srgb, var(--color-primary) 88%, #0f172a 12%) 100%
+  );
+  cursor: pointer;
+  border: 2px solid var(--color-background);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--color-primary) 24%, transparent),
+    0 7px 16px rgb(0 0 0 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.32);
+  transform: translate(-50%, -50%);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cb-slider-input:hover + .cb-slider-visual .cb-slider-thumb,
+.cb-slider-input:focus-visible + .cb-slider-visual .cb-slider-thumb {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 28%, transparent),
+    0 9px 20px rgb(0 0 0 / 0.32),
+    0 0 0 7px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.32);
+  transform: translate(-50%, -50%) scale(1.12);
+}
+.cb-slider-input:active + .cb-slider-visual .cb-slider-thumb {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 34%, transparent),
+    0 5px 12px rgb(0 0 0 / 0.26),
+    0 0 0 8px color-mix(in srgb, var(--color-primary) 14%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.32);
+  transform: translate(-50%, -50%) scale(1.06);
+}
+.cb-slider-input:disabled + .cb-slider-visual {
+  opacity: 0.5;
 }
 </style>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref, watch, computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert } from '@/components/ui/alert'
-import { Save, Zap } from 'lucide-vue-next'
+import { Loader2, Zap } from 'lucide-vue-next'
 import { useStatus } from '@/composables/useStatus'
 import { useLanguage } from '@/composables/useLanguage'
 import { GetAdminAccessKey } from '@bindings/github.com/BenedictKing/ccx/desktop/desktopservice'
@@ -18,6 +18,7 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 const { status } = useStatus()
 const { t } = useLanguage()
 
+const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -32,6 +33,11 @@ const form = reactive({
   streamInactivityTimeoutMs: 20000,
   streamToolCallIdleTimeoutMs: 120000,
 })
+
+const sliderStyle = (value: number, min: number, max: number) => {
+  const percent = ((value - min) / (max - min)) * 100
+  return { '--cb-slider-progress': `${Math.min(100, Math.max(0, percent))}%` }
+}
 
 // 工具调用 idle 预设按低速 5 TPS 粗估：60/120/300s 分别预留约 300/600/1500 token 的参数生成窗口。
 const presets = [
@@ -246,15 +252,24 @@ watch(() => props.open, (isOpen) => {
                     <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbWindowSize') }}</span>
                     <span class="text-[11px] font-mono font-medium">{{ form.windowSize }}</span>
                   </div>
-                  <input
-                    type="range"
-                    :value="form.windowSize"
-                    :min="3"
-                    :max="100"
-                    step="1"
-                    class="cb-slider w-full"
-                    @input="onSliderChange('windowSize', $event)"
-                  />
+                  <div class="cb-slider-shell" :style="sliderStyle(form.windowSize, 3, 100)">
+                    <input
+                      type="range"
+                      :value="form.windowSize"
+                      :min="3"
+                      :max="100"
+                      step="1"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbWindowSize')"
+                      @input="onSliderChange('windowSize', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>3</span><span>100</span></div>
                 </div>
 
@@ -265,15 +280,24 @@ watch(() => props.open, (isOpen) => {
                     <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbFailureThreshold') }}</span>
                     <span class="text-[11px] font-mono font-medium">{{ form.failureThreshold.toFixed(2) }}</span>
                   </div>
-                  <input
-                    type="range"
-                    :value="form.failureThreshold"
-                    :min="0.01"
-                    :max="1"
-                    step="0.01"
-                    class="cb-slider w-full"
-                    @input="onSliderChange('failureThreshold', $event)"
-                  />
+                  <div class="cb-slider-shell" :style="sliderStyle(form.failureThreshold, 0.01, 1)">
+                    <input
+                      type="range"
+                      :value="form.failureThreshold"
+                      :min="0.01"
+                      :max="1"
+                      step="0.01"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbFailureThreshold')"
+                      @input="onSliderChange('failureThreshold', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>0.01</span><span>1.00</span></div>
                 </div>
 
@@ -284,15 +308,24 @@ watch(() => props.open, (isOpen) => {
                     <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbConsecutiveFailures') }}</span>
                     <span class="text-[11px] font-mono font-medium">{{ form.consecutiveFailuresThreshold }}</span>
                   </div>
-                  <input
-                    type="range"
-                    :value="form.consecutiveFailuresThreshold"
-                    :min="1"
-                    :max="100"
-                    step="1"
-                    class="cb-slider w-full"
-                    @input="onSliderChange('consecutiveFailuresThreshold', $event)"
-                  />
+                  <div class="cb-slider-shell" :style="sliderStyle(form.consecutiveFailuresThreshold, 1, 100)">
+                    <input
+                      type="range"
+                      :value="form.consecutiveFailuresThreshold"
+                      :min="1"
+                      :max="100"
+                      step="1"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbConsecutiveFailures')"
+                      @input="onSliderChange('consecutiveFailuresThreshold', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>1</span><span>100</span></div>
                 </div>
               </div>
@@ -310,15 +343,24 @@ watch(() => props.open, (isOpen) => {
                     <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbStreamFirstContentTimeout') }}</span>
                     <span class="text-[11px] font-mono font-medium">{{ (form.streamFirstContentTimeoutMs / 1000) + 's' }}</span>
                   </div>
-                  <input
-                    type="range"
-                    :value="form.streamFirstContentTimeoutMs"
-                    :min="5000"
-                    :max="300000"
-                    step="1000"
-                    class="cb-slider w-full"
-                    @input="onSliderChange('streamFirstContentTimeoutMs', $event)"
-                  />
+                  <div class="cb-slider-shell" :style="sliderStyle(form.streamFirstContentTimeoutMs, 5000, 300000)">
+                    <input
+                      type="range"
+                      :value="form.streamFirstContentTimeoutMs"
+                      :min="5000"
+                      :max="300000"
+                      step="1000"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbStreamFirstContentTimeout')"
+                      @input="onSliderChange('streamFirstContentTimeoutMs', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>5s</span><span>300s</span></div>
                 </div>
 
@@ -329,15 +371,24 @@ watch(() => props.open, (isOpen) => {
                     <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbStreamInactivityTimeout') }}</span>
                     <span class="text-[11px] font-mono font-medium">{{ (form.streamInactivityTimeoutMs / 1000) + 's' }}</span>
                   </div>
-                  <input
-                    type="range"
-                    :value="form.streamInactivityTimeoutMs"
-                    :min="1000"
-                    :max="180000"
-                    step="1000"
-                    class="cb-slider w-full"
-                    @input="onSliderChange('streamInactivityTimeoutMs', $event)"
-                  />
+                  <div class="cb-slider-shell" :style="sliderStyle(form.streamInactivityTimeoutMs, 1000, 180000)">
+                    <input
+                      type="range"
+                      :value="form.streamInactivityTimeoutMs"
+                      :min="1000"
+                      :max="180000"
+                      step="1000"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbStreamInactivityTimeout')"
+                      @input="onSliderChange('streamInactivityTimeoutMs', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>180s</span></div>
                 </div>
 
@@ -348,15 +399,24 @@ watch(() => props.open, (isOpen) => {
                     <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbStreamToolCallIdleTimeout') }}</span>
                     <span class="text-[11px] font-mono font-medium">{{ (form.streamToolCallIdleTimeoutMs / 1000) + 's' }}</span>
                   </div>
-                  <input
-                    type="range"
-                    :value="form.streamToolCallIdleTimeoutMs"
-                    :min="30000"
-                    :max="300000"
-                    step="1000"
-                    class="cb-slider w-full"
-                    @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
-                  />
+                  <div class="cb-slider-shell" :style="sliderStyle(form.streamToolCallIdleTimeoutMs, 30000, 300000)">
+                    <input
+                      type="range"
+                      :value="form.streamToolCallIdleTimeoutMs"
+                      :min="30000"
+                      :max="300000"
+                      step="1000"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbStreamToolCallIdleTimeout')"
+                      @input="onSliderChange('streamToolCallIdleTimeoutMs', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>30s</span><span>300s</span></div>
                 </div>
               </div>
@@ -401,10 +461,12 @@ watch(() => props.open, (isOpen) => {
           <div class="flex shrink-0 items-center justify-end gap-2.5 border-t border-border/60 bg-gradient-to-r from-card/40 to-card/30 p-4 backdrop-blur-sm">
             <Button variant="outline" size="sm" class="text-xs shadow-sm hover:shadow-md transition-all" @click="emit('close')">
               {{ t('common.cancel') }}
+              <span class="ml-1.5 text-xs opacity-60">Esc</span>
             </Button>
             <Button size="sm" :disabled="saving" class="text-xs shadow-sm hover:shadow-lg transition-all" @click="saveConfig">
-              <Save class="h-3 w-3 mr-1.5" :class="{ 'animate-spin': saving }" />
+              <Loader2 v-if="saving" class="h-3 w-3 mr-1.5 animate-spin" />
               {{ t('env.save') }}
+              <span class="ml-1.5 text-xs opacity-60">{{ isMac ? '⌘ Enter' : 'Ctrl+Enter' }}</span>
             </Button>
           </div>
         </div>
@@ -414,83 +476,116 @@ watch(() => props.open, (isOpen) => {
 </template>
 
 <style scoped>
-.cb-slider {
+.cb-slider-shell {
+  --cb-slider-progress: 0%;
+  position: relative;
+  width: 100%;
+  height: 28px;
+}
+.cb-slider-input {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: hsl(var(--border)/0.3);
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  opacity: 0;
   outline: none;
   cursor: pointer;
-  transition: all 0.2s;
 }
-.cb-slider:hover {
-  background: hsl(var(--border)/0.4);
+.cb-slider-input::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
 }
-.cb-slider::-webkit-slider-thumb {
+.cb-slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
   width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  background: linear-gradient(135deg,
-    hsl(var(--primary)) 0%,
-    hsl(var(--primary)/0.9) 100%
-  );
-  cursor: pointer;
-  border: 3px solid hsl(var(--card));
-  box-shadow:
-    0 0 0 1px hsl(var(--primary)/0.2),
-    0 2px 6px rgba(0,0,0,0.25),
-    inset 0 1px 0 rgba(255,255,255,0.3);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 28px;
+  background: transparent;
+  border: 0;
 }
-.cb-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow:
-    0 0 0 2px hsl(var(--primary)/0.3),
-    0 4px 10px rgba(0,0,0,0.3),
-    0 0 0 4px hsl(var(--primary)/0.1),
-    inset 0 1px 0 rgba(255,255,255,0.3);
+.cb-slider-input::-moz-range-track {
+  height: 28px;
+  background: transparent;
+  border: 0;
 }
-.cb-slider::-webkit-slider-thumb:active {
-  transform: scale(1.08);
-  box-shadow:
-    0 0 0 2px hsl(var(--primary)/0.4),
-    0 2px 4px rgba(0,0,0,0.2),
-    0 0 0 6px hsl(var(--primary)/0.15),
-    inset 0 1px 0 rgba(255,255,255,0.3);
-}
-.cb-slider::-moz-range-thumb {
+.cb-slider-input::-moz-range-thumb {
   width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  background: linear-gradient(135deg,
-    hsl(var(--primary)) 0%,
-    hsl(var(--primary)/0.9) 100%
-  );
-  cursor: pointer;
-  border: 3px solid hsl(var(--card));
-  box-shadow:
-    0 0 0 1px hsl(var(--primary)/0.2),
-    0 2px 6px rgba(0,0,0,0.25);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 28px;
+  background: transparent;
+  border: 0;
 }
-.cb-slider::-moz-range-thumb:hover {
-  transform: scale(1.15);
-  box-shadow:
-    0 0 0 2px hsl(var(--primary)/0.3),
-    0 4px 10px rgba(0,0,0,0.3);
-}
-.cb-slider::-moz-range-thumb:active {
-  transform: scale(1.08);
-  box-shadow:
-    0 0 0 2px hsl(var(--primary)/0.4),
-    0 2px 4px rgba(0,0,0,0.2);
-}
-.cb-slider:disabled {
-  opacity: 0.5;
+.cb-slider-input:disabled {
   cursor: not-allowed;
+}
+.cb-slider-visual {
+  position: absolute;
+  top: 0;
+  right: 13px;
+  bottom: 0;
+  left: 13px;
+  pointer-events: none;
+}
+.cb-slider-track {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--color-border);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.16);
+}
+.cb-slider-fill {
+  width: var(--cb-slider-progress);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 56%, transparent));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+.cb-slider-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--cb-slider-progress);
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg,
+    var(--color-primary) 0%,
+    color-mix(in srgb, var(--color-primary) 88%, #0f172a 12%) 100%
+  );
+  cursor: pointer;
+  border: 2px solid var(--color-background);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--color-primary) 24%, transparent),
+    0 7px 16px rgb(0 0 0 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.32);
+  transform: translate(-50%, -50%);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cb-slider-input:hover + .cb-slider-visual .cb-slider-thumb,
+.cb-slider-input:focus-visible + .cb-slider-visual .cb-slider-thumb {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 28%, transparent),
+    0 9px 20px rgb(0 0 0 / 0.32),
+    0 0 0 7px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.32);
+  transform: translate(-50%, -50%) scale(1.12);
+}
+.cb-slider-input:active + .cb-slider-visual .cb-slider-thumb {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 34%, transparent),
+    0 5px 12px rgb(0 0 0 / 0.26),
+    0 0 0 8px color-mix(in srgb, var(--color-primary) 14%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.32);
+  transform: translate(-50%, -50%) scale(1.06);
+}
+.cb-slider-input:disabled + .cb-slider-visual {
+  opacity: 0.5;
 }
 .fade-enter-active,
 .fade-leave-active {
