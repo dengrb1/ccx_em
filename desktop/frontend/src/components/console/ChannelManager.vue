@@ -45,12 +45,6 @@ watch(() => props.type, (newType) => {
 }, { immediate: true })
 
 const channels = computed(() => channelsByType.value[props.type]?.channels || [])
-const currentIndex = computed(() => channelsByType.value[props.type]?.current ?? -1)
-const currentChannelName = computed(() => {
-  const idx = currentIndex.value
-  if (idx < 0) return ''
-  return channels.value.find(ch => ch.index === idx)?.name || ''
-})
 const metrics = computed(() => dashboardCache.value[props.type]?.metrics || [])
 const activity = computed(() => dashboardCache.value[props.type]?.recentActivity || [])
 const stats = computed(() => dashboardCache.value[props.type]?.stats)
@@ -533,16 +527,13 @@ watch(() => props.type, () => {
         </div>
       </div>
       <section class="border border-border bg-card/50">
-        <div class="flex items-center justify-between border-b border-border bg-secondary/40 px-3 py-2">
+        <div class="flex items-center gap-2 border-b border-border bg-secondary/40 px-3 py-2">
           <div class="flex items-center gap-2">
             <Layers class="h-4 w-4 text-primary" />
             <span class="text-xs font-bold uppercase tracking-[0.18em] text-foreground">
               {{ tf('orchestration.failoverSequence', 'Failover Sequence') }}
             </span>
           </div>
-          <span class="font-mono text-[11px] text-muted-foreground">
-            {{ tf('orchestration.failoverSequence', 'Current channel') }}{{ currentChannelName ? ` ${currentChannelName}` : '' }}{{ currentIndex >= 0 ? ` (#${currentIndex + 1})` : ' —' }}
-          </span>
         </div>
         <div class="divide-y divide-border">
           <div
