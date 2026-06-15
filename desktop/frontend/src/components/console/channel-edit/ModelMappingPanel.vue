@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowRight, Eye, EyeOff, Plus, Trash2, Zap } from 'lucide-vue-next'
+import { ArrowLeftRight, ArrowRight, Eye, EyeOff, Plus, Trash2, Zap } from 'lucide-vue-next'
 import { useLanguage } from '@/composables/useLanguage'
 
 type ReasoningEffort = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
@@ -23,11 +23,10 @@ const props = defineProps<{
   newModelMapping: ModelMappingRow
   sourceModelOptions: string[]
   reasoningEffortOptions: Array<{ label: string; value: string }>
-  targetModelDatalist: string[]
+  filteredTargetModels: string[]
   channelType: string
   showTargetSuggestions: boolean
   activeTargetInputId: string | null
-  targetInputFilter: string
   DEFAULT_SELECT_VALUE: string
   visionFallbackModel: string
   supportedModelsText: string
@@ -61,10 +60,11 @@ const emit = defineEmits<{
   'appendSupportedModelFilter': [filter: string]
 }>()
 
-const { t, tf } = useLanguage()
+const { t } = useLanguage()
 
 const hasNoVisionRows = computed(() => props.modelMappingRows.some(row => row.noVision && row.target.trim()))
 const isSupportedModelSelected = (filter: string) => props.selectedSupportedModelSet.has(filter)
+const stableInputFocusClass = 'focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/60 focus-visible:shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
 
 function toSelectValue(effort: ReasoningEffort | ''): string {
   return effort === '' ? props.DEFAULT_SELECT_VALUE : effort
@@ -77,23 +77,23 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
 
 <template>
   <section class="space-y-4 rounded-xl border border-primary/20 bg-gradient-to-b from-primary/[0.02] to-transparent p-5 shadow-sm">
-    <div class="border-b border-border/40 pb-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="space-y-0.5">
-          <h4 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-            <span class="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))] animate-pulse"></span>
+    <div class="border-b border-border/40 pb-2">
+      <div class="space-y-2">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="min-w-0 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
+            <ArrowLeftRight class="h-4 w-4 text-primary" />
             {{ t('channelEditor.mapping.redirect.title') }}
           </h4>
-          <p class="text-[10px] text-muted-foreground">
-            {{ modelMappingHint }}
-          </p>
-          <p class="text-[10px] text-primary">
-            {{ tf('addChannel.modelHintTip', '点击目标模型输入框会自动获取上游支持的模型列表,每个 API Key 的检测状态会显示在密钥列表中') }}
+          <span class="shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary">
+            {{ t('addChannel.autoConvertModelNames') }}
+          </span>
+        </div>
+        <div class="space-y-1 text-xs leading-relaxed text-muted-foreground">
+          <p>{{ modelMappingHint }}</p>
+          <p class="text-primary">
+            {{ t('addChannel.modelHintTip') }}
           </p>
         </div>
-        <span class="shrink-0 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-primary">
-          {{ t('addChannel.autoConvertModelNames') }}
-        </span>
       </div>
     </div>
 
@@ -194,15 +194,30 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
             <span class="text-[8px] font-bold tracking-wider text-muted-foreground/50 block pl-1">TARGET</span>
             <Input
               :model-value="row.target"
-              class="h-8 w-full rounded-lg border border-border/70 bg-background px-2.5 font-mono text-xs outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/10"
+              :class="[
+                'h-8 w-full rounded-lg border border-border/70 bg-background px-2.5 font-mono text-xs outline-none transition-colors',
+                stableInputFocusClass,
+              ]"
               placeholder="target-model"
-              :list="`target-datalist-row-${index}`"
-              @update:model-value="(val) => emit('updateMappingRow', row.id, 'target', val as string)"
+              @update:model-value="(val) => { emit('updateMappingRow', row.id, 'target', val as string); emit('showTargetDropdown', `row-${index}`, val as string) }"
               @focus="emit('handleTargetFocus'); emit('showTargetDropdown', `row-${index}`, row.target)"
+              @blur="emit('hideTargetDropdown')"
             />
-            <datalist :id="`target-datalist-row-${index}`">
-              <option v-for="model in targetModelDatalist" :key="model" :value="model">{{ model }}</option>
-            </datalist>
+            <div
+              v-if="showTargetSuggestions && activeTargetInputId === `row-${index}` && filteredTargetModels.length"
+              class="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
+            >
+              <button
+                v-for="model in filteredTargetModels"
+                :key="model"
+                type="button"
+                class="flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+                :class="model === row.target ? 'bg-primary/10 text-primary' : ''"
+                @mousedown.prevent="emit('selectTargetModel', `row-${index}`, model)"
+              >
+                {{ model }}
+              </button>
+            </div>
           </div>
 
           <!-- VERBOSITY (Reasoning) -->
@@ -230,7 +245,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
               size="icon-sm"
               variant="ghost"
               class="h-7 w-7 rounded-full border border-border/50 bg-background/40 text-muted-foreground hover:border-amber-500/40 hover:bg-amber-500/5 hover:text-amber-500"
-              :title="tf('console.form.toggleVision', '切换视觉通道')"
+              :title="t('console.form.toggleVision')"
               @click="emit('updateMappingRow', row.id, 'noVision', !row.noVision)"
             >
               <EyeOff v-if="row.noVision" class="h-3.5 w-3.5" />
@@ -252,28 +267,50 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
 
     <div v-if="hasNoVisionRows" class="space-y-1.5 rounded-xl border border-border/60 bg-card/30 p-4">
       <Label class="text-xs font-semibold text-muted-foreground">
-        {{ tf('channelEditor.compat.visionFallback.label', '视觉回退目标模型') }}
+        {{ t('addChannel.visionFallbackLabel') }}
       </Label>
-      <Input
-        :model-value="visionFallbackModel"
-        class="h-9 w-full font-mono text-xs"
-        placeholder="mimo-v2.5"
-        @update:model-value="(val) => emit('update:visionFallbackModel', val as string)"
-      />
+      <div class="relative">
+        <Input
+          :model-value="visionFallbackModel"
+          :class="['h-9 w-full font-mono text-xs', stableInputFocusClass]"
+          :placeholder="t('addChannel.visionFallbackPlaceholder')"
+          @update:model-value="(val) => { emit('update:visionFallbackModel', val as string); emit('showTargetDropdown', 'vision-fallback', val as string) }"
+          @focus="emit('handleTargetFocus'); emit('showTargetDropdown', 'vision-fallback', visionFallbackModel)"
+          @blur="emit('hideTargetDropdown')"
+        />
+        <div
+          v-if="showTargetSuggestions && activeTargetInputId === 'vision-fallback' && filteredTargetModels.length"
+          class="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
+        >
+          <button
+            v-for="model in filteredTargetModels"
+            :key="model"
+            type="button"
+            class="flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+            :class="model === visionFallbackModel ? 'bg-primary/10 text-primary' : ''"
+            @mousedown.prevent="emit('update:visionFallbackModel', model); emit('hideTargetDropdown')"
+          >
+            {{ model }}
+          </button>
+        </div>
+      </div>
       <p class="text-[10px] leading-4 text-muted-foreground">
-        {{ tf('channelEditor.compat.visionFallback.hint', '已通过模型重定向行的视觉开关标记禁用视觉模型；这些模型遇到图像输入时会自动切换到此模型处理') }}
+        {{ t('addChannel.visionFallbackHint') }}
       </p>
     </div>
 
     <div class="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.02] p-4">
       <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_auto] items-end gap-3">
-        <div class="min-w-0 space-y-1">
+        <div class="relative min-w-0 space-y-1">
           <Label class="text-xs font-semibold text-muted-foreground">
             {{ t('channelEditor.mapping.source.label') }}
           </Label>
           <Input
             :model-value="newModelMapping.source"
-            class="h-9 w-full rounded-lg border border-primary/20 bg-background px-3 font-mono text-xs outline-none focus:border-primary/50"
+            :class="[
+              'h-9 w-full rounded-lg border border-primary/20 bg-background px-3 font-mono text-xs outline-none transition-colors',
+              stableInputFocusClass,
+            ]"
             :placeholder="t('channelEditor.mapping.source.placeholder')"
             list="source-datalist-new"
             @update:model-value="(val) => emit('update:newModelMapping', { source: val as string })"
@@ -285,21 +322,36 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
         <div class="flex h-9 items-center text-primary/60">
           <ArrowRight class="h-3.5 w-3.5" />
         </div>
-        <div class="min-w-0 space-y-1">
+        <div class="relative min-w-0 space-y-1">
           <Label class="text-xs font-semibold text-muted-foreground">
             {{ t('channelEditor.mapping.target.label') }}
           </Label>
           <Input
             :model-value="newModelMapping.target"
-            class="h-9 w-full rounded-lg border border-primary/20 bg-background px-3 font-mono text-xs outline-none focus:border-primary/50"
+            :class="[
+              'h-9 w-full rounded-lg border border-primary/20 bg-background px-3 font-mono text-xs outline-none transition-colors',
+              stableInputFocusClass,
+            ]"
             :placeholder="targetModelPlaceholder"
-            list="target-datalist-new"
-            @update:model-value="(val) => emit('update:newModelMapping', { target: val as string })"
+            @update:model-value="(val) => { emit('update:newModelMapping', { target: val as string }); emit('showTargetDropdown', 'new', val as string) }"
             @focus="emit('handleTargetFocus'); emit('showTargetDropdown', 'new', newModelMapping.target)"
+            @blur="emit('hideTargetDropdown')"
           />
-          <datalist id="target-datalist-new">
-            <option v-for="model in targetModelDatalist" :key="model" :value="model">{{ model }}</option>
-          </datalist>
+          <div
+            v-if="showTargetSuggestions && activeTargetInputId === 'new' && filteredTargetModels.length"
+            class="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
+          >
+            <button
+              v-for="model in filteredTargetModels"
+              :key="model"
+              type="button"
+              class="flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
+              :class="model === newModelMapping.target ? 'bg-primary/10 text-primary' : ''"
+              @mousedown.prevent="emit('selectTargetModel', 'new', model)"
+            >
+              {{ model }}
+            </button>
+          </div>
         </div>
         <div v-if="supportsOpenAIAdvancedOptions" class="space-y-1">
           <Label class="text-xs font-semibold text-muted-foreground">
@@ -310,7 +362,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
             @update:model-value="(val) => emit('update:newModelMapping', { reasoning: fromSelectValue(val as string) as any })"
           >
             <SelectTrigger class="h-9 rounded-lg border border-primary/20 bg-background px-3 text-xs text-muted-foreground">
-              <SelectValue :placeholder="tf('channelEditor.compat.selectDefault', '默认')" />
+              <SelectValue :placeholder="t('channelEditor.compat.selectDefault')" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="opt in reasoningEffortOptions" :key="opt.value" :value="opt.value">
@@ -328,7 +380,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
           @click="emit('addModelMappingRow')"
         >
           <Plus class="h-3.5 w-3.5 mr-1" />
-          {{ tf('common.add', 'Add') }}
+          {{ t('common.add') }}
         </Button>
       </div>
       <div v-if="sourceMappingError" class="text-[10px] text-destructive">
@@ -355,7 +407,7 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
       </p>
       <div class="flex items-center flex-wrap gap-2">
         <span class="text-[10px] font-bold uppercase tracking-wider text-primary">
-          {{ tf('addChannel.commonFilters', '常用过滤器') }}
+          {{ t('addChannel.commonFilters') }}
         </span>
         <Button
           v-for="filter in commonSupportedModelFilters"

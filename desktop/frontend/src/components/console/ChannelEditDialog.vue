@@ -138,13 +138,33 @@ const activeTargetInputId = ref<string | null>(null)
 const targetInputFilter = ref('')
 
 function getFilteredTargetModels(filter: string): string[] {
-  if (!filter.trim()) return targetModelDatalist.value.slice(0, 20)
-  const lower = filter.toLowerCase()
-  const filtered = targetModelDatalist.value.filter(m => m.toLowerCase().includes(lower))
-  // 如果过滤后只有1个结果，显示所有模型（避免用户看不到其他选项）
-  if (filtered.length === 1) return targetModelDatalist.value.slice(0, 20)
+  const models = targetModelDatalist.value
+  const value = filter.trim()
+  if (!value) return models.slice(0, 20)
+
+  const lower = value.toLowerCase()
+  const exactIndex = models.findIndex(m => m.toLowerCase() === lower)
+  if (exactIndex >= 0) return getTargetModelWindow(exactIndex)
+
+  const filtered = models.filter(m => m.toLowerCase().includes(lower))
+  if (filtered.length === 1) {
+    const index = models.findIndex(m => m === filtered[0])
+    if (index >= 0) return getTargetModelWindow(index)
+  }
+
   return filtered.slice(0, 20)
 }
+
+function getTargetModelWindow(index: number): string[] {
+  const models = targetModelDatalist.value
+  const limit = 20
+  const before = 8
+  const maxStart = Math.max(models.length - limit, 0)
+  const start = Math.min(Math.max(index - before, 0), maxStart)
+  return models.slice(start, start + limit)
+}
+
+const filteredTargetModels = computed(() => getFilteredTargetModels(targetInputFilter.value))
 
 function showTargetDropdown(inputId: string, currentValue: string) {
   activeTargetInputId.value = inputId
@@ -160,7 +180,7 @@ function hideTargetDropdown() {
   }, 300)
 }
 
-function selectTargetModel(model: string, inputId: string) {
+function selectTargetModel(inputId: string, model: string) {
   // inputId 格式: 'row-{index}' 或 'new'
   if (inputId === 'new') {
     newModelMapping.target = model
@@ -1454,7 +1474,6 @@ void sourceModelOptions
 void commonSupportedModelFilters
 void selectedSupportedModelSet
 void toggleSupportedModelFilter
-void getFilteredTargetModels
 </script>
 
 <template>
@@ -1549,11 +1568,10 @@ void getFilteredTargetModels
                         :new-model-mapping="newModelMapping"
                         :source-model-options="sourceModelOptions"
                         :reasoning-effort-options="reasoningEffortOptions"
-                        :target-model-datalist="targetModelDatalist"
+                        :filtered-target-models="filteredTargetModels"
                         :channel-type="channelType"
                         :show-target-suggestions="showTargetSuggestions"
                         :active-target-input-id="activeTargetInputId"
-                        :target-input-filter="targetInputFilter"
                         :DEFAULT_SELECT_VALUE="DEFAULT_SELECT_VALUE"
                         :vision-fallback-model="form.visionFallbackModel"
                         :supported-models-text="form.supportedModelsText"
