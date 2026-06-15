@@ -89,6 +89,7 @@ const selectedStrategy = computed(() => {
       </div>
       <div class="flex gap-1 flex-wrap">
         <Button
+          type="button"
           size="sm"
           variant="outline"
           class="h-6 px-2 text-[10px]"
@@ -98,6 +99,7 @@ const selectedStrategy = computed(() => {
           {{ t('addChannel.streamTimeoutStrategyInherit') }}
         </Button>
         <Button
+          type="button"
           size="sm"
           variant="outline"
           class="h-6 px-2 text-[10px]"
@@ -107,6 +109,7 @@ const selectedStrategy = computed(() => {
           {{ t('channelEditor.streamTimeout.preset.gentle') }}
         </Button>
         <Button
+          type="button"
           size="sm"
           variant="outline"
           class="h-6 px-2 text-[10px]"
@@ -116,6 +119,7 @@ const selectedStrategy = computed(() => {
           {{ t('channelEditor.streamTimeout.preset.balanced') }}
         </Button>
         <Button
+          type="button"
           size="sm"
           variant="outline"
           class="h-6 px-2 text-[10px]"
