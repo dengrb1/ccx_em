@@ -65,7 +65,7 @@
         <v-btn
           v-if="systemStore.versionInfo.releaseUrl"
           color="primary"
-          variant="flat"
+          variant="elevated"
           :href="systemStore.versionInfo.releaseUrl"
           target="_blank"
           rel="noopener"

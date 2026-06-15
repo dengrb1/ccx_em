@@ -1383,7 +1383,7 @@
 
       <v-card-actions class="pa-6 pt-0">
         <v-spacer />
-        <v-btn variant="text" @click="handleCancel">{{ t('app.actions.cancel') }}<span class="shortcut-hint ml-2 text-xs opacity-50">Esc</span></v-btn>
+        <v-btn variant="outlined" @click="handleCancel">{{ t('app.actions.cancel') }}<span class="shortcut-hint ml-2 text-xs opacity-50">Esc</span></v-btn>
         <v-btn
           v-if="!isEditing"
           color="primary"

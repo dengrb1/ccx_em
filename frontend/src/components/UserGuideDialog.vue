@@ -131,15 +131,15 @@
 
       <!-- 底部导航 -->
       <v-card-actions class="guide-footer px-5 py-3">
-        <v-btn v-if="step > 0" variant="text" prepend-icon="mdi-arrow-left" @click="prev">
+        <v-btn v-if="step > 0" variant="outlined" prepend-icon="mdi-arrow-left" @click="prev">
           {{ t('guide.prev') }}
         </v-btn>
         <v-spacer />
-        <v-btn v-if="step < STEP_COUNT - 1" color="primary" variant="flat" append-icon="mdi-arrow-right" @click="next">
+        <v-btn v-if="step < STEP_COUNT - 1" color="primary" variant="elevated" append-icon="mdi-arrow-right" @click="next">
           {{ t('guide.next') }}
           <span class="shortcut-hint ml-2 text-xs opacity-50">Enter</span>
         </v-btn>
-        <v-btn v-else color="primary" variant="flat" prepend-icon="mdi-check" @click="close">
+        <v-btn v-else color="primary" variant="elevated" prepend-icon="mdi-check" @click="close">
           {{ t('guide.gotIt') }}
           <span class="shortcut-hint ml-2 text-xs opacity-50">Enter</span>
         </v-btn>
