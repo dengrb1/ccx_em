@@ -7,10 +7,8 @@ import { useLanguage } from '@/composables/useLanguage'
 
 interface FormData {
   fastMode: boolean
-  textVerbosity: 'low' | 'medium' | 'high' | ''
-  visionFallbackModel: string
-  noVision: boolean
   historicalImageTurnLimit: number
+  insecureSkipVerify: boolean
   passbackReasoningContent: boolean
   passbackThinkingBlocks: boolean
   lowQuality: boolean
@@ -24,7 +22,6 @@ interface FormData {
   autoBlacklistBalance: boolean
   codexNativeToolPassthrough: boolean
   codexToolCompat: boolean
-  stripCodexClientTools: boolean
   stripImageGenerationTool: boolean
   reasoningParamStyle: string
   serviceType: string
@@ -37,14 +34,12 @@ interface FormData {
   requestTimeoutMs: string | number
 }
 
-const props = defineProps<{
+defineProps<{
   form: FormData
   channelType: string
-  textVerbosityOptions: Array<{ label: string; value: string }>
-  supportsOpenAIAdvanced: boolean
   supportsOpenAIAdvancedOptions: boolean
   supportsChatRoleNormalization: boolean
-  DEFAULT_SELECT_VALUE: string
+  reasoningParamStyleOptions: Array<{ label: string; value: string }>
 }>()
 
 const emit = defineEmits<{
@@ -56,103 +51,49 @@ const { t, tf } = useLanguage()
 function updateField<K extends keyof FormData>(key: K, value: FormData[K]) {
   emit('update:form', { [key]: value } as Partial<FormData>)
 }
-
-function toSelectValue(value: string): string {
-  return value === '' ? props.DEFAULT_SELECT_VALUE : value
-}
-
-function fromSelectValue(value: string): string {
-  return value === props.DEFAULT_SELECT_VALUE ? '' : value
-}
-
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- 生成参数 -->
-    <section v-if="supportsOpenAIAdvanced || channelType === 'responses' || channelType === 'chat'" class="space-y-3 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-primary border-b border-border/40 pb-2">
-        {{ tf('channelEditor.compat.generationParams', '生成参数') }}
-      </h4>
+  <section class="space-y-6 rounded-xl border border-border/60 bg-card/40 p-4 shadow-xs">
+    <h4 class="text-xs font-bold uppercase tracking-wider text-primary border-b border-border/40 pb-2">
+      {{ tf('channelEditor.nav.advanced', '高级选项') }}
+    </h4>
 
-      <div v-if="supportsOpenAIAdvanced" class="grid gap-4 md:grid-cols-2 bg-background/30 p-3 rounded-lg border border-border/40">
-        <div class="flex items-center justify-between p-2 rounded-md hover:bg-accent/40 transition-colors">
-          <div class="space-y-0.5">
-            <Label class="text-xs font-semibold">{{ tf('channelEditor.compat.fastMode.label', '快速模式') }}</Label>
-            <p class="text-[10px] text-muted-foreground">{{ tf('channelEditor.compat.fastMode.hint', '优先选取低延迟的轻量边缘路由链路') }}</p>
-          </div>
-          <Switch :model-value="form.fastMode" @update:model-value="updateField('fastMode', $event)" />
+    <div class="grid gap-3 md:grid-cols-2">
+      <div class="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
+        <div class="min-w-0 space-y-0.5">
+          <Label class="text-xs font-medium">{{ tf('addChannel.skipTlsLabel', '跳过 TLS 证书验证') }}</Label>
+          <p class="text-[10px] leading-4 text-muted-foreground">{{ tf('addChannel.skipTlsHint', '仅在自签名或域名不匹配时临时启用，生产环境请关闭') }}</p>
         </div>
-
-        <div class="space-y-1 p-1">
-          <Label class="text-[10px] font-bold text-muted-foreground uppercase">{{ tf('channelEditor.compat.textVerbosity.style', 'Text Verbosity Style') }}</Label>
-          <Select :model-value="toSelectValue(form.textVerbosity)" @update:model-value="(val) => updateField('textVerbosity', fromSelectValue(val as string) as any)">
-            <SelectTrigger class="h-9 w-full">
-              <SelectValue :placeholder="tf('channelEditor.compat.selectDefault', '默认')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in textVerbosityOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Switch :model-value="form.insecureSkipVerify" @update:model-value="updateField('insecureSkipVerify', $event)" />
       </div>
-
-      <!-- Vision 控制 -->
-      <div v-if="['messages', 'chat'].includes(channelType)" class="p-4 rounded-xl border border-border/50 bg-background/40 space-y-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-primary/80 border-b border-border/30 pb-1">
-          {{ tf('channelEditor.compat.vision.title', '视觉控制') }}
+      <div class="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-background/40 p-4">
+        <div class="min-w-0 space-y-0.5">
+          <Label class="text-xs font-medium">{{ tf('addChannel.lowQualityLabel', '低质量渠道') }}</Label>
+          <p class="text-[10px] leading-4 text-muted-foreground">{{ tf('addChannel.lowQualityHint', '启用后强制本地估算 token 数量，偏差超过 5% 时使用本地值') }}</p>
         </div>
-        <div class="space-y-3">
-          <div class="flex flex-row-reverse items-center justify-between gap-3">
-            <Switch :model-value="form.noVision" @update:model-value="updateField('noVision', $event)" class="shrink-0" />
-            <div class="min-w-0 space-y-0.5">
-              <Label class="text-xs font-medium">{{ tf('channelEditor.compat.noVision.label', '跳过含图请求') }}</Label>
-              <p class="text-[10px] text-muted-foreground">
-                {{ tf('channelEditor.compat.noVision.hint', '启用后，包含图片的请求将跳过此渠道并 failover 到下一个渠道') }}
-              </p>
-            </div>
-          </div>
-          <div class="space-y-1">
-            <Label class="text-[10px] font-bold text-muted-foreground">
-              {{ tf('channelEditor.compat.historicalImageLimit.label', '历史图片轮次限制') }}
-            </Label>
-            <Input
-              :model-value="form.historicalImageTurnLimit"
-              type="number"
-              min="0"
-              class="h-8 text-xs"
-              placeholder="0"
-              @update:model-value="updateField('historicalImageTurnLimit', Number($event))"
-            />
-            <p class="text-[10px] leading-4 text-muted-foreground">
-              {{ tf('channelEditor.compat.historicalImageLimit.hint', '0 = 继承全局；后端会对 >0 的值应用最低 3 约束') }}
-            </p>
-          </div>
-        </div>
+        <Switch :model-value="form.lowQuality" @update:model-value="updateField('lowQuality', $event)" />
       </div>
-    </section>
+    </div>
 
-    <!-- 高级选项 -->
-    <section class="space-y-6 rounded-xl border border-border/60 bg-card/40 p-4 shadow-xs">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-primary border-b border-border/40 pb-2">
-        {{ tf('channelEditor.nav.advanced', '高级选项') }}
-      </h4>
-
-      <div class="space-y-2.5">
-        <!-- Runtime 运行期策略 -->
-        <div class="p-4 rounded-xl border border-border/50 bg-background/40 space-y-2.5">
+    <div class="space-y-2.5">
+      <!-- Runtime 运行期策略 -->
+      <div class="p-4 rounded-xl border border-border/50 bg-background/40 space-y-2.5">
         <div class="text-[10px] font-bold uppercase tracking-wider text-primary/80 border-b border-border/30 pb-1">
           {{ t('channelEditor.runtime.title') }}
         </div>
         <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <Label class="text-xs font-medium">{{ t('channelEditor.runtime.autoBlacklist.label') }}</Label>
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.runtime.autoBlacklist.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">
+                {{ t('channelEditor.runtime.autoBlacklist.hint') }}
+              </p>
+            </div>
             <Switch :model-value="form.autoBlacklistBalance" @update:model-value="updateField('autoBlacklistBalance', $event)" />
           </div>
-          <div class="flex items-center justify-between">
-            <div class="space-y-0.5">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
               <Label class="text-xs font-medium">{{ t('channelEditor.runtime.autoLearnRateLimits.label') }}</Label>
               <p class="text-[10px] leading-4 text-muted-foreground">
                 {{ t('channelEditor.runtime.autoLearnRateLimits.hint') }}
@@ -165,78 +106,134 @@ function fromSelectValue(value: string): string {
 
       <!-- 协议规范化 -->
       <div class="p-4 rounded-xl border border-border/50 bg-background/40 space-y-2.5">
-      <div class="text-[10px] font-bold uppercase tracking-wider text-primary/80 border-b border-border/30 pb-1">
-        {{ t('channelEditor.compat.title') }}
-      </div>
-      <div class="space-y-2">
-        <div v-if="channelType === 'responses'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.codexNativeTools.label') }}</Label>
-          <Switch :model-value="form.codexNativeToolPassthrough" @update:model-value="updateField('codexNativeToolPassthrough', $event)" />
+        <div class="text-[10px] font-bold uppercase tracking-wider text-primary/80 border-b border-border/30 pb-1">
+          {{ t('channelEditor.compat.title') }}
         </div>
-        <div v-if="channelType === 'responses'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.codexCompat.label') }}</Label>
-          <Switch :model-value="form.codexToolCompat" @update:model-value="updateField('codexToolCompat', $event)" />
-        </div>
-        <div v-if="channelType === 'responses' || channelType === 'chat'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripImageGen.label') }}</Label>
-          <Switch :model-value="form.stripImageGenerationTool" @update:model-value="updateField('stripImageGenerationTool', $event)" />
-        </div>
-        <div v-if="channelType === 'messages'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeSystem.label') }}</Label>
-          <Switch :model-value="form.normalizeSystemRoleToTopLevel" @update:model-value="updateField('normalizeSystemRoleToTopLevel', $event)" />
-        </div>
-        <div v-if="['messages','responses'].includes(channelType)" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeUserId.label') }}</Label>
-          <Switch :model-value="form.normalizeMetadataUserId" @update:model-value="updateField('normalizeMetadataUserId', $event)" />
-        </div>
-        <div v-if="channelType === 'messages'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripBillingHeader.label') }}</Label>
-          <Switch :model-value="form.stripBillingHeader" @update:model-value="updateField('stripBillingHeader', $event)" />
-        </div>
-        <div v-if="supportsChatRoleNormalization" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeRoles.label') }}</Label>
-          <Switch :model-value="form.normalizeNonstandardChatRoles" @update:model-value="updateField('normalizeNonstandardChatRoles', $event)" />
-        </div>
-        <div v-if="supportsOpenAIAdvancedOptions" class="flex items-center justify-between">
-          <div class="flex-1">
-            <Label class="text-xs font-medium">{{ t('channelEditor.compat.reasoningStyle.label') }}</Label>
+        <div class="space-y-2">
+          <div v-if="channelType === 'responses'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.codexNativeTools.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.codexNativeTools.hint') }}</p>
+            </div>
+            <Switch :model-value="form.codexNativeToolPassthrough" @update:model-value="updateField('codexNativeToolPassthrough', $event)" />
           </div>
-          <Select
-            :model-value="form.reasoningParamStyle || 'default'"
-            @update:model-value="(val) => updateField('reasoningParamStyle', val === 'default' ? '' : String(val))"
-          >
-            <SelectTrigger class="h-8 w-[140px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">{{ t('channelEditor.compat.selectDefault') }}</SelectItem>
-              <SelectItem value="reasoning_effort">reasoning_effort</SelectItem>
-              <SelectItem value="developer_message">developer_message</SelectItem>
-            </SelectContent>
-          </Select>
+          <div v-if="channelType === 'responses'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.codexCompat.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.codexCompat.hint') }}</p>
+            </div>
+            <Switch :model-value="form.codexToolCompat" @update:model-value="updateField('codexToolCompat', $event)" />
+          </div>
+          <div v-if="channelType === 'responses' || channelType === 'chat'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripImageGen.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.stripImageGen.hint') }}</p>
+            </div>
+            <Switch :model-value="form.stripImageGenerationTool" @update:model-value="updateField('stripImageGenerationTool', $event)" />
+          </div>
+          <div v-if="channelType === 'messages'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeSystem.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.normalizeSystem.hint') }}</p>
+            </div>
+            <Switch :model-value="form.normalizeSystemRoleToTopLevel" @update:model-value="updateField('normalizeSystemRoleToTopLevel', $event)" />
+          </div>
+          <div v-if="['messages','responses'].includes(channelType)" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeUserId.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.normalizeUserId.hint') }}</p>
+            </div>
+            <Switch :model-value="form.normalizeMetadataUserId" @update:model-value="updateField('normalizeMetadataUserId', $event)" />
+          </div>
+          <div v-if="channelType === 'messages'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripBillingHeader.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.stripBillingHeader.hint') }}</p>
+            </div>
+            <Switch :model-value="form.stripBillingHeader" @update:model-value="updateField('stripBillingHeader', $event)" />
+          </div>
+          <div v-if="supportsChatRoleNormalization" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeRoles.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.normalizeRoles.hint') }}</p>
+            </div>
+            <Switch :model-value="form.normalizeNonstandardChatRoles" @update:model-value="updateField('normalizeNonstandardChatRoles', $event)" />
+          </div>
+          <div v-if="supportsOpenAIAdvancedOptions" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.reasoningStyle.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.reasoningStyle.hint') }}</p>
+            </div>
+            <Select
+              :model-value="form.reasoningParamStyle || 'reasoning'"
+              @update:model-value="(val) => updateField('reasoningParamStyle', String(val))"
+            >
+              <SelectTrigger class="h-8 w-[180px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="opt in reasoningParamStyleOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div v-if="supportsOpenAIAdvancedOptions" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.fastMode.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.fastMode.hint') }}</p>
+            </div>
+            <Switch :model-value="form.fastMode" @update:model-value="updateField('fastMode', $event)" />
+          </div>
+          <div v-if="(channelType === 'gemini' || channelType === 'messages') && form.serviceType === 'gemini'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.injectDummySignature.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.injectDummySignature.hint') }}</p>
+            </div>
+            <Switch :model-value="form.injectDummyThoughtSignature" @update:model-value="updateField('injectDummyThoughtSignature', $event)" />
+          </div>
+          <div v-if="form.serviceType === 'gemini' && (channelType === 'gemini' || channelType === 'messages' || channelType === 'chat' || channelType === 'responses')" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripThoughtSignature.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.stripThoughtSignature.hint') }}</p>
+            </div>
+            <Switch :model-value="form.stripThoughtSignature" @update:model-value="updateField('stripThoughtSignature', $event)" />
+          </div>
+          <div v-if="(channelType === 'messages' || channelType === 'chat' || channelType === 'responses') && form.serviceType === 'claude'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.passbackReasoning.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.passbackReasoning.hint') }}</p>
+            </div>
+            <Switch :model-value="form.passbackReasoningContent" @update:model-value="updateField('passbackReasoningContent', $event)" />
+          </div>
+          <div v-if="(channelType === 'messages' || channelType === 'chat' || channelType === 'responses') && form.serviceType === 'claude'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.passbackThinking.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.passbackThinking.hint') }}</p>
+            </div>
+            <Switch :model-value="form.passbackThinkingBlocks" @update:model-value="updateField('passbackThinkingBlocks', $event)" />
+          </div>
+          <div v-if="channelType === 'messages' && form.serviceType === 'claude'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripEmptyBlocks.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.stripEmptyBlocks.hint') }}</p>
+            </div>
+            <Switch :model-value="form.stripEmptyTextBlocks" @update:model-value="updateField('stripEmptyTextBlocks', $event)" />
+          </div>
+          <div v-if="channelType === 'messages' || channelType === 'chat'" class="flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <Label class="text-xs font-medium">{{ t('channelEditor.compat.historicalImageLimit.label') }}</Label>
+              <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.historicalImageLimit.hint') }}</p>
+            </div>
+            <Input
+              :model-value="form.historicalImageTurnLimit"
+              type="number"
+              min="0"
+              class="h-8 w-[120px] text-xs"
+              @update:model-value="updateField('historicalImageTurnLimit', Number($event))"
+            />
+          </div>
         </div>
-        <div v-if="(channelType === 'gemini' || channelType === 'messages') && form.serviceType === 'gemini'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.injectDummySignature.label') }}</Label>
-          <Switch :model-value="form.injectDummyThoughtSignature" @update:model-value="updateField('injectDummyThoughtSignature', $event)" />
-        </div>
-        <div v-if="form.serviceType === 'gemini'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripThoughtSignature.label') }}</Label>
-          <Switch :model-value="form.stripThoughtSignature" @update:model-value="updateField('stripThoughtSignature', $event)" />
-        </div>
-        <div v-if="(channelType === 'messages' || channelType === 'chat' || channelType === 'responses') && form.serviceType === 'claude'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.passbackReasoning.label') }}</Label>
-          <Switch :model-value="form.passbackReasoningContent" @update:model-value="updateField('passbackReasoningContent', $event)" />
-        </div>
-        <div v-if="(channelType === 'messages' || channelType === 'chat' || channelType === 'responses') && form.serviceType === 'claude'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.passbackThinking.label') }}</Label>
-          <Switch :model-value="form.passbackThinkingBlocks" @update:model-value="updateField('passbackThinkingBlocks', $event)" />
-        </div>
-        <div v-if="channelType === 'messages' && form.serviceType === 'claude'" class="flex items-center justify-between">
-          <Label class="text-xs font-medium">{{ t('channelEditor.compat.stripEmptyBlocks.label') }}</Label>
-          <Switch :model-value="form.stripEmptyTextBlocks" @update:model-value="updateField('stripEmptyTextBlocks', $event)" />
-        </div>
-      </div>
-    </div>
       </div>
 
       <!-- Transport 代理路由网络 -->
@@ -244,15 +241,16 @@ function fromSelectValue(value: string): string {
         <div class="text-[10px] font-bold uppercase tracking-wider text-primary/80 border-b border-border/30 pb-1">
           {{ t('channelEditor.transport.title') }}
         </div>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid gap-2 md:grid-cols-3">
           <div class="space-y-1">
             <Label class="text-[9px] font-bold text-muted-foreground">{{ t('channelEditor.transport.proxyUrl.label') }}</Label>
             <Input
               :model-value="form.proxyUrl"
               class="h-8 w-full font-mono text-xs"
-              placeholder="socks5://..."
+              :placeholder="t('channelEditor.transport.proxyUrl.placeholder')"
               @update:model-value="(val) => updateField('proxyUrl', val as string)"
             />
+            <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.transport.proxyUrl.hint') }}</p>
           </div>
           <div class="space-y-1">
             <Label class="text-[9px] font-bold text-muted-foreground">{{ t('channelEditor.transport.requestTimeout.label') }}</Label>
@@ -260,28 +258,31 @@ function fromSelectValue(value: string): string {
               :model-value="form.requestTimeoutMs"
               type="number"
               class="h-8 w-full text-xs"
-              placeholder="60000"
+              :placeholder="t('channelEditor.transport.requestTimeout.placeholder')"
               @update:model-value="(val) => updateField('requestTimeoutMs', val)"
             />
+            <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.transport.requestTimeout.hint') }}</p>
           </div>
           <div class="space-y-1">
             <Label class="text-[9px] font-bold text-muted-foreground">{{ t('channelEditor.transport.routePrefix.label') }}</Label>
             <Input
               :model-value="form.routePrefix"
               class="h-8 w-full font-mono text-xs"
-              placeholder="kimi"
+              :placeholder="t('channelEditor.transport.routePrefix.placeholder')"
               @update:model-value="(val) => updateField('routePrefix', val as string)"
             />
+            <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.transport.routePrefix.hint') }}</p>
           </div>
         </div>
       </div>
 
       <!-- Rate Limit -->
       <div class="p-4 rounded-xl border border-border/50 bg-background/40 space-y-3">
-        <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-primary/80 border-b border-border/30 pb-1">
           {{ t('channelEditor.rateLimit.title') }}
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.rateLimit.section.hint') }}</p>
+        <div class="grid gap-3 md:grid-cols-3">
           <div class="space-y-1">
             <Label class="text-[10px] font-medium text-muted-foreground/80">{{ t('channelEditor.rateLimit.rpm.label') }}</Label>
             <Input
@@ -291,6 +292,7 @@ function fromSelectValue(value: string): string {
               :placeholder="t('channelEditor.rateLimit.rpm.placeholder')"
               @update:model-value="updateField('rateLimitRpm', $event)"
             />
+            <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.rateLimit.rpm.hint') }}</p>
           </div>
           <div class="space-y-1">
             <Label class="text-[10px] font-medium text-muted-foreground/80">{{ t('channelEditor.rateLimit.window.label') }}</Label>
@@ -301,6 +303,7 @@ function fromSelectValue(value: string): string {
               :placeholder="t('channelEditor.rateLimit.window.placeholder')"
               @update:model-value="updateField('rateLimitWindowMinutes', $event)"
             />
+            <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.rateLimit.window.hint') }}</p>
           </div>
           <div class="space-y-1">
             <Label class="text-[10px] font-medium text-muted-foreground/80">{{ t('channelEditor.rateLimit.maxConcurrent.label') }}</Label>
@@ -311,10 +314,11 @@ function fromSelectValue(value: string): string {
               :placeholder="t('channelEditor.rateLimit.maxConcurrent.placeholder')"
               @update:model-value="updateField('rateLimitMaxConcurrent', $event)"
             />
+            <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.rateLimit.maxConcurrent.hint') }}</p>
           </div>
         </div>
       </div>
 
-    </section>
-  </div>
+    </div>
+  </section>
 </template>

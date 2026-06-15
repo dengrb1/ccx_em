@@ -74,10 +74,10 @@ let scrollHandler: (() => void) | null = null
 // 导航 section 定义（使用 computed 保证语言切换后更新）
 const sections = computed(() => [
   { id: 'basic', label: t('channelEditor.nav.basic') },
-  { id: 'auth', label: t('channelEditor.nav.auth') },
   { id: 'redirect', label: t('channelEditor.nav.redirect') },
+  { id: 'auth', label: t('channelEditor.nav.auth') },
   { id: 'advanced', label: t('channelEditor.nav.advanced') },
-  { id: 'headers', label: t('channelEditor.nav.custom') },
+  { id: 'custom', label: t('channelEditor.nav.custom') },
 ])
 
 function scrollToSection(id: string) {
@@ -181,22 +181,6 @@ const reasoningEffortOptions = computed(() => [
   { label: 'XHigh', value: 'xhigh' },
   { label: 'Max', value: 'max' },
 ])
-
-const textVerbosityOptions = computed(() => [
-  { label: tf('channelEditor.compat.selectDefault', '默认'), value: DEFAULT_SELECT_VALUE },
-  { label: 'Low', value: 'low' },
-  { label: 'Medium', value: 'medium' },
-  { label: 'High', value: 'high' },
-])
-
-// 空字符串 ↔ 哨兵值互转：form 内部保持空串语义，Select 层使用哨兵值
-function toSelectValue(value: string) {
-  return value === '' ? DEFAULT_SELECT_VALUE : value
-}
-
-function fromSelectValue(value: unknown) {
-  return value === DEFAULT_SELECT_VALUE ? '' : String(value ?? '')
-}
 
 const form = reactive({
   name: '',
@@ -1234,9 +1218,6 @@ function updateMappingRow(id: number, field: keyof ModelMappingRow, value: any) 
   }
 }
 
-// 生成参数分组是否有可见内容（fastMode/textVerbosity 仅 OpenAI/Responses；vision fallback 仅有 noVision 模型时）
-const hasGenerationParams = computed(() => supportsOpenAIAdvanced.value || getNoVisionModelsFromRows().length > 0)
-
 // ── Custom Headers 行操作 ──
 
 function headerRowsFromChannel(ch: Channel) {
@@ -1337,7 +1318,6 @@ function buildCurrentPayload() {
 
 // 保留这些函数以备未来使用（模板迁移后的临时死代码）
 void hasDisabledKeys
-void hasGenerationParams
 void hasTriedFetchModels
 void showModelMappingPresets
 void showClaudeChannelPresets
@@ -1350,9 +1330,6 @@ void commonSupportedModelFilters
 void selectedSupportedModelSet
 void toggleSupportedModelFilter
 void getFilteredTargetModels
-void reasoningParamStyleOptions
-void toSelectValue
-void fromSelectValue
 </script>
 
 <template>
@@ -1440,27 +1417,6 @@ void fromSelectValue
                       />
                     </section>
 
-                    <!-- Section: 认证管理 -->
-                    <section :ref="(el: any) => setSectionRef('auth', el)" data-section-id="auth" class="scroll-mt-4">
-                      <AuthPanel
-                        :existing-api-keys="existingApiKeys"
-                        :new-api-keys-text="newApiKeysText"
-                        :copied-key-index="copiedKeyIndex"
-                        :disabled-api-keys="disabledApiKeys"
-                        :historical-api-keys="historicalApiKeys"
-                        :restoring-key="restoringKey"
-                        :local-restored-keys="localRestoredKeys"
-                        :errors="errors"
-                        @update:new-api-keys-text="newApiKeysText = $event"
-                        @add-new-api-keys="addNewApiKeys"
-                        @remove-existing-api-key="removeExistingApiKey"
-                        @move-api-key-to-top="moveApiKeyToTop"
-                        @move-api-key-to-bottom="moveApiKeyToBottom"
-                        @copy-api-key="copyApiKey"
-                        @handle-disabled-key-restore="handleDisabledKeyRestore"
-                      />
-                    </section>
-
                     <!-- Section: 模型重定向 -->
                     <section :ref="(el: any) => setSectionRef('redirect', el)" data-section-id="redirect" class="scroll-mt-4">
                       <ModelMappingPanel
@@ -1493,22 +1449,41 @@ void fromSelectValue
                       />
                     </section>
 
+                    <!-- Section: 认证管理 -->
+                    <section :ref="(el: any) => setSectionRef('auth', el)" data-section-id="auth" class="scroll-mt-4">
+                      <AuthPanel
+                        :existing-api-keys="existingApiKeys"
+                        :new-api-keys-text="newApiKeysText"
+                        :copied-key-index="copiedKeyIndex"
+                        :disabled-api-keys="disabledApiKeys"
+                        :historical-api-keys="historicalApiKeys"
+                        :restoring-key="restoringKey"
+                        :local-restored-keys="localRestoredKeys"
+                        :errors="errors"
+                        @update:new-api-keys-text="newApiKeysText = $event"
+                        @add-new-api-keys="addNewApiKeys"
+                        @remove-existing-api-key="removeExistingApiKey"
+                        @move-api-key-to-top="moveApiKeyToTop"
+                        @move-api-key-to-bottom="moveApiKeyToBottom"
+                        @copy-api-key="copyApiKey"
+                        @handle-disabled-key-restore="handleDisabledKeyRestore"
+                      />
+                    </section>
+
                     <!-- Section: 高级选项 -->
                     <section :ref="(el: any) => setSectionRef('advanced', el)" data-section-id="advanced" class="scroll-mt-4">
                       <AdvancedPanel
                         :form="form"
                         :channel-type="channelType"
-                        :text-verbosity-options="textVerbosityOptions"
-                        :supports-open-a-i-advanced="supportsOpenAIAdvanced"
                         :supports-open-a-i-advanced-options="supportsOpenAIAdvancedOptions"
                         :supports-chat-role-normalization="supportsChatRoleNormalization"
-                        :DEFAULT_SELECT_VALUE="DEFAULT_SELECT_VALUE"
+                        :reasoning-param-style-options="reasoningParamStyleOptions"
                         @update:form="(updates) => Object.assign(form, updates)"
                       />
                     </section>
 
                     <!-- Section: 自定义参数 -->
-                    <section :ref="(el: any) => setSectionRef('headers', el)" data-section-id="headers" class="scroll-mt-4">
+                    <section :ref="(el: any) => setSectionRef('custom', el)" data-section-id="custom" class="scroll-mt-4">
                       <CustomHeadersPanel
                         :header-rows="headerRows"
                         :new-header="newHeader"
