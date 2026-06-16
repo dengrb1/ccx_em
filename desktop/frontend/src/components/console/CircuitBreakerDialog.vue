@@ -29,6 +29,8 @@ const form = reactive({
   windowSize: 10,
   failureThreshold: 0.5,
   consecutiveFailuresThreshold: 3,
+  requestTimeoutMs: 120000,
+  responseHeaderTimeoutMs: 60000,
   streamFirstContentTimeoutMs: 30000,
   streamInactivityTimeoutMs: 20000,
   streamToolCallIdleTimeoutMs: 120000,
@@ -41,10 +43,10 @@ const sliderStyle = (value: number, min: number, max: number) => {
 
 // 工具调用 idle 预设按低速 5 TPS 粗估：60/120/300s 分别预留约 300/600/1500 token 的参数生成窗口。
 const presets = [
-  { key: 'gentle', labelKey: 'env.runtimeCbPresetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: 90000, streamInactivityTimeoutMs: 90000, streamToolCallIdleTimeoutMs: 300000 },
-  { key: 'balanced', labelKey: 'env.runtimeCbPresetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 60000, streamToolCallIdleTimeoutMs: 180000 },
-  { key: 'aggressive', labelKey: 'env.runtimeCbPresetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 30000, streamToolCallIdleTimeoutMs: 60000 },
-  { key: 'custom', labelKey: 'env.runtimeCbPresetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 60000, streamToolCallIdleTimeoutMs: 180000 },
+  { key: 'gentle', labelKey: 'env.runtimeCbPresetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, requestTimeoutMs: 300000, responseHeaderTimeoutMs: 120000, streamFirstContentTimeoutMs: 90000, streamInactivityTimeoutMs: 90000, streamToolCallIdleTimeoutMs: 300000 },
+  { key: 'balanced', labelKey: 'env.runtimeCbPresetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, requestTimeoutMs: 120000, responseHeaderTimeoutMs: 60000, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 60000, streamToolCallIdleTimeoutMs: 180000 },
+  { key: 'aggressive', labelKey: 'env.runtimeCbPresetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, requestTimeoutMs: 60000, responseHeaderTimeoutMs: 30000, streamFirstContentTimeoutMs: 30000, streamInactivityTimeoutMs: 30000, streamToolCallIdleTimeoutMs: 60000 },
+  { key: 'custom', labelKey: 'env.runtimeCbPresetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, requestTimeoutMs: 120000, responseHeaderTimeoutMs: 60000, streamFirstContentTimeoutMs: 60000, streamInactivityTimeoutMs: 60000, streamToolCallIdleTimeoutMs: 180000 },
 ]
 
 // 历史图片轮次限制
@@ -53,7 +55,7 @@ const historicalImageLimit = ref(0)
 const matchPreset = () => {
   for (const p of presets) {
     if (p.key === 'custom') continue
-    if (form.windowSize === p.windowSize && form.failureThreshold === p.failureThreshold && form.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && form.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && form.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs && form.streamToolCallIdleTimeoutMs === p.streamToolCallIdleTimeoutMs) {
+    if (form.windowSize === p.windowSize && form.failureThreshold === p.failureThreshold && form.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && form.requestTimeoutMs === p.requestTimeoutMs && form.responseHeaderTimeoutMs === p.responseHeaderTimeoutMs && form.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && form.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs && form.streamToolCallIdleTimeoutMs === p.streamToolCallIdleTimeoutMs) {
       activePreset.value = p.key
       return
     }
@@ -66,6 +68,8 @@ const applyPreset = (preset: typeof presets[number]) => {
   form.windowSize = preset.windowSize
   form.failureThreshold = preset.failureThreshold
   form.consecutiveFailuresThreshold = preset.consecutiveFailuresThreshold
+  form.requestTimeoutMs = preset.requestTimeoutMs
+  form.responseHeaderTimeoutMs = preset.responseHeaderTimeoutMs
   form.streamFirstContentTimeoutMs = preset.streamFirstContentTimeoutMs
   form.streamInactivityTimeoutMs = preset.streamInactivityTimeoutMs
   form.streamToolCallIdleTimeoutMs = preset.streamToolCallIdleTimeoutMs
@@ -80,6 +84,10 @@ const onSliderChange = (field: string, event: Event) => {
     form.windowSize = val
   } else if (field === 'consecutiveFailuresThreshold') {
     form.consecutiveFailuresThreshold = val
+  } else if (field === 'requestTimeoutMs') {
+    form.requestTimeoutMs = val
+  } else if (field === 'responseHeaderTimeoutMs') {
+    form.responseHeaderTimeoutMs = val
   } else if (field === 'streamFirstContentTimeoutMs') {
     form.streamFirstContentTimeoutMs = val
   } else if (field === 'streamInactivityTimeoutMs') {
@@ -114,6 +122,8 @@ const fetchConfig = async () => {
     form.windowSize = data.windowSize ?? 10
     form.failureThreshold = data.failureThreshold ?? 0.5
     form.consecutiveFailuresThreshold = data.consecutiveFailuresThreshold ?? 3
+    form.requestTimeoutMs = data.requestTimeoutMs && data.requestTimeoutMs >= 1000 ? data.requestTimeoutMs : 120000
+    form.responseHeaderTimeoutMs = data.responseHeaderTimeoutMs && data.responseHeaderTimeoutMs >= 1000 ? data.responseHeaderTimeoutMs : 60000
     form.streamFirstContentTimeoutMs = data.streamFirstContentTimeoutMs && data.streamFirstContentTimeoutMs >= 5000 ? data.streamFirstContentTimeoutMs : 60000
     form.streamInactivityTimeoutMs = data.streamInactivityTimeoutMs && data.streamInactivityTimeoutMs >= 1000 ? data.streamInactivityTimeoutMs : 60000
     form.streamToolCallIdleTimeoutMs = data.streamToolCallIdleTimeoutMs && data.streamToolCallIdleTimeoutMs >= 30000 ? data.streamToolCallIdleTimeoutMs : 180000
@@ -160,6 +170,8 @@ const saveConfig = async () => {
           windowSize: form.windowSize,
           failureThreshold: form.failureThreshold,
           consecutiveFailuresThreshold: form.consecutiveFailuresThreshold,
+          requestTimeoutMs: form.requestTimeoutMs,
+          responseHeaderTimeoutMs: form.responseHeaderTimeoutMs,
           streamFirstContentTimeoutMs: form.streamFirstContentTimeoutMs,
           streamInactivityTimeoutMs: form.streamInactivityTimeoutMs,
           streamToolCallIdleTimeoutMs: form.streamToolCallIdleTimeoutMs,
@@ -327,6 +339,69 @@ watch(() => props.open, (isOpen) => {
                     </div>
                   </div>
                   <div class="flex justify-between text-[10px] text-muted-foreground"><span>1</span><span>100</span></div>
+                </div>
+              </div>
+              </div>
+
+              <!-- 请求生命周期超时：两列 -->
+              <div class="rounded-xl border border-border/60 bg-gradient-to-br from-background/60 to-background/40 p-4 shadow-sm backdrop-blur-sm">
+                <div class="mb-3 flex items-center gap-1.5 border-b border-border/40 pb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a6 6 0 1 1-8 0"/><path d="M12 14v-4"/></svg>
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-primary">Request Timeout</span>
+                </div>
+                <div class="flex gap-2">
+                <div class="flex-1 px-1">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbRequestTimeout') }}</span>
+                    <span class="text-[11px] font-mono font-medium">{{ (form.requestTimeoutMs / 1000) + 's' }}</span>
+                  </div>
+                  <div class="cb-slider-shell" :style="sliderStyle(form.requestTimeoutMs, 1000, 300000)">
+                    <input
+                      type="range"
+                      :value="form.requestTimeoutMs"
+                      :min="1000"
+                      :max="300000"
+                      step="1000"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbRequestTimeout')"
+                      @input="onSliderChange('requestTimeoutMs', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>300s</span></div>
+                </div>
+
+                <div class="w-px bg-border self-stretch" />
+
+                <div class="flex-1 px-1">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[11px] text-muted-foreground">{{ t('env.runtimeCbResponseHeaderTimeout') }}</span>
+                    <span class="text-[11px] font-mono font-medium">{{ (form.responseHeaderTimeoutMs / 1000) + 's' }}</span>
+                  </div>
+                  <div class="cb-slider-shell" :style="sliderStyle(form.responseHeaderTimeoutMs, 1000, 300000)">
+                    <input
+                      type="range"
+                      :value="form.responseHeaderTimeoutMs"
+                      :min="1000"
+                      :max="300000"
+                      step="1000"
+                      class="cb-slider-input"
+                      :aria-label="t('env.runtimeCbResponseHeaderTimeout')"
+                      @input="onSliderChange('responseHeaderTimeoutMs', $event)"
+                    />
+                    <div class="cb-slider-visual" aria-hidden="true">
+                      <div class="cb-slider-track">
+                        <div class="cb-slider-fill" />
+                      </div>
+                      <div class="cb-slider-thumb" />
+                    </div>
+                  </div>
+                  <div class="flex justify-between text-[10px] text-muted-foreground"><span>1s</span><span>300s</span></div>
                 </div>
               </div>
               </div>

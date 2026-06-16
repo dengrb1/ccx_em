@@ -1815,7 +1815,7 @@ const cbForm = reactive({
   windowSize: 10,
   failureThreshold: 0.5,
   consecutiveFailuresThreshold: 3,
-  requestTimeoutMs: 300000,
+  requestTimeoutMs: 120000,
   responseHeaderTimeoutMs: 60000,
   streamFirstContentTimeoutMs: 30000,
   streamInactivityTimeoutMs: 20000,
@@ -1824,16 +1824,16 @@ const cbForm = reactive({
 
 // 工具调用 idle 预设按低速 5 TPS 粗估：60/120/300s 分别预留约 300/600/1500 token 的参数生成窗口。
 const cbPresets = [
-  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, streamFirstContentTimeoutMs: sharedStreamPresets.gentle.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.gentle.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.gentle.toolCallIdleMs },
-  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: sharedStreamPresets.balanced.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.balanced.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.balanced.toolCallIdleMs },
-  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, streamFirstContentTimeoutMs: sharedStreamPresets.aggressive.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.aggressive.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.aggressive.toolCallIdleMs },
-  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, streamFirstContentTimeoutMs: sharedStreamPresets.balanced.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.balanced.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.balanced.toolCallIdleMs },
+  { key: 'gentle', labelKey: 'dialog.circuitBreaker.presetGentle' as const, windowSize: 20, failureThreshold: 0.70, consecutiveFailuresThreshold: 5, requestTimeoutMs: 300000, responseHeaderTimeoutMs: 120000, streamFirstContentTimeoutMs: sharedStreamPresets.gentle.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.gentle.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.gentle.toolCallIdleMs },
+  { key: 'balanced', labelKey: 'dialog.circuitBreaker.presetBalanced' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, requestTimeoutMs: 120000, responseHeaderTimeoutMs: 60000, streamFirstContentTimeoutMs: sharedStreamPresets.balanced.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.balanced.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.balanced.toolCallIdleMs },
+  { key: 'aggressive', labelKey: 'dialog.circuitBreaker.presetAggressive' as const, windowSize: 5, failureThreshold: 0.30, consecutiveFailuresThreshold: 2, requestTimeoutMs: 60000, responseHeaderTimeoutMs: 30000, streamFirstContentTimeoutMs: sharedStreamPresets.aggressive.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.aggressive.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.aggressive.toolCallIdleMs },
+  { key: 'custom', labelKey: 'dialog.circuitBreaker.presetCustom' as const, windowSize: 10, failureThreshold: 0.50, consecutiveFailuresThreshold: 3, requestTimeoutMs: 120000, responseHeaderTimeoutMs: 60000, streamFirstContentTimeoutMs: sharedStreamPresets.balanced.firstContentMs, streamInactivityTimeoutMs: sharedStreamPresets.balanced.inactivityMs, streamToolCallIdleTimeoutMs: sharedStreamPresets.balanced.toolCallIdleMs },
 ]
 
 const matchPreset = () => {
   for (const p of cbPresets) {
     if (p.key === 'custom') continue
-    if (cbForm.windowSize === p.windowSize && cbForm.failureThreshold === p.failureThreshold && cbForm.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && cbForm.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && cbForm.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs && cbForm.streamToolCallIdleTimeoutMs === p.streamToolCallIdleTimeoutMs) {
+    if (cbForm.windowSize === p.windowSize && cbForm.failureThreshold === p.failureThreshold && cbForm.consecutiveFailuresThreshold === p.consecutiveFailuresThreshold && cbForm.requestTimeoutMs === p.requestTimeoutMs && cbForm.responseHeaderTimeoutMs === p.responseHeaderTimeoutMs && cbForm.streamFirstContentTimeoutMs === p.streamFirstContentTimeoutMs && cbForm.streamInactivityTimeoutMs === p.streamInactivityTimeoutMs && cbForm.streamToolCallIdleTimeoutMs === p.streamToolCallIdleTimeoutMs) {
       activePreset.value = p.key
       return
     }
@@ -1846,6 +1846,8 @@ const applyPreset = (preset: typeof cbPresets[number]) => {
   cbForm.windowSize = preset.windowSize
   cbForm.failureThreshold = preset.failureThreshold
   cbForm.consecutiveFailuresThreshold = preset.consecutiveFailuresThreshold
+  cbForm.requestTimeoutMs = preset.requestTimeoutMs
+  cbForm.responseHeaderTimeoutMs = preset.responseHeaderTimeoutMs
   cbForm.streamFirstContentTimeoutMs = preset.streamFirstContentTimeoutMs
   cbForm.streamInactivityTimeoutMs = preset.streamInactivityTimeoutMs
   cbForm.streamToolCallIdleTimeoutMs = preset.streamToolCallIdleTimeoutMs
@@ -1881,7 +1883,7 @@ const openCircuitBreakerDialog = async () => {
     cbForm.windowSize = params.windowSize
     cbForm.failureThreshold = params.failureThreshold
     cbForm.consecutiveFailuresThreshold = params.consecutiveFailuresThreshold
-    cbForm.requestTimeoutMs = params.requestTimeoutMs && params.requestTimeoutMs >= 1000 ? params.requestTimeoutMs : 300000
+    cbForm.requestTimeoutMs = params.requestTimeoutMs && params.requestTimeoutMs >= 1000 ? params.requestTimeoutMs : 120000
     cbForm.responseHeaderTimeoutMs = params.responseHeaderTimeoutMs && params.responseHeaderTimeoutMs >= 1000 ? params.responseHeaderTimeoutMs : 60000
     cbForm.streamFirstContentTimeoutMs = params.streamFirstContentTimeoutMs && params.streamFirstContentTimeoutMs >= 5000 ? params.streamFirstContentTimeoutMs : 60000
     cbForm.streamInactivityTimeoutMs = params.streamInactivityTimeoutMs && params.streamInactivityTimeoutMs >= 1000 ? params.streamInactivityTimeoutMs : 60000
