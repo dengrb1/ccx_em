@@ -27,6 +27,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # 复制全部源码（变动频繁，放在依赖层之后）
 COPY Makefile ./
+COPY scripts/ ./scripts/
 COPY frontend/ ./frontend/
 COPY backend-go/ ./backend-go/
 COPY VERSION ./
