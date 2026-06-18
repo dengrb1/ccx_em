@@ -139,6 +139,10 @@ func (s *ChannelLogStore) Get(metricsKey string) []*ChannelLog {
 }
 
 func (s *ChannelLogStore) GetMerged(metricsKeys []string) []*ChannelLog {
+	return s.GetMergedFiltered(metricsKeys, nil)
+}
+
+func (s *ChannelLogStore) GetMergedFiltered(metricsKeys []string, includeLog func(*ChannelLog) bool) []*ChannelLog {
 	if len(metricsKeys) == 0 {
 		return nil
 	}
@@ -158,6 +162,9 @@ func (s *ChannelLogStore) GetMerged(metricsKeys []string) []*ChannelLog {
 		seen[metricsKey] = struct{}{}
 		for _, logEntry := range s.logs[metricsKey] {
 			if logEntry == nil {
+				continue
+			}
+			if includeLog != nil && !includeLog(logEntry) {
 				continue
 			}
 			logCopy := *logEntry

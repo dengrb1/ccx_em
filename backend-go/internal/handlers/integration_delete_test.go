@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/BenedictKing/ccx/internal/config"
 	"github.com/BenedictKing/ccx/internal/metrics"
@@ -116,6 +117,97 @@ func TestGetChannelLogs_AfterChannelDeletion(t *testing.T) {
 	}
 	if len(resp.Logs) != 1 || resp.Logs[0].RequestID != "r2" {
 		t.Fatalf("logs = %#v, want [r2]", resp.Logs)
+	}
+}
+
+func TestGetChannelLogs_FiltersSharedMetricsKeyByChannelIndex(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := config.Config{
+		ResponsesUpstream: []config.UpstreamConfig{
+			{
+				Name:        "LocalHostClaude",
+				BaseURL:     "http://127.0.0.1:3699",
+				APIKeys:     []string{"sk-local"},
+				ServiceType: "responses",
+			},
+			{
+				Name:        "LocalHostOpenAIChat",
+				BaseURL:     "http://127.0.0.1:3699",
+				APIKeys:     []string{"sk-local"},
+				ServiceType: "responses",
+			},
+		},
+	}
+
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "config.json")
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatalf("序列化配置失败: %v", err)
+	}
+	if err := os.WriteFile(configFile, data, 0644); err != nil {
+		t.Fatalf("写入配置文件失败: %v", err)
+	}
+
+	cfgManager, err := config.NewConfigManager(configFile, "")
+	if err != nil {
+		t.Fatalf("创建配置管理器失败: %v", err)
+	}
+	t.Cleanup(func() { cfgManager.Close() })
+
+	logStore := metrics.NewChannelLogStore()
+	metricsKey := metrics.GenerateMetricsIdentityKey("http://127.0.0.1:3699", "sk-local", "responses")
+	now := time.Now()
+	logStore.Record(metricsKey, &metrics.ChannelLog{RequestID: "claude-log", ChannelIndex: 0, Model: "gpt-5.4", Timestamp: now.Add(-time.Second)})
+	logStore.Record(metricsKey, &metrics.ChannelLog{RequestID: "chat-log", ChannelIndex: 1, Model: "gpt-5.5", Timestamp: now})
+
+	r := gin.New()
+	r.GET("/responses/channels/:id/logs", GetChannelLogs(logStore, cfgManager, scheduler.ChannelKindResponses))
+
+	req := httptest.NewRequest(http.MethodGet, "/responses/channels/0/logs", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+
+	var resp struct {
+		ChannelIndex int                   `json:"channelIndex"`
+		Logs         []*metrics.ChannelLog `json:"logs"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.ChannelIndex != 0 {
+		t.Fatalf("channelIndex = %d, want 0", resp.ChannelIndex)
+	}
+	if len(resp.Logs) != 1 {
+		t.Fatalf("logs count = %d, want 1: %#v", len(resp.Logs), resp.Logs)
+	}
+	if resp.Logs[0].RequestID != "claude-log" {
+		t.Fatalf("logs[0].RequestID = %q, want claude-log", resp.Logs[0].RequestID)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/responses/channels/1/logs", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.ChannelIndex != 1 {
+		t.Fatalf("channelIndex = %d, want 1", resp.ChannelIndex)
+	}
+	if len(resp.Logs) != 1 {
+		t.Fatalf("logs count = %d, want 1: %#v", len(resp.Logs), resp.Logs)
+	}
+	if resp.Logs[0].RequestID != "chat-log" {
+		t.Fatalf("logs[0].RequestID = %q, want chat-log", resp.Logs[0].RequestID)
 	}
 }
 

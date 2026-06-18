@@ -36,8 +36,17 @@ func GetChannelLogs(
 
 		normalizedServiceType := scheduler.NormalizedMetricsServiceType(kind, upstream.ServiceType)
 		metricsKeys := channelMetricsKeys(upstream, normalizedServiceType)
+		sharedMetricsKeys := sharedChannelMetricsKeys(cfgManager, kind)
 
-		logs := channelLogStore.GetMerged(metricsKeys)
+		logs := channelLogStore.GetMergedFiltered(metricsKeys, func(logEntry *metrics.ChannelLog) bool {
+			if logEntry == nil {
+				return false
+			}
+			if !sharedMetricsKeys[logEntry.MetricsKey] {
+				return true
+			}
+			return logEntry.ChannelIndex == channelIndex
+		})
 		if logs == nil {
 			logs = make([]*metrics.ChannelLog, 0)
 		}
@@ -104,4 +113,39 @@ func channelMetricsKeys(upstream *config.UpstreamConfig, normalizedServiceType s
 		}
 	}
 	return keys
+}
+
+func sharedChannelMetricsKeys(cfgManager *config.ConfigManager, kind scheduler.ChannelKind) map[string]bool {
+	cfg := cfgManager.GetConfig()
+
+	var upstreams []config.UpstreamConfig
+	switch kind {
+	case scheduler.ChannelKindResponses:
+		upstreams = cfg.ResponsesUpstream
+	case scheduler.ChannelKindGemini:
+		upstreams = cfg.GeminiUpstream
+	case scheduler.ChannelKindChat:
+		upstreams = cfg.ChatUpstream
+	case scheduler.ChannelKindImages:
+		upstreams = cfg.ImagesUpstream
+	default:
+		upstreams = cfg.Upstream
+	}
+
+	counts := make(map[string]int)
+	for i := range upstreams {
+		upstream := &upstreams[i]
+		normalizedServiceType := scheduler.NormalizedMetricsServiceType(kind, upstream.ServiceType)
+		for _, metricsKey := range channelMetricsKeys(upstream, normalizedServiceType) {
+			counts[metricsKey]++
+		}
+	}
+
+	shared := make(map[string]bool)
+	for metricsKey, count := range counts {
+		if count > 1 {
+			shared[metricsKey] = true
+		}
+	}
+	return shared
 }
