@@ -427,7 +427,7 @@ func TestBuildPayload(t *testing.T) {
 			},
 			wantNormalize:      true,
 			wantNativeTool:     true,
-			wantNoVisionModels: []string{"deepseek-v4-flash"},
+			wantNoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"},
 			wantFallback:       "minimax-m3",
 		},
 		{

@@ -918,7 +918,7 @@ var channelTargetConfigs = map[string]map[string]channelTargetConfig{
 			StripCodexClientTools:         boolRef(false),
 			CodexNativeToolPassthrough:    true,
 			NormalizeNonstandardChatRoles: true,
-			NoVisionModels:                []string{"deepseek-v4-flash"},
+			NoVisionModels:                []string{"glm-5.2", "deepseek-v4-flash"},
 			VisionFallbackModel:           "minimax-m3",
 		},
 		ProviderQianfan: {
