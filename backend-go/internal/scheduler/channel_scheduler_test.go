@@ -943,6 +943,48 @@ func TestSelectChannelFiltersSupportedModels(t *testing.T) {
 	})
 }
 
+func TestSelectChannelTraceAffinityStillRespectsSupportedModels(t *testing.T) {
+	cfg := config.Config{
+		ResponsesUpstream: []config.UpstreamConfig{
+			{
+				Name:            "LocalHostClaude",
+				BaseURL:         "http://127.0.0.1:3699",
+				APIKeys:         []string{"sk-local"},
+				Status:          "active",
+				Priority:        1,
+				SupportedModels: []string{"claude-*"},
+				ServiceType:     "responses",
+			},
+			{
+				Name:            "LocalHostOpenAIChat",
+				BaseURL:         "http://127.0.0.1:3699",
+				APIKeys:         []string{"sk-local"},
+				Status:          "active",
+				Priority:        2,
+				SupportedModels: []string{"gpt-5.5", "gpt-5.4"},
+				ServiceType:     "responses",
+			},
+		},
+	}
+
+	scheduler, cleanup := createTestScheduler(t, cfg)
+	defer cleanup()
+
+	scheduler.traceAffinity.SetPreferredChannel(string(ChannelKindResponses)+":test-user", 0)
+
+	result, err := scheduler.SelectChannel(context.Background(), "test-user", map[int]bool{}, ChannelKindResponses, "gpt-5.5", "", "")
+	if err != nil {
+		t.Fatalf("选择渠道失败: %v", err)
+	}
+
+	if result.ChannelIndex != 1 {
+		t.Fatalf("期望跳过不支持模型的亲和渠道并选择 index=1，实际为 index=%d", result.ChannelIndex)
+	}
+	if result.Reason != "priority_order" {
+		t.Fatalf("期望回退到 priority_order，实际为 %s", result.Reason)
+	}
+}
+
 func tcServiceType(kind ChannelKind) string {
 	switch kind {
 	case ChannelKindGemini:
