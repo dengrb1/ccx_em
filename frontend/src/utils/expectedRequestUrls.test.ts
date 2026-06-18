@@ -27,6 +27,13 @@ describe('buildExpectedRequestUrls', () => {
     expect(result[0].expectedUrl).toBe('https://api.anthropic.com/v1/messages')
   })
 
+  it('应为 responses 渠道上的 claude 上游避免重复版本前缀', () => {
+    const result = buildExpectedRequestUrls('responses', 'claude', 'https://token-plan-cn.xiaomimimo.com/v1')
+
+    expect(result).toHaveLength(1)
+    expect(result[0].expectedUrl).toBe('https://token-plan-cn.xiaomimimo.com/v1/messages')
+  })
+
   it('应为 responses 渠道上的 openai 上游生成 chat completions 端点', () => {
     const result = buildExpectedRequestUrls('responses', 'openai', 'https://api.openai.com')
 

@@ -210,7 +210,6 @@ import { useChannelStore } from '../stores/channel'
 import { useDialogStore } from '../stores/dialog'
 import { buildExpectedRequestUrls } from '../utils/expectedRequestUrls'
 import { supportsAdvancedChannelOptions, supportsReasoningMapping } from '../utils/channelAdvancedOptions'
-import { buildExpectedRequestUrl } from '../utils/baseUrlSemantics'
 import { buildChannelPayload, normalizeSelectableString } from '../utils/channelPayload'
 import { maskApiKey } from '../utils/apiKeyMask'
 import {
@@ -336,12 +335,6 @@ const baseUrlHasError = computed(() => {
   } catch {
     return true
   }
-})
-
-// 详细模式所有 URL 的预期请求（支持多 BaseURL）
-const formExpectedRequestUrls = computed(() => {
-  const effectiveServiceType = props.channelType === 'images' ? 'openai' : form.serviceType
-  return buildExpectedRequestUrls(props.channelType, effectiveServiceType, form.baseUrl, form.baseUrls)
 })
 
 // Workaround: Vuetify v-select menu 在 v-dialog 内首次打开时位置计算错误
@@ -1682,15 +1675,12 @@ const visibleDisabledKeys = computed(() =>
 // 预期请求 URL 列表
 const expectedRequestUrls = computed(() => {
   if (!baseUrlsText.value || !form.serviceType) return []
-  const urls = baseUrlsText.value.split('\n').filter(u => u.trim())
-  const endpoint = props.channelType === 'messages' ? '/v1/messages' :
-                   props.channelType === 'chat' ? '/v1/chat/completions' :
-                   props.channelType === 'responses' ? '/v1/responses' :
-                   props.channelType === 'gemini' ? '/v1beta/models' :
-                   '/v1/images/generations'
-  return urls.map(url => ({
-    expectedUrl: buildExpectedRequestUrl(form.serviceType, endpoint, url.trim())
-  }))
+  return buildExpectedRequestUrls(
+    props.channelType,
+    form.serviceType,
+    undefined,
+    baseUrlsText.value.split('\n').map(url => url.trim()).filter(Boolean),
+  )
 })
 
 // 自定义请求头转换（Record <-> Array）
