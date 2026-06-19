@@ -8,6 +8,9 @@ inputs:
   output-directory:
     description: Directory used to download the signed artifact from SignPath.
     required: true
+  artifact-name:
+    description: Unique GitHub Actions artifact name used for the unsigned file upload.
+    required: true
   api-token:
     description: SignPath API token.
     required: true
@@ -44,6 +47,7 @@ runs:
       id: upload
       uses: actions/upload-artifact@v7
       with:
+        name: ${{ inputs.artifact-name }}
         path: ${{ inputs.file }}
         archive: false
         if-no-files-found: error
