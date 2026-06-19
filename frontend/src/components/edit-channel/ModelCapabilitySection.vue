@@ -48,9 +48,6 @@
                     <div class="font-mono text-body-2 font-weight-bold text-truncate">
                       {{ row.model || t('addChannel.modelCapabilityModelPlaceholder') }}
                     </div>
-                    <div v-if="shouldShowDisplayName(row)" class="text-caption text-medium-emphasis text-truncate">
-                      {{ row.displayName }}
-                    </div>
                   </div>
                   <v-chip
                     v-if="row.source === 'builtin' && row.matchedPattern"
@@ -332,14 +329,8 @@ function pricingUnitLabel() {
 }
 
 function modelInitial(row: ModelCapabilityRow) {
-  const source = (row.displayName || row.model || '?').trim()
+  const source = (row.model || '?').trim()
   return source ? source.slice(0, 1).toUpperCase() : '?'
-}
-
-function shouldShowDisplayName(row: ModelCapabilityRow) {
-  const displayName = (row.displayName || '').trim()
-  if (!displayName) return false
-  return displayName.toLowerCase() !== row.model.trim().toLowerCase()
 }
 
 const nextRowId = () => Date.now() + Math.floor(Math.random() * 1000)

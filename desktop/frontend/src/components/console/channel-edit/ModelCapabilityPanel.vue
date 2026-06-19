@@ -78,7 +78,7 @@ function pricingUnitLabel() {
 }
 
 function modelInitial(row: ModelCapabilityRow) {
-  const source = (row.displayName || row.model || '?').trim()
+  const source = (row.model || '?').trim()
   return source ? source.slice(0, 1).toUpperCase() : '?'
 }
 
