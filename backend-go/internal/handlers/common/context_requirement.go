@@ -72,7 +72,7 @@ func LogContextEstimate(c *gin.Context, apiType string, requirement *scheduler.C
 	if c == nil || requirement == nil {
 		return
 	}
-	requestLogToConsole(c, "[%s-ContextEstimate] 原始请求上下文估算: input=%d, output=%d, required=%d, explicitOutput=%t, agentProfileWindow=%d, skipWindowValidation=%t",
+	requestLogToConsole(c, "[%s-ContextEstimate] 原始请求上下文估算: input=%d, outputBudget=%d, totalBudget=%d, explicitOutput=%t, agentProfileWindow=%d, skipWindowValidation=%t",
 		apiType,
 		requirement.InputTokens,
 		requirement.OutputTokens,
@@ -81,7 +81,7 @@ func LogContextEstimate(c *gin.Context, apiType string, requirement *scheduler.C
 		requirement.MinimumContextWindowTokens,
 		requirement.SkipWindowValidation,
 	)
-	requestLogToFile(c, "[%s-ContextEstimate] 原始请求上下文估算: input=%d, output=%d, required=%d, explicitOutput=%t, agentProfileWindow=%d, skipWindowValidation=%t",
+	requestLogToFile(c, "[%s-ContextEstimate] 原始请求上下文估算: input=%d, outputBudget=%d, totalBudget=%d, explicitOutput=%t, agentProfileWindow=%d, skipWindowValidation=%t",
 		apiType,
 		requirement.InputTokens,
 		requirement.OutputTokens,

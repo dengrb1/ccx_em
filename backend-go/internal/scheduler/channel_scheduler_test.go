@@ -1181,6 +1181,55 @@ func TestSelectChannelFiltersByContextWindowStableOrder(t *testing.T) {
 	}
 }
 
+func TestSelectChannelFiltersContextWindowByInputOnlyWithoutExtraOutputReserve(t *testing.T) {
+	cfg := config.Config{
+		Upstream: []config.UpstreamConfig{
+			{
+				Name:     "cheap-200k",
+				BaseURL:  "https://cheap.example.com",
+				APIKeys:  []string{"sk-cheap"},
+				Status:   "active",
+				Priority: 1,
+				ModelMapping: map[string]string{
+					"agent": "claude-sonnet-4-5",
+				},
+			},
+			{
+				Name:     "premium-1m",
+				BaseURL:  "https://premium.example.com",
+				APIKeys:  []string{"sk-premium"},
+				Status:   "active",
+				Priority: 2,
+				ModelMapping: map[string]string{
+					"agent": "claude-sonnet-4-6",
+				},
+			},
+		},
+	}
+
+	scheduler, cleanup := createTestScheduler(t, cfg)
+	defer cleanup()
+
+	result, err := scheduler.SelectChannelWithOptions(context.Background(), SelectionOptions{
+		UserID:         "user-input-only",
+		FailedChannels: map[int]bool{},
+		Kind:           ChannelKindMessages,
+		Model:          "agent",
+		ContextRequirement: &ContextRequirement{
+			InputTokens:       196000,
+			OutputTokens:      8192,
+			RequiredTokens:    204192,
+			ExplicitOutputMax: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("SelectChannelWithOptions() error = %v", err)
+	}
+	if result.Upstream.Name != "cheap-200k" {
+		t.Fatalf("selected channel = %q, want cheap-200k", result.Upstream.Name)
+	}
+}
+
 func TestSelectChannelDoesNotUseAgentProfileAsHardMinimumWindow(t *testing.T) {
 	cfg := config.Config{
 		Upstream: []config.UpstreamConfig{

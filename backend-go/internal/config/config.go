@@ -127,7 +127,7 @@ type AgentModelProfile struct {
 
 // UpstreamModelCapability 描述实际发送给上游的模型能力。
 type UpstreamModelCapability struct {
-	ContextWindowTokens     int             `json:"contextWindowTokens,omitempty"`
+	ContextWindowTokens     int             `json:"contextWindowTokens,omitempty"` // CCX 路由使用的可承载输入窗口；若来源是总上下文窗口，应在能力数据层预先扣除输出预留
 	MaxOutputTokens         int             `json:"maxOutputTokens,omitempty"`
 	DefaultOutputTokens     int             `json:"defaultOutputTokens,omitempty"`
 	RecommendedOutputTokens int             `json:"recommendedOutputTokens,omitempty"`

@@ -197,7 +197,7 @@ type SelectionResult struct {
 	Reason       string // 选择原因（用于日志）
 }
 
-// ContextRequirement 描述当前请求需要的上下文与输出预算。
+// ContextRequirement 描述当前请求的输入上下文与输出预算。
 type ContextRequirement struct {
 	InputTokens                int
 	OutputTokens               int
@@ -211,7 +211,12 @@ func (r *ContextRequirement) effectiveWindowTokens() int {
 	if r == nil {
 		return 0
 	}
-	return r.RequiredTokens
+	// ContextWindowTokens 在能力数据层统一为可承载输入窗口；调度层不再叠加输出预留，避免对 GPT 等纯输入窗口模型重复扣减。
+	return r.InputTokens
+}
+
+func (r *ContextRequirement) needsOutputValidation() bool {
+	return r != nil && r.ExplicitOutputMax && r.OutputTokens > 0
 }
 
 // SelectionOptions 描述一次渠道选择所需的上下文。
@@ -702,11 +707,15 @@ func (s *ChannelScheduler) channelIsRuntimeAvailable(upstream *config.UpstreamCo
 }
 
 func (s *ChannelScheduler) filterChannelsByContext(activeChannels []ChannelInfo, kind ChannelKind, model string, requirement *ContextRequirement) ([]ChannelInfo, error) {
-	if requirement == nil || requirement.effectiveWindowTokens() <= 0 {
+	if requirement == nil {
 		return activeChannels, nil
 	}
 	cfg := s.configManager.GetConfig()
 	if !cfg.ContextRouting.IsContextRoutingEnabled() {
+		return activeChannels, nil
+	}
+	requiredWindow := requirement.effectiveWindowTokens()
+	if requiredWindow <= 0 && !requirement.needsOutputValidation() {
 		return activeChannels, nil
 	}
 
@@ -715,7 +724,6 @@ func (s *ChannelScheduler) filterChannelsByContext(activeChannels []ChannelInfo,
 	filtered := make([]ChannelInfo, 0, len(activeChannels))
 	skipped := make([]string, 0)
 	maxKnownWindow := 0
-	requiredWindow := requirement.effectiveWindowTokens()
 
 	for _, ch := range activeChannels {
 		upstream := s.getUpstreamByIndex(ch.Index, kind)
@@ -743,34 +751,38 @@ func (s *ChannelScheduler) filterChannelsByContext(activeChannels []ChannelInfo,
 		}
 
 		if capability.ContextWindowTokens > 0 {
-			if requiredWindow > capability.ContextWindowTokens {
-				reason := fmt.Sprintf("[%d]%s actual=%s required=%d>%d", ch.Index, ch.Name, resolved.ActualModel, requiredWindow, capability.ContextWindowTokens)
+			if requiredWindow > 0 && requiredWindow > capability.ContextWindowTokens {
+				reason := fmt.Sprintf("[%d]%s actual=%s input=%d>%d totalBudget=%d", ch.Index, ch.Name, resolved.ActualModel, requiredWindow, capability.ContextWindowTokens, requirement.RequiredTokens)
 				skipped = append(skipped, reason)
-				log.Printf("[%s-ContextFilter] 跳过渠道 [%d] %s: required=%d, window=%d, actualModel=%q, source=%s",
-					prefix, ch.Index, ch.Name, requiredWindow, capability.ContextWindowTokens, resolved.ActualModel, resolved.Source)
+				log.Printf("[%s-ContextFilter] 跳过渠道 [%d] %s: input=%d, window=%d, totalBudget=%d, output=%d, actualModel=%q, source=%s",
+					prefix, ch.Index, ch.Name, requiredWindow, capability.ContextWindowTokens, requirement.RequiredTokens, requirement.OutputTokens, resolved.ActualModel, resolved.Source)
 				continue
 			}
 			filtered = append(filtered, ch)
 			continue
 		}
 
-		if upstream.AllowUnknownContext || requiredWindow <= unknownSafeWindow {
+		if requiredWindow <= 0 || upstream.AllowUnknownContext || requiredWindow <= unknownSafeWindow {
 			filtered = append(filtered, ch)
 			continue
 		}
 
-		reason := fmt.Sprintf("[%d]%s actual=%s unknown required=%d", ch.Index, ch.Name, resolved.ActualModel, requiredWindow)
+		reason := fmt.Sprintf("[%d]%s actual=%s unknown input=%d totalBudget=%d", ch.Index, ch.Name, resolved.ActualModel, requiredWindow, requirement.RequiredTokens)
 		skipped = append(skipped, reason)
-		log.Printf("[%s-ContextFilter] 跳过未知上下文渠道 [%d] %s: required=%d 超过 unknownSafeWindow=%d, actualModel=%q",
-			prefix, ch.Index, ch.Name, requiredWindow, unknownSafeWindow, resolved.ActualModel)
+		log.Printf("[%s-ContextFilter] 跳过未知上下文渠道 [%d] %s: input=%d 超过 unknownSafeWindow=%d, totalBudget=%d, output=%d, actualModel=%q",
+			prefix, ch.Index, ch.Name, requiredWindow, unknownSafeWindow, requirement.RequiredTokens, requirement.OutputTokens, resolved.ActualModel)
 	}
 
 	if len(filtered) == 0 {
+		if requiredWindow <= 0 && len(skipped) > 0 {
+			return nil, fmt.Errorf("没有 %s 渠道可满足当前显式输出预算 %d tokens（已过滤：%s）",
+				kindDisplayName(kind), requirement.OutputTokens, strings.Join(skipped, "; "))
+		}
 		if maxKnownWindow > 0 {
-			return nil, fmt.Errorf("没有 %s 渠道可承载当前上下文：估算 %d tokens，最大已知窗口 %d tokens（已过滤：%s）",
+			return nil, fmt.Errorf("没有 %s 渠道可承载当前上下文：输入估算 %d tokens，最大已知窗口 %d tokens（已过滤：%s）",
 				kindDisplayName(kind), requiredWindow, maxKnownWindow, strings.Join(skipped, "; "))
 		}
-		return nil, fmt.Errorf("没有 %s 渠道可承载当前上下文：估算 %d tokens，所有候选渠道上下文能力未知或不足（已过滤：%s）",
+		return nil, fmt.Errorf("没有 %s 渠道可承载当前上下文：输入估算 %d tokens，所有候选渠道上下文能力未知或不足（已过滤：%s）",
 			kindDisplayName(kind), requiredWindow, strings.Join(skipped, "; "))
 	}
 
@@ -779,7 +791,7 @@ func (s *ChannelScheduler) filterChannelsByContext(activeChannels []ChannelInfo,
 
 // ValidateUpstreamContext 校验单个渠道是否满足当前上下文需求。
 func (s *ChannelScheduler) ValidateUpstreamContext(kind ChannelKind, model string, upstream *config.UpstreamConfig, requirement *ContextRequirement) error {
-	if upstream == nil || requirement == nil || requirement.effectiveWindowTokens() <= 0 {
+	if upstream == nil || requirement == nil {
 		return nil
 	}
 	cfg := s.configManager.GetConfig()
@@ -797,9 +809,12 @@ func (s *ChannelScheduler) ValidateUpstreamContext(kind ChannelKind, model strin
 		return nil
 	}
 	requiredWindow := requirement.effectiveWindowTokens()
+	if requiredWindow <= 0 {
+		return nil
+	}
 	if capability.ContextWindowTokens > 0 {
 		if requiredWindow > capability.ContextWindowTokens {
-			return fmt.Errorf("渠道 %q 的实际模型 %q 上下文窗口为 %d tokens，低于当前请求估算 %d tokens",
+			return fmt.Errorf("渠道 %q 的实际模型 %q 上下文窗口为 %d tokens，低于当前请求输入估算 %d tokens",
 				upstream.Name, resolved.ActualModel, capability.ContextWindowTokens, requiredWindow)
 		}
 		return nil
@@ -807,7 +822,7 @@ func (s *ChannelScheduler) ValidateUpstreamContext(kind ChannelKind, model strin
 	if upstream.AllowUnknownContext || requiredWindow <= cfg.ContextRouting.EffectiveUnknownSafeWindowTokens() {
 		return nil
 	}
-	return fmt.Errorf("渠道 %q 的实际模型 %q 上下文能力未知，当前请求估算 %d tokens 超过未知安全窗口 %d tokens",
+	return fmt.Errorf("渠道 %q 的实际模型 %q 上下文能力未知，当前请求输入估算 %d tokens 超过未知安全窗口 %d tokens",
 		upstream.Name, resolved.ActualModel, requiredWindow, cfg.ContextRouting.EffectiveUnknownSafeWindowTokens())
 }
 
