@@ -1,3 +1,10 @@
+## [v2.9.12] - 2026-06-19
+
+### 修复
+
+- **上下文窗口按输入 token 过滤** - 调度器按输入 token 过滤 context windows，避免选择不满足输入上下文要求的渠道
+- **Docker 前端嵌入构建稳健性改进** - 改进 Docker frontend embed build robustness，提升前端产物嵌入构建稳定性
+
 ## [v2.9.11] - 2026-06-19
 
 ### 修复
