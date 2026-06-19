@@ -396,6 +396,8 @@ function resetForm() {
   newApiKeysText.value = ''
   copiedKeyIndex.value = null
   keyModelsStatus.value.clear()
+  targetModelOptions.value = []
+  hasTriedFetchModels.value = false
   localRestoredKeys.value = new Set()
   modelMappingRows.value = []
   modelCapabilityRows.value = []
@@ -437,6 +439,8 @@ function populateFromChannel(ch: Channel) {
   newApiKeysText.value = ''
   copiedKeyIndex.value = null
   keyModelsStatus.value.clear()
+  targetModelOptions.value = []
+  hasTriedFetchModels.value = false
   localRestoredKeys.value = new Set()
   modelMappingRows.value = modelMappingFromChannel(ch)
   modelCapabilityRows.value = modelCapabilitiesToRows(ch.modelCapabilities || {}, () => ++rowId)
@@ -691,6 +695,12 @@ async function handleSubmit() {
 // Keyboard shortcuts: Esc 取消，Cmd/Ctrl+Enter 保存（编辑/创建一致，避免多行文本内 Enter 误触发）
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
+    if (showTargetSuggestions.value) {
+      e.preventDefault()
+      e.stopPropagation()
+      hideTargetDropdown()
+      return
+    }
     e.preventDefault()
     emit('close')
     return
@@ -1251,40 +1261,9 @@ const sourceModelOptions = computed(() => {
   return ['fable', 'opus', 'sonnet', 'haiku']
 })
 
-const commonTargetModelPresets = [
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'glm-5.2',
-  'glm-5.1',
-  'zai/glm-5',
-  'qwen3.5-plus',
-  'qwen3-coder-plus',
-  'qwen3-max',
-  'deepseek-v4-pro',
-  'deepseek-v4-flash',
-  'deepseek-v3.2',
-  'deepseek-reasoner',
-  'kimi-k2.7-code',
-  'kimi-k2.7-code-highspeed',
-  'kimi-k2.6',
-  'kimi-k2.5',
-  'minimax-m3',
-  'minimax-m2.5',
-  'minimax-m2.1',
-  'mimo-v2.5',
-  'mimo-v2.5-pro',
-  'mimo-v2-flash',
-  'doubao-seed-2-0-pro',
-  'doubao-seed-2-0-code-preview',
-  'ernie-4.5-21B-a3b-thinking',
-  'baichuan-m2-32b',
-  'yi-34b-200k-capybara',
-]
-
 const targetModelDatalist = computed(() => {
   const byLowercaseModel = new Map<string, string>()
-  for (const model of [...targetModelOptions.value, ...commonTargetModelPresets]) {
+  for (const model of targetModelOptions.value) {
     const trimmed = String(model || '').trim()
     if (!trimmed) continue
     const key = trimmed.toLowerCase()
@@ -1437,10 +1416,6 @@ async function fetchTargetModels() {
       }
     }))
     const byLowercaseModel = new Map<string, string>()
-    for (const model of targetModelOptions.value) {
-      const trimmed = model.trim()
-      if (trimmed) byLowercaseModel.set(trimmed.toLowerCase(), trimmed)
-    }
     results
       .flat()
       .map((m: any) => m.id || m.name || String(m))

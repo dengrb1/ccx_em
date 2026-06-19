@@ -361,7 +361,14 @@ const baseUrlHasError = computed(() => {
 
 // Workaround: Vuetify v-select menu 在 v-dialog 内首次打开时位置计算错误
 // 通过 dispatch resize 强制重新计算菜单位置
+const isAnySelectMenuOpen = ref(false)
+const suppressDialogEscapeUntil = ref(0)
+
 const onMenuUpdate = (open: boolean) => {
+  isAnySelectMenuOpen.value = open
+  if (!open) {
+    suppressDialogEscapeUntil.value = Date.now() + 150
+  }
   if (open) {
     setTimeout(() => window.dispatchEvent(new Event('resize')), 50)
   }
@@ -1110,46 +1117,13 @@ const isMappingInputValid = computed(() => {
   return !validateSourceModelName(source)
 })
 
-const commonTargetModelPresets = [
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'glm-5.2',
-  'glm-5.1',
-  'zai/glm-5',
-  'qwen3.5-plus',
-  'qwen3-coder-plus',
-  'qwen3-max',
-  'deepseek-v4-pro',
-  'deepseek-v4-flash',
-  'deepseek-v3.2',
-  'deepseek-reasoner',
-  'kimi-k2.7-code',
-  'kimi-k2.7-code-highspeed',
-  'kimi-k2.6',
-  'kimi-k2.5',
-  'minimax-m3',
-  'minimax-m2.5',
-  'minimax-m2.1',
-  'mimo-v2.5',
-  'mimo-v2.5-pro',
-  'mimo-v2-flash',
-  'doubao-seed-2-0-pro',
-  'doubao-seed-2-0-code-preview',
-  'ernie-4.5-21B-a3b-thinking',
-  'baichuan-m2-32b',
-  'yi-34b-200k-capybara',
-]
-
-// 目标模型列表（从上游获取，未拉取前合并常用预置候选）
+// 目标模型列表只展示上游 /models 真实返回值；手动输入由 combobox 自身支持
 const targetModelOptions = ref<Array<{ title: string; value: string }>>([])
-const mergeTargetModelOptions = (models: string[]) => {
+const upstreamTargetModels = ref<string[]>([])
+
+const normalizeTargetModelNames = (models: string[]) => {
   const byLowercaseModel = new Map<string, string>()
-  for (const model of [
-    ...targetModelOptions.value.map(opt => opt.value),
-    ...commonTargetModelPresets,
-    ...models,
-  ]) {
+  for (const model of models) {
     const trimmed = String(model || '').trim()
     if (!trimmed) continue
     const key = trimmed.toLowerCase()
@@ -1158,12 +1132,26 @@ const mergeTargetModelOptions = (models: string[]) => {
       byLowercaseModel.set(key, trimmed)
     }
   }
-  targetModelOptions.value = sortModelNamesDesc(Array.from(byLowercaseModel.values())).map(id => ({ title: id, value: id }))
+  return sortModelNamesDesc(Array.from(byLowercaseModel.values()))
 }
-mergeTargetModelOptions([])
+
+const toTargetModelOptions = (models: string[]) => {
+  return normalizeTargetModelNames(models).map(id => ({ title: id, value: id }))
+}
+
+const resetTargetModelOptions = () => {
+  upstreamTargetModels.value = []
+  targetModelOptions.value = []
+}
+
+const mergeUpstreamTargetModelOptions = (models: string[]) => {
+  upstreamTargetModels.value = normalizeTargetModelNames([...upstreamTargetModels.value, ...models])
+  targetModelOptions.value = toTargetModelOptions(upstreamTargetModels.value)
+}
+
+resetTargetModelOptions()
 const fetchingModels = ref(false)
 const fetchModelsError = ref('')
-const hasTriedFetchModels = ref(false) // 标记是否已尝试获取过模型列表
 const silentlySaving = ref(false)
 
 // API Key 的 models 状态管理
@@ -1639,11 +1627,10 @@ const resetForm = () => {
   originalKeyMap.value.clear()
 
   // 清空模型缓存和状态
-  mergeTargetModelOptions([])
+  resetTargetModelOptions()
   fetchingModels.value = false
   fetchModelsError.value = ''
   keyModelsStatus.value.clear()
-  hasTriedFetchModels.value = false
 
   }
 
@@ -1733,11 +1720,10 @@ const loadChannelData = (channel: Channel) => {
   newMapping.target = ''
 
   // 清空模型缓存和状态（切换渠道时重置）
-  mergeTargetModelOptions([])
+  resetTargetModelOptions()
   fetchingModels.value = false
   fetchModelsError.value = ''
   keyModelsStatus.value.clear()
-  hasTriedFetchModels.value = false
 
   // 如果有模型映射配置，主动预加载模型列表
   if (channel.modelMapping && Object.keys(channel.modelMapping).length > 0) {
@@ -2042,22 +2028,8 @@ const appendSupportedModelFilter = (filter: string) => {
   supportedModelsError.value = ''
 }
 
-// 处理目标模型输入框点击事件(仅在首次或有新 key 时触发请求)
-const handleTargetModelClick = () => {
-  // 如果已经尝试过获取且正在加载中,不重复触发
-  if (hasTriedFetchModels.value || fetchingModels.value) {
-    return
-  }
-
-  // 标记已尝试获取
-  hasTriedFetchModels.value = true
-
-  // 调用获取模型列表(内部有缓存逻辑)
-  fetchTargetModels()
-}
-
 const ensureTargetModelsLoaded = () => {
-  if (targetModelOptions.value.length === 0) {
+  if (upstreamTargetModels.value.length === 0) {
     fetchTargetModels()
   }
 }
@@ -2164,7 +2136,7 @@ const fetchTargetModels = async () => {
 
   try {
     const results = await Promise.all(keyPromises)
-    mergeTargetModelOptions(results.flatMap(models => models.map(m => m.id)))
+    mergeUpstreamTargetModelOptions(results.flatMap(models => models.map(m => m.id)))
 
     const allFailed = candidateKeys.every(key => {
       const s = keyModelsStatus.value.get(key)
@@ -2355,9 +2327,8 @@ watch(
     routePrefix: form.routePrefix,
   }),
   () => {
-    mergeTargetModelOptions([])
+    resetTargetModelOptions()
     keyModelsStatus.value.clear()
-    hasTriedFetchModels.value = false
     fetchModelsError.value = ''
   }
 )
@@ -2368,6 +2339,11 @@ const handleKeydown = (event: Event) => {
   if (!props.show) return
 
   if (keyboardEvent.key === 'Escape') {
+    if (isAnySelectMenuOpen.value || Date.now() < suppressDialogEscapeUntil.value) {
+      keyboardEvent.preventDefault()
+      keyboardEvent.stopPropagation()
+      return
+    }
     keyboardEvent.preventDefault()
     handleCancel()
     return
