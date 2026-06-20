@@ -1,0 +1,74 @@
+
+.v-theme--dark .version-badge.version-update {
+  border-color: rgb(var(--v-theme-warning));
+}
+
+/* ----- 统计卡片 - 复古像素风格 ----- */
+.stat-cards-row {
+  margin-top: -8px;
+}
+
+.stat-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  margin: 2px;
+  background: rgb(var(--v-theme-surface));
+  border: 2px solid rgb(var(--v-theme-on-surface));
+  box-shadow: 6px 6px 0 0 rgb(var(--v-theme-on-surface));
+  transition: all 0.1s ease;
+  overflow: hidden;
+  min-height: 100px;
+}
+.stat-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 0 rgb(var(--v-theme-on-surface));
+  border: 2px solid rgb(var(--v-theme-on-surface));
+}
+
+.stat-card:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 rgb(var(--v-theme-on-surface));
+}
+
+.v-theme--dark .stat-card {
+  background: rgb(var(--v-theme-surface));
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 6px 6px 0 0 rgba(255, 255, 255, 0.8);
+}
+.v-theme--dark .stat-card:hover {
+  box-shadow: 8px 8px 0 0 rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+.v-theme--dark .stat-card:active {
+  box-shadow: 2px 2px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+.stat-card-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid rgb(var(--v-theme-on-surface));
+  background: rgba(var(--v-theme-primary), 0.15);
+  transition: transform 0.1s ease;
+}
+
+.v-theme--dark .stat-card-icon {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-card:hover .stat-card-icon {
+  transform: scale(1.05);
+}
+
+.stat-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
