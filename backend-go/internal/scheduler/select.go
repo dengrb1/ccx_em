@@ -58,6 +58,12 @@ func (s *ChannelScheduler) SelectChannelWithOptions(ctx context.Context, opts Se
 	defer s.mu.RUnlock()
 
 	userID := opts.UserID
+	// subagent 使用隔离的亲和 key，避免被主对话亲和拉到贵渠道；
+	// 这样 subagent 首次请求走 priority 排序选便宜渠道，后续命中自己的亲和复用缓存。
+	affinityUserID := userID
+	if opts.AgentRole == "subagent" {
+		affinityUserID = userID + ":subagent"
+	}
 	failedChannels := opts.FailedChannels
 	if failedChannels == nil {
 		failedChannels = map[int]bool{}
@@ -154,7 +160,7 @@ func (s *ChannelScheduler) SelectChannelWithOptions(ctx context.Context, opts Se
 
 	// 0. 检查手动序列覆盖
 	if userID != "" && s.overrideManager != nil {
-		if sequence, ok := s.overrideManager.GetOverrideForUser(string(kind), userID); ok {
+		if sequence, ok := s.overrideManager.GetOverrideForUserWithRole(string(kind), userID, opts.AgentRole); ok {
 			prefix := kindSchedulerLogPrefix(kind)
 			orderedChannels := applyManualOverrideOrder(activeChannels, sequence)
 			for _, ch := range orderedChannels {
@@ -197,7 +203,7 @@ func (s *ChannelScheduler) SelectChannelWithOptions(ctx context.Context, opts Se
 
 	// 1. 检查 Trace 亲和性（促销渠道失败时或无促销渠道时）
 	if userID != "" {
-		compositeKey := traceAffinityKey(kind, userID, opts.ContextRequirement)
+		compositeKey := traceAffinityKey(kind, affinityUserID, opts.ContextRequirement)
 		if preferredIdx, ok := s.traceAffinity.GetPreferredChannel(compositeKey); ok {
 			bestPriority := s.findBestAvailableChannelPriority(activeChannels, failedChannels, kind, model)
 			for _, ch := range activeChannels {

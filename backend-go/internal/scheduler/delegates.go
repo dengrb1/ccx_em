@@ -56,9 +56,9 @@ func (s *ChannelScheduler) UpdateTraceAffinity(userID string, kind ChannelKind) 
 }
 
 // TrackConversation 追踪对话（请求成功后调用）
-func (s *ChannelScheduler) TrackConversation(kind ChannelKind, userID, model string, channelIndex int, channelName, sessionID, lastUserMessage string, userMessageCount int) {
+func (s *ChannelScheduler) TrackConversation(kind ChannelKind, userID, model string, channelIndex int, channelName, sessionID, lastUserMessage string, userMessageCount int, agentRole string) {
 	if s.conversationTracker != nil && userID != "" {
-		s.conversationTracker.Track(string(kind), userID, model, channelIndex, channelName, sessionID, lastUserMessage, userMessageCount)
+		s.conversationTracker.Track(string(kind), userID, model, channelIndex, channelName, sessionID, lastUserMessage, userMessageCount, agentRole)
 	}
 }
 

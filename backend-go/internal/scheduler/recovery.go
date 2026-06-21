@@ -54,6 +54,7 @@ type SelectionOptions struct {
 	ChannelName        string
 	ContextRequirement *ContextRequirement
 	HasImageContent    bool
+	AgentRole          string // "main" | "subagent" — 角色感知 override 查找与亲和隔离
 }
 
 func (s *ChannelScheduler) selectionResult(kind ChannelKind, upstream *config.UpstreamConfig, channelIndex int, reason string) *SelectionResult {
