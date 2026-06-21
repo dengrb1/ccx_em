@@ -11,8 +11,7 @@ import { useDesktopActivity } from '@/composables/useDesktopActivity'
 import { useLanguage } from '@/composables/useLanguage'
 import { useStatus } from '@/composables/useStatus'
 import ConversationCard from './ConversationCard.vue'
-import ChannelEditDialog from './ChannelEditDialog.vue'
-import type { Channel, ChannelSequenceEntry, ConversationInfo } from '@/services/admin-api'
+import type { ChannelSequenceEntry } from '@/services/admin-api'
 import { getChannelTypeApi, type ManagedChannelType } from '@/utils/channel-type-api'
 
 const api = useAdminApi()
@@ -40,9 +39,6 @@ const masonryColumnCount = ref(1)
 const masonryHeight = ref(0)
 const masonryItemRects = ref<Record<string, { x: number; y: number; width: number }>>({})
 const notice = ref<{ variant: 'success' | 'destructive'; message: string } | null>(null)
-const showChannelEditor = ref(false)
-const editingChannel = ref<Channel | null>(null)
-const editingChannelType = ref<ManagedChannelType>('messages')
 
 const MASONRY_MIN_COLUMN_WIDTH = 320
 const MASONRY_GAP = 16
@@ -168,6 +164,17 @@ function toggleExpand(id: string) {
 
 async function handleSetOverride(conversationId: string, sequence: ChannelSequenceEntry[]) {
   try {
+    const conversation = conversations.value.find(item => item.id === conversationId)
+    const target = sequence[0]
+    if (conversation && target) {
+      const channelType = conversation.kind as ManagedChannelType
+      const channel = channelsByKind.value[channelType]?.find(item => item.index === target.channelIndex)
+      if (channel?.status === 'suspended' || channel?.circuitOpen) {
+        const typeApi = getChannelTypeApi(channelType)
+        await typeApi.resume(target.channelIndex)
+        await typeApi.setStatus(target.channelIndex, 'active')
+      }
+    }
     await setOverride(conversationId, sequence, overrideDurationAsNumber())
   } catch (e) {
     showNotice('destructive', e instanceof Error ? e.message : String(e))
@@ -188,34 +195,6 @@ function handleSuccess(message: string) {
 
 function handleError(message: string) {
   showNotice('destructive', message)
-}
-
-async function handleEditChannel(conversation: ConversationInfo, channelIndex: number) {
-  const channelType = conversation.kind as ManagedChannelType
-  editingChannelType.value = channelType
-
-  try {
-    const data = await getChannelTypeApi(channelType).getChannels()
-    const channel = data.channels?.find((item: Channel) => item.index === channelIndex)
-    if (!channel) {
-      showNotice('destructive', t('channelEditor.error.channelNotFound'))
-      return
-    }
-    editingChannel.value = channel
-    showChannelEditor.value = true
-  } catch (e) {
-    showNotice('destructive', e instanceof Error ? e.message : String(e))
-  }
-}
-
-function closeChannelEditor() {
-  showChannelEditor.value = false
-  editingChannel.value = null
-}
-
-async function handleChannelSaved() {
-  closeChannelEditor()
-  await fetchConversations()
 }
 
 function updateMasonryColumnCount(width = masonryEl.value?.clientWidth || 0) {
@@ -464,7 +443,6 @@ watch(overrideDuration, async (newDuration) => {
             :expanded="expandedCards.has(conversation.id)"
             :now-ms="nowMs"
             @toggle-expand="toggleExpand(conversation.id)"
-            @edit-channel="handleEditChannel(conversation, $event)"
             @set-override="handleSetOverride"
             @remove-override="handleRemoveOverride"
             @success="handleSuccess"
@@ -473,14 +451,6 @@ watch(overrideDuration, async (newDuration) => {
         </div>
       </div>
     </template>
-    <ChannelEditDialog
-      v-if="showChannelEditor"
-      :key="`${editingChannelType}-${editingChannel?.index ?? 'new'}`"
-      :channel="editingChannel"
-      :channel-type="editingChannelType"
-      @close="closeChannelEditor"
-      @saved="handleChannelSaved"
-    />
   </div>
 </template>
 

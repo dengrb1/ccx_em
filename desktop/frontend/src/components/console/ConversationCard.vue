@@ -28,7 +28,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   toggleExpand: []
-  editChannel: [channelIndex: number]
   setOverride: [conversationId: string, sequence: ChannelSequenceEntry[]]
   removeOverride: [conversationId: string]
   success: [message: string]
@@ -208,8 +207,9 @@ function buildSequence(channels: ChannelInfo[]): ChannelSequenceEntry[] {
 }
 
 function getChannelTooltip(channel: ChannelInfo): string {
-  if (channel.index === props.conversation.currentChannel && !hasOverride.value) return 'Click to edit channel'
+  if (channel.index === props.conversation.currentChannel && !hasOverride.value) return 'Current channel'
   if (channel.index === nextChannel.value) return 'Next override target'
+  if (channel.status === 'suspended' || channel.circuitOpen) return 'Click to resume and set as next'
   return 'Click to set as next'
 }
 
@@ -231,17 +231,18 @@ function sequenceBadgeClass(channel: ChannelInfo): string {
   return 'border border-border bg-muted/30 text-muted-foreground'
 }
 
-function fusedBadgeClass(channel: ChannelInfo): string {
-  return channel.status === 'suspended' ? 'fused-chip text-white' : 'bg-red-500 text-white'
-}
-
 function handleQuickOverride(channel: ChannelInfo) {
-  if (!hasOverride.value && channel.index === props.conversation.currentChannel) {
-    emit('editChannel', channel.index)
-    return
-  }
+  if (!hasOverride.value && channel.index === props.conversation.currentChannel && channel.status !== 'suspended' && !channel.circuitOpen) return
   const rest = channelSequence.value.filter(item => item.index !== channel.index)
   emit('setOverride', props.conversation.id, buildSequence([channel, ...rest]))
+}
+
+function handleMoveToTop(channel: ChannelInfo, currentIndex: number) {
+  if (currentIndex === 0 && channel.status !== 'suspended' && !channel.circuitOpen) return
+  const current = [...channelSequence.value]
+  const [item] = current.splice(currentIndex, 1)
+  current.unshift(item)
+  emit('setOverride', props.conversation.id, buildSequence(current))
 }
 
 function handleDemote(index: number) {
@@ -349,7 +350,7 @@ async function copyRawUserId() {
           <button
             type="button"
             class="channel-name min-w-0 flex-1 truncate text-left text-xs"
-            @click.stop="emit('editChannel', channel.index)"
+            @click.stop="handleMoveToTop(channel, index)"
           >
             {{ channel.name }}
           </button>
@@ -368,9 +369,14 @@ async function copyRawUserId() {
             {{ nextChannelCircuitOpen ? 'FUSED' : 'NEXT' }}
           </span>
           <span
-            v-if="channel.status === 'suspended' || channel.circuitOpen"
-            class="sequence-badge"
-            :class="fusedBadgeClass(channel)"
+            v-if="channel.status === 'suspended'"
+            class="sequence-badge fused-chip text-white"
+          >
+            PAUSED
+          </span>
+          <span
+            v-if="channel.circuitOpen"
+            class="sequence-badge bg-red-500 text-white"
           >
             FUSED
           </span>
