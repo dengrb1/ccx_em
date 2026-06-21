@@ -479,6 +479,13 @@ export interface ChannelLogEntry {
   connectedAt?: string
   firstByteAt?: string
   completedAt?: string
+
+  // 代理上下文观测（subagent 识别）
+  agentRole?: string         // main | subagent
+  agentType?: string         // codex_subagent | claude_code_subagent
+  parentThreadId?: string    // Codex parent thread id
+  agentConfidence?: string   // exact | heuristic
+  sessionId?: string         // 扁平化会话标识
 }
 
 export interface ChannelLogsResponse {
@@ -577,6 +584,7 @@ export interface ConversationChannelInfo {
 
 export interface SequenceOverrideInfo {
   sequence: ChannelSequenceEntry[]
+  subagentSequence?: ChannelSequenceEntry[]  // subagent 专用序列（为空时 fallback 到 sequence）
   setAt: string
   expiresAt: string
   isPerpetual?: boolean
@@ -597,6 +605,12 @@ export interface ConversationInfo {
   lastRequestId: string
   createdAt: string
   lastActiveAt: string
+
+  // subagent 观测（仅展示）
+  hasSubagents?: boolean
+  subagentCount?: number
+  mainChannel?: number
+  subagentChannel?: number
 }
 
 export interface ConversationsResponse {

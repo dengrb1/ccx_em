@@ -162,7 +162,7 @@ function toggleExpand(id: string) {
   expandedCards.value = next
 }
 
-async function handleSetOverride(conversationId: string, sequence: ChannelSequenceEntry[]) {
+async function handleSetOverride(conversationId: string, sequence: ChannelSequenceEntry[], subagentSequence?: ChannelSequenceEntry[]) {
   try {
     const conversation = conversations.value.find(item => item.id === conversationId)
     const target = sequence[0]
@@ -181,7 +181,7 @@ async function handleSetOverride(conversationId: string, sequence: ChannelSequen
         await typeApi.setStatus(target.channelIndex, 'active')
       }
     }
-    await setOverride(conversationId, sequence, overrideDurationAsNumber())
+    await setOverride(conversationId, sequence, overrideDurationAsNumber(), subagentSequence)
   } catch (e) {
     showNotice('destructive', e instanceof Error ? e.message : String(e))
   }
