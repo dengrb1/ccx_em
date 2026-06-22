@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -74,6 +74,37 @@ const hasNoVisionRows = computed(() => props.modelMappingRows.some(row => row.no
 const isSupportedModelSelected = (filter: string) => props.selectedSupportedModelSet.has(filter)
 const stableInputFocusClass = 'focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/60 focus-visible:shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.2)]'
 const isSameModel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+const sourceDropdownRef = ref<HTMLDivElement | null>(null)
+const targetDropdownRef = ref<HTMLDivElement | null>(null)
+
+// 当源模型下拉列表打开时，自动滚动到选中项
+watch(() => props.showSourceSuggestions && props.activeSourceInputId === 'new-source', (isOpen) => {
+  if (isOpen && props.newModelMapping.source) {
+    nextTick(() => {
+      const container = sourceDropdownRef.value
+      if (!container) return
+      const selectedButton = container.querySelector('[data-selected="true"]') as HTMLElement
+      if (selectedButton) {
+        selectedButton.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    })
+  }
+})
+
+// 当目标模型下拉列表打开时，自动滚动到选中项
+watch(() => props.showTargetSuggestions && props.activeTargetInputId, (inputId) => {
+  if (inputId && props.newModelMapping.target) {
+    nextTick(() => {
+      const container = targetDropdownRef.value
+      if (!container) return
+      const selectedButton = container.querySelector('[data-selected="true"]') as HTMLElement
+      if (selectedButton) {
+        selectedButton.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    })
+  }
+})
 
 function toSelectValue(effort: ReasoningEffort | ''): string {
   return effort === '' ? props.DEFAULT_SELECT_VALUE : effort
@@ -347,12 +378,14 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
           />
           <div
             v-if="showSourceSuggestions && activeSourceInputId === 'new-source' && filteredSourceModels.length"
+            ref="sourceDropdownRef"
             class="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
           >
             <button
               v-for="model in filteredSourceModels"
               :key="model"
               type="button"
+              :data-selected="isSameModel(model, newModelMapping.source)"
               class="flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
               :class="isSameModel(model, newModelMapping.source) ? 'bg-primary/10 text-primary' : ''"
               @mousedown.prevent="emit('selectSourceModel', 'new-source', model)"
@@ -380,12 +413,14 @@ function fromSelectValue(value: string): ReasoningEffort | '' {
           />
           <div
             v-if="showTargetSuggestions && activeTargetInputId === 'new' && filteredTargetModels.length"
+            ref="targetDropdownRef"
             class="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
           >
             <button
               v-for="model in filteredTargetModels"
               :key="model"
               type="button"
+              :data-selected="isSameModel(model, newModelMapping.target)"
               class="flex w-full items-center rounded-md px-2 py-1.5 text-left font-mono text-xs text-popover-foreground hover:bg-accent hover:text-accent-foreground"
               :class="isSameModel(model, newModelMapping.target) ? 'bg-primary/10 text-primary' : ''"
               @mousedown.prevent="emit('selectTargetModel', 'new', model)"
