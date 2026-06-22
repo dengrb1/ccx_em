@@ -35,6 +35,7 @@ type ResponsesItem struct {
 	Type      string      `json:"type"`           // message, text, function_call, function_call_output（tool_call/tool_result 仅兼容 legacy Claude 输入）
 	Role      string      `json:"role,omitempty"` // user, assistant (用于 type=message)
 	Status    string      `json:"status,omitempty"`
+	Execution string      `json:"execution,omitempty"`
 	Content   interface{} `json:"content,omitempty"` // string 或 []ContentBlock
 	Summary   interface{} `json:"summary,omitempty"`
 	ToolUse   *ToolUse    `json:"tool_use,omitempty"`

@@ -64,6 +64,14 @@ func (st *chatToResponsesState) isCustomProxy(idx int) bool {
 	return st.CodexCtx.IsCustomToolProxy(name)
 }
 
+func (st *chatToResponsesState) isToolSearchProxy(idx int) bool {
+	name := st.FuncNames[idx]
+	if name == "" || !st.CodexCtxInitialized {
+		return false
+	}
+	return st.CodexCtx.IsToolSearchProxy(name)
+}
+
 func (st *chatToResponsesState) addToolCallItemIfNeeded(idx int, nextSeq func() int) []string {
 	if st.FuncItemAdded[idx] || st.FuncCallIDs[idx] == "" || st.FuncNames[idx] == "" {
 		return nil
@@ -74,7 +82,11 @@ func (st *chatToResponsesState) addToolCallItemIfNeeded(idx int, nextSeq func() 
 	outputIndex := st.customToolOutputIndex(idx)
 
 	var item string
-	if st.isCustomProxy(idx) {
+	if st.isToolSearchProxy(idx) {
+		itemID := fmt.Sprintf("ts_%s", callID)
+		item = `{"type":"response.output_item.added","sequence_number":0,"output_index":0,"item":{"id":"","type":"tool_search_call","status":"in_progress","execution":"client","call_id":"","arguments":{}}}`
+		item, _ = sjson.Set(item, "item.id", itemID)
+	} else if st.isCustomProxy(idx) {
 		itemID := fmt.Sprintf("ctc_%s", callID)
 		originalName := st.CodexCtx.OriginalCustomToolName(name)
 		item = `{"type":"response.output_item.added","sequence_number":0,"output_index":0,"item":{"id":"","type":"custom_tool_call","status":"in_progress","call_id":"","name":"","input":""}}`
@@ -645,6 +657,19 @@ func (st *chatToResponsesState) closeFuncBlocks(nextSeq func() int) []string {
 		// 计算 output_index
 		outputIndex := st.customToolOutputIndex(idx)
 
+		if st.isToolSearchProxy(idx) {
+			itemID := fmt.Sprintf("ts_%s", callID)
+
+			itemDone := `{"type":"response.output_item.done","sequence_number":0,"output_index":0,"item":{"id":"","type":"tool_search_call","status":"completed","execution":"client","call_id":"","arguments":{}}}`
+			itemDone, _ = sjson.Set(itemDone, "sequence_number", nextSeq())
+			itemDone, _ = sjson.Set(itemDone, "output_index", outputIndex)
+			itemDone, _ = sjson.Set(itemDone, "item.id", itemID)
+			itemDone, _ = sjson.Set(itemDone, "item.call_id", callID)
+			itemDone, _ = sjson.SetRaw(itemDone, "item.arguments", toolSearchArgumentsRaw(args))
+			out = append(out, emitResponsesEvent("response.output_item.done", itemDone))
+			continue
+		}
+
 		if st.isCustomProxy(idx) {
 			customInput := ReconstructCustomToolCallInput(st.CodexCtx, name, args)
 			originalName := st.CodexCtx.OriginalCustomToolName(name)
@@ -824,6 +849,18 @@ func (st *chatToResponsesState) generateCompletedEvents(originalRequestRawJSON [
 			}
 			callID := st.FuncCallIDs[idx]
 			name := st.FuncNames[idx]
+			if st.isToolSearchProxy(idx) {
+				item := map[string]interface{}{
+					"id":        fmt.Sprintf("ts_%s", callID),
+					"type":      "tool_search_call",
+					"status":    "completed",
+					"execution": "client",
+					"call_id":   callID,
+					"arguments": toolSearchArgumentsValue(args),
+				}
+				outputs = append(outputs, item)
+				continue
+			}
 			if st.isCustomProxy(idx) {
 				customInput := ReconstructCustomToolCallInput(st.CodexCtx, name, args)
 				originalName := st.CodexCtx.OriginalCustomToolName(name)
@@ -1071,6 +1108,19 @@ func ConvertOpenAIChatToResponsesNonStream(_ context.Context, _ string, original
 				funcArgs := tc.Get("function.arguments").String()
 				if funcArgs == "" {
 					funcArgs = "{}"
+				}
+
+				if codexCtx.IsToolSearchProxy(funcName) {
+					item := map[string]interface{}{
+						"id":        fmt.Sprintf("ts_%s", callID),
+						"type":      "tool_search_call",
+						"status":    "completed",
+						"execution": "client",
+						"call_id":   callID,
+						"arguments": toolSearchArgumentsValue(funcArgs),
+					}
+					outputs = append(outputs, item)
+					continue
 				}
 
 				if codexCtx.IsCustomToolProxy(funcName) {

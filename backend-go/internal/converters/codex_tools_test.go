@@ -82,6 +82,47 @@ func TestRemapCustomToolCallsInResponseSkipsWhenHasCustomToolsFalse(t *testing.T
 	}
 }
 
+func TestRemapCustomToolCallsInResponseToolSearchCall(t *testing.T) {
+	ctx := BuildCodexToolContextFromRaw([]interface{}{
+		map[string]interface{}{
+			"type": "tool_search",
+			"parameters": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	})
+	resp := &types.ResponsesResponse{
+		Output: []types.ResponsesItem{{
+			Type:      "function_call",
+			CallID:    "call_search",
+			Name:      "tool_search",
+			Arguments: `{"query":"sub-agent"}`,
+		}},
+	}
+
+	ctx.RemapCustomToolCallsInResponse(resp)
+
+	if len(resp.Output) != 1 {
+		t.Fatalf("output len = %d", len(resp.Output))
+	}
+	item := resp.Output[0]
+	if item.Type != "tool_search_call" {
+		t.Fatalf("item type = %s, want tool_search_call", item.Type)
+	}
+	if item.Name != "" || item.Input != "" {
+		t.Fatalf("tool_search_call should not use custom tool fields: %#v", item)
+	}
+	if item.Execution != "client" {
+		t.Fatalf("execution = %q", item.Execution)
+	}
+	if item.Arguments != `{"query":"sub-agent"}` {
+		t.Fatalf("arguments = %q", item.Arguments)
+	}
+}
+
 // ========== Namespace tool tests ==========
 
 func TestBuildCodexToolContext_NamespaceTool(t *testing.T) {
@@ -741,7 +782,7 @@ func TestBuildCodexToolContext_ToolSearch(t *testing.T) {
 	ctx := BuildCodexToolContextFromRaw(tools)
 
 	if !ctx.HasCustomTools {
-		t.Fatal("tool_search should be remapped back as a custom tool for Codex clients")
+		t.Fatal("tool_search should be tracked as a built-in proxy for Chat upstreams")
 	}
 	if !ctx.HasBuiltinFunctionTools {
 		t.Fatal("HasBuiltinFunctionTools should be true when tool_search is present")
@@ -755,6 +796,20 @@ func TestBuildCodexToolContext_ToolSearch(t *testing.T) {
 	}
 	if spec.Kind != CodexCustomToolBuiltIn {
 		t.Fatalf("Kind = %q, want %q", spec.Kind, CodexCustomToolBuiltIn)
+	}
+	if !ctx.IsToolSearchProxy("tool_search") {
+		t.Fatal("tool_search should be recognized as a native Responses tool_search proxy")
+	}
+}
+
+func TestBuildCodexToolContext_StringToolSearch(t *testing.T) {
+	ctx := BuildCodexToolContextFromRaw([]interface{}{"tool_search"})
+
+	if !ctx.HasBuiltinFunctionTools {
+		t.Fatal("string tool_search should be tracked as a built-in function proxy")
+	}
+	if !ctx.IsToolSearchProxy("tool_search") {
+		t.Fatal("string tool_search should be recognized as a native Responses tool_search proxy")
 	}
 }
 

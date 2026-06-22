@@ -58,12 +58,17 @@ func BuildCodexToolContextFromRaw(tools []interface{}) CodexToolContext {
 
 	for _, rawTool := range tools {
 		if name, ok := rawTool.(string); ok && name != "" {
-			if action := proxyActionFromUpstreamName(name); strings.HasPrefix(name, "apply_patch_") && action != "" {
+			if name == "tool_search" {
+				ctx.CustomTools[name] = CodexCustomToolSpec{OpenAIName: name, Kind: CodexCustomToolBuiltIn}
+				ctx.HasCustomTools = true
+				ctx.HasBuiltinFunctionTools = true
+			} else if action := proxyActionFromUpstreamName(name); strings.HasPrefix(name, "apply_patch_") && action != "" {
 				ctx.CustomTools[name] = CodexCustomToolSpec{OpenAIName: "apply_patch", Kind: CodexCustomToolApplyPatch, ProxyAction: action}
+				ctx.HasCustomTools = true
 			} else {
 				ctx.CustomTools[name] = CodexCustomToolSpec{OpenAIName: name, Kind: CodexCustomToolRaw}
+				ctx.HasCustomTools = true
 			}
-			ctx.HasCustomTools = true
 			continue
 		}
 		tool, ok := rawTool.(map[string]interface{})
@@ -207,6 +212,11 @@ func detectCodexCustomToolKind(tool map[string]interface{}) (CodexCustomToolKind
 func (ctx *CodexToolContext) IsCustomToolProxy(upstreamName string) bool {
 	_, ok := ctx.CustomTools[upstreamName]
 	return ok
+}
+
+func (ctx *CodexToolContext) IsToolSearchProxy(upstreamName string) bool {
+	spec, ok := ctx.CustomTools[upstreamName]
+	return ok && spec.OpenAIName == "tool_search" && spec.Kind == CodexCustomToolBuiltIn
 }
 
 func (ctx *CodexToolContext) OriginalCustomToolName(upstreamName string) string {
@@ -1172,6 +1182,16 @@ func (ctx *CodexToolContext) RemapCustomToolCallsInResponse(resp *types.Response
 		}
 		customInput := ReconstructCustomToolCallInput(*ctx, item.Name, item.Arguments)
 		if customInput != "" {
+			if ctx.IsToolSearchProxy(item.Name) {
+				resp.Output[i] = types.ResponsesItem{
+					Type:      "tool_search_call",
+					CallID:    item.CallID,
+					Status:    "completed",
+					Execution: "client",
+					Arguments: toolSearchArgumentsRaw(customInput),
+				}
+				continue
+			}
 			resp.Output[i] = types.ResponsesItem{
 				Type:   "custom_tool_call",
 				CallID: item.CallID,
@@ -1235,6 +1255,27 @@ func normalizeToolSearchInput(input string) string {
 		return input
 	}
 	return inner
+}
+
+func toolSearchArgumentsValue(input string) interface{} {
+	normalized := normalizeToolSearchInput(input)
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(normalized), &parsed); err == nil {
+		return parsed
+	}
+	normalized = strings.TrimSpace(normalized)
+	if normalized == "" {
+		return map[string]interface{}{}
+	}
+	return map[string]interface{}{"query": normalized}
+}
+
+func toolSearchArgumentsRaw(input string) string {
+	raw, err := json.Marshal(toolSearchArgumentsValue(input))
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
 }
 
 // replayCustomToolCall converts a custom_tool_call input for history replay without CodexToolContext.

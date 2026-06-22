@@ -189,6 +189,58 @@ func TestConvertOpenAIChatToResponsesNonStream_CustomToolCall(t *testing.T) {
 	}
 }
 
+func TestConvertOpenAIChatToResponsesNonStream_ToolSearchCall(t *testing.T) {
+	ctx := context.Background()
+	chatResponse := `{
+		"id": "chatcmpl-tool-search",
+		"object": "chat.completion",
+		"created": 1234567890,
+		"model": "gpt-4o",
+		"choices": [{
+			"index": 0,
+			"message": {
+				"role": "assistant",
+				"content": null,
+				"tool_calls": [{
+					"id": "call_search",
+					"type": "function",
+					"function": {
+						"name": "tool_search",
+						"arguments": "{\"query\":\"sub-agent\"}"
+					}
+				}]
+			},
+			"finish_reason": "tool_calls"
+		}]
+	}`
+	originalReq := []byte(`{"model":"gpt-4o","input":"find tools","tools":[{"type":"tool_search","execution":"client","parameters":{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}}],"transformer_metadata":{"codex_tool_compat_enabled":true}}`)
+
+	result := ConvertOpenAIChatToResponsesNonStream(ctx, "gpt-4o", originalReq, nil, []byte(chatResponse), nil)
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &resp); err != nil {
+		t.Fatal(err)
+	}
+	output := resp["output"].([]interface{})
+	item := output[0].(map[string]interface{})
+	if item["type"] != "tool_search_call" {
+		t.Fatalf("item type = %v, result = %s", item["type"], result)
+	}
+	if _, ok := item["name"]; ok {
+		t.Fatalf("tool_search_call should not carry custom tool name: %#v", item)
+	}
+	if item["execution"] != "client" {
+		t.Fatalf("execution = %v", item["execution"])
+	}
+	args, ok := item["arguments"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("arguments should be object: %#v", item["arguments"])
+	}
+	if args["query"] != "sub-agent" {
+		t.Fatalf("arguments = %#v", args)
+	}
+}
+
 func TestConvertOpenAIChatToResponsesNonStream_ClaudeCacheTTLTotalFallback(t *testing.T) {
 	ctx := context.Background()
 	chatResponse := `{

@@ -58,6 +58,7 @@ func (c *ResponsesPassthroughConverter) FromProviderResponse(resp map[string]int
 					Type:             itemType,
 					Role:             role,
 					Status:           stringFromInterface(itemMap["status"]),
+					Execution:        stringFromInterface(itemMap["execution"]),
 					Content:          content,
 					Summary:          itemMap["summary"],
 					CallID:           stringFromInterface(itemMap["call_id"]),
