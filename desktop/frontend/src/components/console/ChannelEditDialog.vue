@@ -1342,7 +1342,7 @@ watch(() => props.channel?.index, () => {
 })
 
 // ── Source 模型预置列表（对齐 WebUI allSourceModelOptions） ──
-const sourceModelOptions = computed(() => {
+const sourceModelPresetOptions = computed(() => {
   if (props.channelType === 'chat') {
     return ['codex', 'gpt', 'mini', 'gpt-5', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini']
   }
@@ -1357,6 +1357,12 @@ const sourceModelOptions = computed(() => {
   }
   // messages (Claude)
   return ['fable', 'opus', 'sonnet', 'haiku']
+})
+
+// 可选源模型：过滤掉已配置重定向的源模型，保持与 Web 端一致。
+const sourceModelOptions = computed(() => {
+  const configuredSources = new Set(modelMappingRows.value.map(row => row.source))
+  return sourceModelPresetOptions.value.filter(model => !configuredSources.has(model))
 })
 
 const targetModelDatalist = computed(() => {
@@ -1385,7 +1391,7 @@ const supportedModelsError = computed(() => (
 ))
 const selectedSupportedModelSet = computed(() => new Set(normalizedSupportedModelState.value.validPatterns))
 
-const isPresetSourceModel = (value: string): boolean => sourceModelOptions.value.includes(value)
+const isPresetSourceModel = (value: string): boolean => sourceModelPresetOptions.value.includes(value)
 
 const validateSourceModelName = (value: string): string => {
   const source = value.trim()
