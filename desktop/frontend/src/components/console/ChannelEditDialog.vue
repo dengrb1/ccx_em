@@ -172,10 +172,19 @@ function getFilteredTargetModels(filter: string): string[] {
   if (!value) return models.slice(0, 20)
 
   const lower = value.toLowerCase()
-  const exactIndex = models.findIndex(m => m.toLowerCase() === lower)
-  if (exactIndex >= 0 && models[exactIndex] !== value) return []
 
+  // 查找完全匹配的项
+  const exactIndex = models.findIndex(m => m.toLowerCase() === lower)
+
+  // 如果找到完全匹配项，返回以该项为中心的窗口
+  if (exactIndex >= 0) {
+    return getTargetModelWindow(exactIndex)
+  }
+
+  // 否则过滤包含该值的项
   const filtered = models.filter(m => m.toLowerCase().includes(lower))
+
+  // 如果只有一个匹配项，返回以该项为中心的窗口
   if (filtered.length === 1) {
     const index = models.findIndex(m => m === filtered[0])
     if (index >= 0) return getTargetModelWindow(index)
