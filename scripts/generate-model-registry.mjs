@@ -83,7 +83,23 @@ function formatGoPricing(pricing) {
   if (pricing.inputCacheHitPrice !== undefined) fields.push(`InputCacheHitPrice: ${formatGoFloatPointer(pricing.inputCacheHitPrice)}`)
   if (pricing.inputCacheMissPrice !== undefined) fields.push(`InputCacheMissPrice: ${formatGoFloatPointer(pricing.inputCacheMissPrice)}`)
   if (pricing.outputPrice !== undefined) fields.push(`OutputPrice: ${formatGoFloatPointer(pricing.outputPrice)}`)
+  if (pricing.tiers?.length) fields.push(`Tiers: ${formatGoPricingTiers(pricing.tiers)}`)
   return `&ModelPricing{${fields.join(', ')}}`
+}
+
+function formatGoPricingTiers(tiers) {
+  return `[]ModelPricingTier{${tiers.map(formatGoPricingTier).join(', ')}}`
+}
+
+function formatGoPricingTier(tier) {
+  const fields = []
+  if (tier.label) fields.push(`Label: ${quoteGoString(tier.label)}`)
+  if (tier.inputTokensAbove) fields.push(`InputTokensAbove: ${Number(tier.inputTokensAbove)}`)
+  if (tier.inputTokensUpTo) fields.push(`InputTokensUpTo: ${Number(tier.inputTokensUpTo)}`)
+  if (tier.inputCacheHitPrice !== undefined) fields.push(`InputCacheHitPrice: ${formatGoFloatPointer(tier.inputCacheHitPrice)}`)
+  if (tier.inputCacheMissPrice !== undefined) fields.push(`InputCacheMissPrice: ${formatGoFloatPointer(tier.inputCacheMissPrice)}`)
+  if (tier.outputPrice !== undefined) fields.push(`OutputPrice: ${formatGoFloatPointer(tier.outputPrice)}`)
+  return `ModelPricingTier{${fields.join(', ')}}`
 }
 
 function formatGoCapability(capability) {

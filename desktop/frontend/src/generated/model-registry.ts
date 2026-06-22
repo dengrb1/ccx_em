@@ -273,6 +273,84 @@ export const builtinUpstreamModelCapabilities: Record<string, UpstreamModelCapab
       "https://docs.z.ai/guides/overview/pricing"
     ]
   },
+  "(?:^|[-/])qwen3\\.7-max(?:-\\d{4}-\\d{2}-\\d{2}|-\\d{6,8})?(?=$|@)": {
+    "provider": "dashscope",
+    "displayName": "Qwen3.7 Max",
+    "description": "Qwen3.7 Max text model. The model detail page states this release is functionally equivalent to snapshot qwen3.7-max-2026-05-20.",
+    "contextWindowTokens": 991808,
+    "maxOutputTokens": 65536,
+    "thinkingMode": "thinking",
+    "reasoningEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "capabilities": {
+      "toolCalls": true,
+      "jsonOutput": true,
+      "webSearch": true,
+      "contextCaching": true
+    },
+    "pricing": {
+      "unit": "per_1m_tokens_cny",
+      "currency": "CNY",
+      "inputCacheHitPrice": 2.4,
+      "inputCacheMissPrice": 12,
+      "outputPrice": 36
+    },
+    "sources": [
+      "https://bailian.console.aliyun.com/cn-beijing?tab=model#/model-market/detail/qwen3.7-max?serviceSite=asia-pacific-china"
+    ]
+  },
+  "(?:^|[-/])qwen3\\.7-plus(?:-\\d{4}-\\d{2}-\\d{2}|-\\d{6,8})?(?=$|@)": {
+    "provider": "dashscope",
+    "displayName": "Qwen3.7 Plus",
+    "description": "Qwen3.7 Plus multimodal model. The model detail page states this release is functionally equivalent to snapshot qwen3.7-plus-2026-05-26. Pricing is tiered by input length; top-level prices mirror the <=256K tier for compatibility.",
+    "contextWindowTokens": 991808,
+    "maxOutputTokens": 65536,
+    "thinkingMode": "thinking",
+    "reasoningEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "capabilities": {
+      "vision": true,
+      "toolCalls": true,
+      "jsonOutput": true,
+      "webSearch": true,
+      "contextCaching": true
+    },
+    "pricing": {
+      "unit": "per_1m_tokens_cny",
+      "currency": "CNY",
+      "inputCacheHitPrice": 0.4,
+      "inputCacheMissPrice": 2,
+      "outputPrice": 8,
+      "tiers": [
+        {
+          "label": "input <= 256K",
+          "inputTokensUpTo": 262144,
+          "inputCacheHitPrice": 0.4,
+          "inputCacheMissPrice": 2,
+          "outputPrice": 8
+        },
+        {
+          "label": "256K < input <= 1M",
+          "inputTokensAbove": 262144,
+          "inputTokensUpTo": 1048576,
+          "inputCacheHitPrice": 1.2,
+          "inputCacheMissPrice": 6,
+          "outputPrice": 24
+        }
+      ]
+    },
+    "sources": [
+      "https://bailian.console.aliyun.com/cn-beijing?tab=model#/model-market/detail/qwen3.7-plus?serviceSite=asia-pacific-china"
+    ]
+  },
   "(?:^|[-/])qwen3\\.5(?:-\\d{4}-\\d{2}-\\d{2}|-\\d{6,8})?(?=$|@)": {
     "provider": "dashscope",
     "displayName": "Qwen3.5",

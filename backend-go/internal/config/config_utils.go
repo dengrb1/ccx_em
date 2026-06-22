@@ -402,6 +402,23 @@ func cloneUpstreamModelCapability(capability UpstreamModelCapability) UpstreamMo
 			value := *capability.Pricing.OutputPrice
 			pricing.OutputPrice = &value
 		}
+		if capability.Pricing.Tiers != nil {
+			pricing.Tiers = append([]ModelPricingTier(nil), capability.Pricing.Tiers...)
+			for i := range pricing.Tiers {
+				if pricing.Tiers[i].InputCacheHitPrice != nil {
+					value := *pricing.Tiers[i].InputCacheHitPrice
+					pricing.Tiers[i].InputCacheHitPrice = &value
+				}
+				if pricing.Tiers[i].InputCacheMissPrice != nil {
+					value := *pricing.Tiers[i].InputCacheMissPrice
+					pricing.Tiers[i].InputCacheMissPrice = &value
+				}
+				if pricing.Tiers[i].OutputPrice != nil {
+					value := *pricing.Tiers[i].OutputPrice
+					pricing.Tiers[i].OutputPrice = &value
+				}
+			}
+		}
 		capability.Pricing = &pricing
 	}
 	if capability.Sources != nil {

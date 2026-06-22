@@ -15,6 +15,7 @@ export interface ModelCapabilityRow {
   inputCacheHitPrice: string | number | null
   inputCacheMissPrice: string | number | null
   outputPrice: string | number | null
+  pricingTiers?: NonNullable<UpstreamModelCapability['pricing']>['tiers']
   defaultOutputTokens?: number
   recommendedOutputTokens?: number
   displayName?: string
@@ -95,7 +96,8 @@ function hasPricingValue(row: ModelCapabilityRow): boolean {
   return !!(
     String(row.inputCacheHitPrice ?? '').trim() ||
     String(row.inputCacheMissPrice ?? '').trim() ||
-    String(row.outputPrice ?? '').trim()
+    String(row.outputPrice ?? '').trim() ||
+    row.pricingTiers?.length
   )
 }
 
@@ -113,6 +115,7 @@ function createPricingFromRow(row: ModelCapabilityRow): UpstreamModelCapability[
   if (inputCacheHitPrice !== null) pricing.inputCacheHitPrice = inputCacheHitPrice
   if (inputCacheMissPrice !== null) pricing.inputCacheMissPrice = inputCacheMissPrice
   if (outputPrice !== null) pricing.outputPrice = outputPrice
+  if (row.pricingTiers?.length) pricing.tiers = row.pricingTiers
   return pricing
 }
 
@@ -176,6 +179,33 @@ export function parseModelCapabilitiesText(text?: string): Record<string, Upstre
           normalizedPricing[key] = pricing[key]
         }
       }
+      if (pricing.tiers !== undefined) {
+        if (!Array.isArray(pricing.tiers)) return null
+        const tiers: NonNullable<UpstreamModelCapability['pricing']>['tiers'] = []
+        for (const tier of pricing.tiers) {
+          if (!tier || typeof tier !== 'object' || Array.isArray(tier)) return null
+          const tierRecord = tier as Record<string, unknown>
+          const normalizedTier: NonNullable<NonNullable<UpstreamModelCapability['pricing']>['tiers']>[number] = {}
+          if (tierRecord.label !== undefined) {
+            if (typeof tierRecord.label !== 'string') return null
+            normalizedTier.label = tierRecord.label
+          }
+          for (const key of ['inputTokensAbove', 'inputTokensUpTo'] as const) {
+            if (tierRecord[key] !== undefined) {
+              if (typeof tierRecord[key] !== 'number' || !Number.isInteger(tierRecord[key]) || tierRecord[key] < 0) return null
+              normalizedTier[key] = tierRecord[key]
+            }
+          }
+          for (const key of ['inputCacheHitPrice', 'inputCacheMissPrice', 'outputPrice'] as const) {
+            if (tierRecord[key] !== undefined) {
+              if (typeof tierRecord[key] !== 'number' || !Number.isFinite(tierRecord[key]) || tierRecord[key] < 0) return null
+              normalizedTier[key] = tierRecord[key]
+            }
+          }
+          tiers.push(normalizedTier)
+        }
+        normalizedPricing.tiers = tiers
+      }
       normalized.pricing = normalizedPricing
     }
 
@@ -233,6 +263,7 @@ export function createModelCapabilityRow(
     inputCacheHitPrice: capability?.pricing?.inputCacheHitPrice ?? null,
     inputCacheMissPrice: capability?.pricing?.inputCacheMissPrice ?? null,
     outputPrice: capability?.pricing?.outputPrice ?? null,
+    pricingTiers: capability?.pricing?.tiers,
     defaultOutputTokens: capability?.defaultOutputTokens,
     recommendedOutputTokens: capability?.recommendedOutputTokens,
     displayName: capability?.displayName || '',
@@ -253,6 +284,7 @@ export function capabilityRowDefaultsFromBuiltin(capability: UpstreamModelCapabi
     inputCacheHitPrice: capability.pricing?.inputCacheHitPrice ?? null,
     inputCacheMissPrice: capability.pricing?.inputCacheMissPrice ?? null,
     outputPrice: capability.pricing?.outputPrice ?? null,
+    pricingTiers: capability.pricing?.tiers,
     defaultOutputTokens: capability.defaultOutputTokens,
     recommendedOutputTokens: capability.recommendedOutputTokens,
     displayName: capability.displayName || '',

@@ -86,6 +86,16 @@ export interface ModelPricing {
   inputCacheHitPrice?: number
   inputCacheMissPrice?: number
   outputPrice?: number
+  tiers?: ModelPricingTier[]
+}
+
+export interface ModelPricingTier {
+  label?: string
+  inputTokensAbove?: number
+  inputTokensUpTo?: number
+  inputCacheHitPrice?: number
+  inputCacheMissPrice?: number
+  outputPrice?: number
 }
 
 export interface Channel {

@@ -157,10 +157,21 @@ type UpstreamModelCapability struct {
 	Sources                 []string        `json:"sources,omitempty"`
 }
 
-// ModelPricing 描述模型公开计费信息，单位默认为每 1M tokens 的美元价格。
+// ModelPricing 描述模型公开计费信息，单位与币种由 unit/currency 标明。
 type ModelPricing struct {
-	Unit                string   `json:"unit,omitempty"`
-	Currency            string   `json:"currency,omitempty"`
+	Unit                string             `json:"unit,omitempty"`
+	Currency            string             `json:"currency,omitempty"`
+	InputCacheHitPrice  *float64           `json:"inputCacheHitPrice,omitempty"`
+	InputCacheMissPrice *float64           `json:"inputCacheMissPrice,omitempty"`
+	OutputPrice         *float64           `json:"outputPrice,omitempty"`
+	Tiers               []ModelPricingTier `json:"tiers,omitempty"`
+}
+
+// ModelPricingTier 描述按输入 token 规模区分的模型阶梯计费。
+type ModelPricingTier struct {
+	Label               string   `json:"label,omitempty"`
+	InputTokensAbove    int      `json:"inputTokensAbove,omitempty"`
+	InputTokensUpTo     int      `json:"inputTokensUpTo,omitempty"`
 	InputCacheHitPrice  *float64 `json:"inputCacheHitPrice,omitempty"`
 	InputCacheMissPrice *float64 `json:"inputCacheMissPrice,omitempty"`
 	OutputPrice         *float64 `json:"outputPrice,omitempty"`

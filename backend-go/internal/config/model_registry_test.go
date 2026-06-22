@@ -120,6 +120,86 @@ func TestResolveUpstreamCapability_KimiK27Builtin(t *testing.T) {
 	}
 }
 
+func TestResolveUpstreamCapability_Qwen37MaxBuiltin(t *testing.T) {
+	upstream := &UpstreamConfig{
+		ModelMapping: map[string]string{
+			"agent": "qwen3.7-max-2026-05-20",
+		},
+	}
+
+	resolved := ResolveUpstreamCapability("agent", upstream, nil)
+	if !resolved.Known || resolved.Source != "builtin" {
+		t.Fatalf("source = %q known=%v, want builtin known", resolved.Source, resolved.Known)
+	}
+	if resolved.Capability.ContextWindowTokens != 991808 {
+		t.Fatalf("ContextWindowTokens = %d, want 991808", resolved.Capability.ContextWindowTokens)
+	}
+	if resolved.Capability.MaxOutputTokens != 65536 {
+		t.Fatalf("MaxOutputTokens = %d, want 65536", resolved.Capability.MaxOutputTokens)
+	}
+	if resolved.Capability.ThinkingMode != "thinking" {
+		t.Fatalf("ThinkingMode = %q, want thinking", resolved.Capability.ThinkingMode)
+	}
+	pricing := resolved.Capability.Pricing
+	if pricing == nil {
+		t.Fatal("Pricing = nil, want qwen3.7-max pricing")
+	}
+	assertFloatPointerValue(t, pricing.InputCacheHitPrice, 2.4, "Pricing.InputCacheHitPrice")
+	assertFloatPointerValue(t, pricing.InputCacheMissPrice, 12, "Pricing.InputCacheMissPrice")
+	assertFloatPointerValue(t, pricing.OutputPrice, 36, "Pricing.OutputPrice")
+}
+
+func TestResolveUpstreamCapability_Qwen37PlusTieredPricing(t *testing.T) {
+	upstream := &UpstreamConfig{
+		ModelMapping: map[string]string{
+			"agent": "qwen3.7-plus-2026-05-26",
+		},
+	}
+
+	resolved := ResolveUpstreamCapability("agent", upstream, nil)
+	if !resolved.Known || resolved.Source != "builtin" {
+		t.Fatalf("source = %q known=%v, want builtin known", resolved.Source, resolved.Known)
+	}
+	if resolved.Capability.ContextWindowTokens != 991808 {
+		t.Fatalf("ContextWindowTokens = %d, want 991808", resolved.Capability.ContextWindowTokens)
+	}
+	if resolved.Capability.MaxOutputTokens != 65536 {
+		t.Fatalf("MaxOutputTokens = %d, want 65536", resolved.Capability.MaxOutputTokens)
+	}
+	if !resolved.Capability.Capabilities["vision"] {
+		t.Fatalf("Capabilities[vision] = false, want true")
+	}
+	pricing := resolved.Capability.Pricing
+	if pricing == nil {
+		t.Fatal("Pricing = nil, want qwen3.7-plus pricing")
+	}
+	if pricing.Currency != "CNY" {
+		t.Fatalf("Pricing.Currency = %q, want CNY", pricing.Currency)
+	}
+	assertFloatPointerValue(t, pricing.InputCacheHitPrice, 0.4, "Pricing.InputCacheHitPrice")
+	assertFloatPointerValue(t, pricing.InputCacheMissPrice, 2, "Pricing.InputCacheMissPrice")
+	assertFloatPointerValue(t, pricing.OutputPrice, 8, "Pricing.OutputPrice")
+	if len(pricing.Tiers) != 2 {
+		t.Fatalf("len(Pricing.Tiers) = %d, want 2", len(pricing.Tiers))
+	}
+
+	firstTier := pricing.Tiers[0]
+	if firstTier.InputTokensAbove != 0 || firstTier.InputTokensUpTo != 262144 {
+		t.Fatalf("first tier bounds = (%d, %d), want (0, 262144)", firstTier.InputTokensAbove, firstTier.InputTokensUpTo)
+	}
+	assertFloatPointerValue(t, firstTier.InputCacheHitPrice, 0.4, "Pricing.Tiers[0].InputCacheHitPrice")
+	assertFloatPointerValue(t, firstTier.InputCacheMissPrice, 2, "Pricing.Tiers[0].InputCacheMissPrice")
+	assertFloatPointerValue(t, firstTier.OutputPrice, 8, "Pricing.Tiers[0].OutputPrice")
+
+	secondTier := pricing.Tiers[1]
+	if secondTier.InputTokensAbove != 262144 || secondTier.InputTokensUpTo != 1048576 {
+		t.Fatalf("second tier bounds = (%d, %d), want (262144, 1048576)", secondTier.InputTokensAbove, secondTier.InputTokensUpTo)
+	}
+	assertFloatPointerValue(t, secondTier.InputCacheHitPrice, 1.2, "Pricing.Tiers[1].InputCacheHitPrice")
+	assertFloatPointerValue(t, secondTier.InputCacheMissPrice, 6, "Pricing.Tiers[1].InputCacheMissPrice")
+	assertFloatPointerValue(t, secondTier.OutputPrice, 24, "Pricing.Tiers[1].OutputPrice")
+}
+
 func TestResolveUpstreamCapability_RequestModelFallback(t *testing.T) {
 	upstream := &UpstreamConfig{
 		ModelMapping: map[string]string{"agent-1m": "vendor-hidden-model"},
@@ -136,5 +216,15 @@ func TestResolveUpstreamCapability_RequestModelFallback(t *testing.T) {
 	}
 	if resolved.Capability.ContextWindowTokens != 1000000 {
 		t.Fatalf("ContextWindowTokens = %d, want 1000000", resolved.Capability.ContextWindowTokens)
+	}
+}
+
+func assertFloatPointerValue(t *testing.T, got *float64, want float64, name string) {
+	t.Helper()
+	if got == nil {
+		t.Fatalf("%s = nil, want %v", name, want)
+	}
+	if *got != want {
+		t.Fatalf("%s = %v, want %v", name, *got, want)
 	}
 }
