@@ -9,6 +9,7 @@ import type {
   CapabilityModelJobResult,
   CapabilityLifecycle,
   CapabilityOutcome,
+  Channel,
 } from '@/services/admin-api'
 import { getChannelTypeApi } from '@/utils/channel-type-api'
 import type { ManagedChannelType } from '@/utils/channel-type-api'
@@ -24,6 +25,8 @@ const pollers = new Map<string, ReturnType<typeof setInterval>>()
 const POLL_INTERVAL = 1000
 const BASE_PROTOCOL_ORDER = ['messages', 'responses', 'chat', 'gemini'] as const
 type CapabilityChannelKind = typeof BASE_PROTOCOL_ORDER[number]
+type CopyToTabResult = { ok: true } | { ok: false; message: string }
+const MANAGED_CHANNEL_TYPES = ['messages', 'chat', 'responses', 'gemini', 'images'] as const
 const PLACEHOLDER_MODELS: Record<string, string[]> = {
   // 修改此处时需要同步后端 backend-go/internal/handlers/capability_probe_models.go
   messages: ['claude-fable-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'],
@@ -34,6 +37,10 @@ const PLACEHOLDER_MODELS: Record<string, string[]> = {
 
 function isCapabilityChannelKind(value: string): value is CapabilityChannelKind {
   return BASE_PROTOCOL_ORDER.includes(value as CapabilityChannelKind)
+}
+
+function isManagedChannelType(value: string): value is ManagedChannelType {
+  return MANAGED_CHANNEL_TYPES.includes(value as ManagedChannelType)
 }
 
 function isCapabilityProtocol(protocol: string): boolean {
@@ -562,30 +569,57 @@ export function useCapabilityTests() {
     channelId: number,
     targetProtocol: string,
     serviceProtocol = targetProtocol,
-  ) {
+  ): Promise<CopyToTabResult> {
+    if (!isManagedChannelType(sourceChannelType)) {
+      return { ok: false, message: `不支持的源协议: ${sourceChannelType}` }
+    }
+    if (!isManagedChannelType(targetProtocol)) {
+      return { ok: false, message: `不支持的目标协议: ${targetProtocol}` }
+    }
+    const targetServiceType = getNativeServiceType(serviceProtocol)
+    if (!targetServiceType) {
+      return { ok: false, message: `不支持的上游协议: ${serviceProtocol}` }
+    }
+
     // 先获取当前渠道完整数据
-    const typeApi = getChannelTypeApi(sourceChannelType as ManagedChannelType)
-    const channels = await typeApi.getChannels()
-    const sourceChannel = channels.find(ch => ch.index === channelId)
-    if (!sourceChannel) {
-      error.value = '找不到源渠道数据'
-      return
-    }
-
-    // 构建 payload，去掉 index/status/latency 等 runtime 字段
-    const payload: Record<string, unknown> = {}
-    const skipKeys = new Set(['index', 'latency', 'status', 'disabledApiKeys', 'historicalApiKeys'])
-    for (const [k, v] of Object.entries(sourceChannel)) {
-      if (!skipKeys.has(k) && v !== undefined && v !== null) {
-        payload[k] = v
+    try {
+      const typeApi = getChannelTypeApi(sourceChannelType)
+      const channelsResponse = await typeApi.getChannels()
+      const sourceChannel = channelsResponse.channels.find(ch => ch.index === channelId)
+      if (!sourceChannel) {
+        return { ok: false, message: '找不到源渠道数据' }
       }
-    }
-    // targetProtocol 决定复制到哪个 Tab，serviceProtocol 决定该副本实际使用哪种上游协议。
-    payload.serviceType = getNativeServiceType(serviceProtocol)
 
-    const targetApi = getChannelTypeApi(targetProtocol as ManagedChannelType)
-    await targetApi.addChannel(payload as any)
-    await refreshChannels()
+      // 构建 payload，去掉 index/status/latency 等 runtime 字段，保留连接与兼容配置。
+      const payload: Partial<Channel> = {}
+      const skipKeys = new Set([
+        'index',
+        'latency',
+        'latencyTestTime',
+        'status',
+        'metrics',
+        'suspendReason',
+        'promotionUntil',
+        'disabledApiKeys',
+        'historicalApiKeys',
+      ])
+      const payloadRecord = payload as Record<string, unknown>
+      for (const [k, v] of Object.entries(sourceChannel)) {
+        if (!skipKeys.has(k) && v !== undefined && v !== null) {
+          payloadRecord[k] = v
+        }
+      }
+      // targetProtocol 决定复制到哪个 Tab，serviceProtocol 决定该副本实际使用哪种上游协议。
+      payload.serviceType = targetServiceType
+
+      const targetApi = getChannelTypeApi(targetProtocol)
+      await targetApi.addChannel(payload as any)
+      await refreshChannels(targetProtocol)
+      await refreshChannels(sourceChannelType)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) }
+    }
   }
 
   // ── Reset ──
@@ -678,11 +712,11 @@ export function useCapabilityTests() {
 }
 
 /** 协议对应的原生 service type */
-function getNativeServiceType(protocol: string): string {
+function getNativeServiceType(protocol: string): Channel['serviceType'] | null {
   if (protocol === 'messages') return 'claude'
   if (protocol === 'chat') return 'openai'
   if (protocol === 'responses') return 'responses'
   if (protocol === 'gemini') return 'gemini'
   if (protocol === 'images') return 'openai'
-  return 'openai'
+  return null
 }

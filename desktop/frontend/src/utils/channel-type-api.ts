@@ -1,4 +1,11 @@
-import type { ChannelMetrics, ChannelStatus, ResumeChannelResponse, SchedulerStatsResponse } from '@/services/admin-api'
+import type {
+  ChannelDashboardResponse,
+  ChannelMetrics,
+  ChannelStatus,
+  ChannelsResponse,
+  ResumeChannelResponse,
+  SchedulerStatsResponse,
+} from '@/services/admin-api'
 import { useAdminApi } from '@/composables/useAdminApi'
 
 export type ManagedChannelType = 'messages' | 'chat' | 'responses' | 'gemini' | 'images'
@@ -10,8 +17,8 @@ export interface ChannelTypeApi {
   setStatus: (channelId: number, status: ChannelStatus) => Promise<void>
   resume: (channelId: number) => Promise<ResumeChannelResponse>
   promote: (channelId: number, durationSeconds: number) => Promise<void>
-  getDashboard: () => Promise<any>
-  getChannels: () => Promise<any>
+  getDashboard: () => Promise<ChannelDashboardResponse>
+  getChannels: () => Promise<ChannelsResponse>
   addChannel: (channel: any) => Promise<any>
   updateChannel: (channelId: number, channel: any) => Promise<any>
   deleteChannel: (channelId: number) => Promise<void>
@@ -45,8 +52,8 @@ export function getChannelTypeApi(channelType: ManagedChannelType): ChannelTypeA
     setStatus: (channelId, status) => api.patch(`${prefix}/channels/${channelId}/status`, { status }),
     resume: (channelId) => api.post(`${prefix}/channels/${channelId}/resume`),
     promote: (channelId, durationSeconds) => api.post(`${prefix}/channels/${channelId}/promotion`, { duration: durationSeconds }),
-    getDashboard: () => api.get(`/api/messages/channels/dashboard?type=${channelType}`),
-    getChannels: () => api.get(`${prefix}/channels`),
+    getDashboard: () => api.get<ChannelDashboardResponse>(`/api/messages/channels/dashboard?type=${channelType}`),
+    getChannels: () => api.get<ChannelsResponse>(`${prefix}/channels`),
     addChannel: (channel) => api.post(`${prefix}/channels`, channel),
     updateChannel: (channelId, channel) => api.put(`${prefix}/channels/${channelId}`, channel),
     deleteChannel: (channelId) => api.del(`${prefix}/channels/${channelId}`),

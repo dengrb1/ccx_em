@@ -10,6 +10,7 @@ import { useCapabilityTests } from '@/composables/useCapabilityTests'
 import { useLanguage } from '@/composables/useLanguage'
 import CapabilityModelResultBadge from '@/components/console/CapabilityModelResultBadge.vue'
 import type { CapabilityProtocolJobResult } from '@/services/admin-api'
+import { cn } from '@/lib/utils'
 
 interface Props {
   open: boolean
@@ -46,10 +47,14 @@ const {
 
 const isStarting = ref(false)
 const rpmValue = ref(10)
+const copyingKey = ref('')
+const copyMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 // 加载 snapshot
 watch(() => props.open, async (isOpen) => {
   if (isOpen) {
+    copyingKey.value = ''
+    copyMessage.value = null
     window.addEventListener('keydown', onKeyDown)
     prepareChannelSession(props.channelType, props.channelId, props.channelName)
     await fetchSnapshot(props.channelType, props.channelId, props.channelType, props.channelName)
@@ -214,8 +219,26 @@ async function handleRetryModel(protocol: string, model: string) {
   await retryModelForProtocol(props.channelType, props.channelId, protocol, model)
 }
 
-function handleCopyToTab(targetProtocol: string, serviceProtocol: string) {
-  void copyToTab(props.channelType, props.channelId, targetProtocol, serviceProtocol)
+async function handleCopyToTab(targetProtocol: string, serviceProtocol: string) {
+  const key = `${targetProtocol}:${serviceProtocol}`
+  copyingKey.value = key
+  copyMessage.value = null
+  try {
+    const result = await copyToTab(props.channelType, props.channelId, targetProtocol, serviceProtocol)
+    if (result.ok) {
+      copyMessage.value = {
+        type: 'success',
+        text: t('toast.channelCopied', { protocol: getProtocolDisplayName(targetProtocol) }),
+      }
+      return
+    }
+    copyMessage.value = {
+      type: 'error',
+      text: t('toast.copyFailed', { message: result.message }),
+    }
+  } finally {
+    copyingKey.value = ''
+  }
 }
 
 function handleRpmBlur() {
@@ -277,6 +300,17 @@ onBeforeUnmount(() => {
             <div class="p-4 space-y-4">
               <!-- Error -->
               <div v-if="error" class="text-sm text-destructive bg-destructive/10 p-3">{{ error }}</div>
+              <div
+                v-if="copyMessage"
+                :class="cn(
+                  'text-sm p-3 border',
+                  copyMessage.type === 'success'
+                    ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
+                    : 'text-destructive bg-destructive/10 border-destructive/20',
+                )"
+              >
+                {{ copyMessage.text }}
+              </div>
 
               <!-- Initializing -->
               <div v-if="state === 'initializing'" class="flex flex-col items-center py-8 gap-3">
@@ -377,12 +411,29 @@ onBeforeUnmount(() => {
                             <Button v-if="shouldShowTestProtocolButton(test)" variant="outline" size="sm" class="h-5 text-[10px]" :disabled="isStarting || isProtocolBusy(test)" @click="handleTestProtocol(test.protocol)">
                               <Play class="h-3 w-3" />{{ t('capability.startTest') }}
                             </Button>
-                            <Button v-if="test.success && !isCurrentTabProtocol(test.protocol)" variant="outline" size="sm" class="h-5 text-[10px]" @click="handleCopyToTab(test.protocol, test.protocol)">
-                              <ArrowRight class="h-3 w-3" />{{ t('capability.copyToTab') }}
+                            <Button
+                              v-if="test.success && !isCurrentTabProtocol(test.protocol)"
+                              variant="outline"
+                              size="sm"
+                              class="h-5 text-[10px] cursor-pointer hover:ring-1 hover:ring-current/30"
+                              :disabled="copyingKey !== ''"
+                              @click="handleCopyToTab(test.protocol, test.protocol)"
+                            >
+                              <Loader2 v-if="copyingKey === `${test.protocol}:${test.protocol}`" class="h-3 w-3 animate-spin" />
+                              <ArrowRight v-else class="h-3 w-3" />{{ t('capability.copyToTab') }}
                             </Button>
                             <Badge v-else-if="isCurrentTabProtocol(test.protocol)" variant="secondary" class="text-[10px]">{{ t('capability.currentTab') }}</Badge>
                             <template v-else-if="!test.success && !isCurrentTabProtocol(test.protocol)">
-                              <Button v-for="successProto in getSuccessfulProtocols()" :key="successProto" variant="outline" size="sm" :class="['h-5 text-[10px]', getProtocolColor(successProto)]" @click="handleCopyToTab(test.protocol, successProto)">
+                              <Button
+                                v-for="successProto in getSuccessfulProtocols()"
+                                :key="successProto"
+                                variant="outline"
+                                size="sm"
+                                :class="['h-5 text-[10px] cursor-pointer hover:ring-1 hover:ring-current/30', getProtocolColor(successProto)]"
+                                :disabled="copyingKey !== ''"
+                                @click="handleCopyToTab(test.protocol, successProto)"
+                              >
+                                <Loader2 v-if="copyingKey === `${test.protocol}:${successProto}`" class="h-3 w-3 animate-spin" />
                                 {{ t('capability.convert', { protocol: getProtocolDisplayName(successProto) }) }}
                               </Button>
                             </template>
