@@ -242,6 +242,20 @@ const subagentNextChannelInfo = computed(() => {
 
 const subagentNextChannelCircuitOpen = computed(() => subagentNextChannelInfo.value?.circuitOpen === true)
 
+const mainChannelLabel = computed(() => {
+  const index = props.conversation.mainChannel ?? props.conversation.currentChannel
+  return getChannelName(index)
+})
+
+const subagentChannelLabel = computed(() => {
+  const index = props.conversation.subagentChannel
+  return index === undefined ? 'fallback' : getChannelName(index)
+})
+
+function getChannelName(index: number): string {
+  return normalizedAvailableChannels.value.find(channel => channel.index === index)?.name || `Channel ${index}`
+}
+
 function subagentStatusClass(status: ConversationInfo['status']): string {
   switch (status) {
     case 'streaming': return 'bg-rose-500'
@@ -360,7 +374,7 @@ function shortId(value: string): string {
         {{ kindLabel }}
       </span>
       <span class="display-label min-w-0 flex-1 font-mono text-xs text-muted-foreground" :title="tooltipText">
-        <span class="display-label-text">{{ displayLabel }}</span>
+        <span class="display-label-text" :class="{ 'display-label-text--expanded': expanded }">{{ displayLabel }}</span>
       </span>
       <span class="shrink-0 text-xs text-muted-foreground">{{ conversation.requestCount }}x</span>
       <span class="shrink-0 text-xs text-muted-foreground">{{ duration }}</span>
@@ -372,35 +386,8 @@ function shortId(value: string): string {
       </span>
     </div>
 
-    <div v-if="subagents.length > 0" class="subagent-list mb-3 border border-border bg-background/60" @click.stop>
-      <div class="flex items-center justify-between border-b border-border px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
-        <span>Subagents</span>
-        <span>{{ subagentSummary.streaming }} streaming · {{ subagentSummary.active }} active · {{ subagentSummary.idle }} idle</span>
-      </div>
-      <div
-        v-for="agent in visibleSubagents"
-        :key="agent.id"
-        class="grid grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-2 border-b border-border/60 px-2 py-1.5 last:border-b-0"
-      >
-        <span class="h-2 w-2 rounded-full" :class="subagentStatusClass(agent.status)" />
-        <div class="min-w-0">
-          <div class="truncate text-xs font-semibold text-foreground">{{ agent.title || agent.userId }}</div>
-          <div class="truncate text-[10px] text-muted-foreground">{{ agent.lastModel }} · {{ agent.channelName || `Channel ${agent.currentChannel}` }}</div>
-        </div>
-        <span class="border border-border bg-muted/30 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{{ agent.status }}</span>
-      </div>
-      <button
-        v-if="subagents.length > visibleSubagents.length"
-        type="button"
-        class="w-full px-2 py-1 text-left text-[10px] text-muted-foreground hover:text-foreground"
-        @click.stop="emit('toggleExpand')"
-      >
-        +{{ subagents.length - visibleSubagents.length }} more
-      </button>
-    </div>
-
     <div
-      v-if="conversation.parentConversationId || conversation.parentThreadId || childConversationCount > 0"
+      v-if="conversation.parentConversationId || conversation.parentThreadId || (!expanded && childConversationCount > 0)"
       class="relation-row mb-3 flex flex-wrap items-center gap-1.5"
       @click.stop
     >
@@ -424,7 +411,7 @@ function shortId(value: string): string {
       </span>
 
       <button
-        v-if="childConversationCount > 0 && firstChildConversationId"
+        v-if="!expanded && childConversationCount > 0 && firstChildConversationId"
         type="button"
         class="relation-chip border border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
         :title="firstChildConversationId"
@@ -433,6 +420,16 @@ function shortId(value: string): string {
         <GitBranch class="h-3 w-3" />
         <span>{{ t('cockpit.relation.children', { count: String(childConversationCount) }) }}</span>
       </button>
+    </div>
+
+    <div v-if="expanded" class="main-conversation-detail mb-3 border border-border bg-background/60 p-2.5">
+      <div class="conversation-section-head flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.04em] text-muted-foreground">
+        <span>{{ t('cockpit.mainConversation') }}</span>
+        <span>{{ shortId(conversation.id) }}</span>
+      </div>
+      <div class="main-conversation-text mt-1.5 text-xs font-semibold leading-relaxed text-foreground">
+        {{ displayLabel }}
+      </div>
     </div>
 
     <!-- Row 2: Model + Channel chips (collapsed) -->
@@ -481,8 +478,8 @@ function shortId(value: string): string {
     </div>
 
     <!-- Expanded: Full channel sequence -->
-    <div v-if="expanded" class="mt-3">
-      <div class="mb-1 text-xs text-muted-foreground">{{ conversation.lastModel }}</div>
+    <div v-if="expanded" class="main-routing-section mt-3">
+      <div class="mb-1 text-xs text-muted-foreground">{{ t('cockpit.mainRouting') }} · {{ conversation.lastModel }}</div>
       <ConversationChannelSequence
         :channels="channelSequence"
         :current-channel="conversation.currentChannel"
@@ -492,11 +489,70 @@ function shortId(value: string): string {
         @move-to-top="handleMoveToTop"
         @demote="handleDemote"
       />
+    </div>
+
+    <div v-if="expanded && showSubagentSection" class="subagent-expanded-section mt-3 border-t border-dashed border-border pt-2" @click.stop>
+      <div v-if="childConversationCount > 0 && firstChildConversationId" class="relation-row mb-2 flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          class="relation-chip border border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
+          :title="firstChildConversationId"
+          @click="navigateConversation(firstChildConversationId)"
+        >
+          <GitBranch class="h-3 w-3" />
+          <span>{{ t('cockpit.relation.children', { count: String(childConversationCount) }) }}</span>
+        </button>
+      </div>
+
+      <div class="subagent-summary border border-amber-500/50 bg-amber-500/10 p-2 text-amber-500">
+        <div class="flex items-center gap-1.5 text-xs font-bold">
+          <GitBranch class="h-3.5 w-3.5" />
+          <span>{{ t('cockpit.board.subagents') }}</span>
+          <strong>{{ displaySubagentCount }}</strong>
+        </div>
+        <div class="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+          <span v-if="subagentSummary.total > 0" class="truncate">
+            {{ subagentSummary.streaming }} {{ t('cockpit.board.streaming') }} / {{ subagentSummary.active }} {{ t('cockpit.board.active') }} / {{ subagentSummary.idle }} {{ t('cockpit.board.idle') }}
+          </span>
+          <template v-else>
+            <span class="truncate">{{ mainChannelLabel }}</span>
+            <span>→</span>
+            <span class="truncate">{{ subagentChannelLabel }}</span>
+          </template>
+        </div>
+      </div>
+
+      <div v-if="subagents.length > 0" class="subagent-list mt-2 border border-border bg-background/60">
+        <div class="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
+          <span>{{ t('cockpit.board.subagents') }}</span>
+          <span>{{ subagentSummary.streaming }} {{ t('cockpit.board.streaming') }} · {{ subagentSummary.active }} {{ t('cockpit.board.active') }} · {{ subagentSummary.idle }} {{ t('cockpit.board.idle') }}</span>
+        </div>
+        <div
+          v-for="agent in visibleSubagents"
+          :key="agent.id"
+          class="grid grid-cols-[8px_minmax(0,1fr)_auto] items-center gap-2 border-b border-border/60 px-2 py-1.5 last:border-b-0"
+        >
+          <span class="h-2 w-2 rounded-full" :class="subagentStatusClass(agent.status)" />
+          <div class="min-w-0">
+            <div class="truncate text-xs font-semibold text-foreground">{{ agent.title || agent.userId }}</div>
+            <div class="truncate text-[10px] text-muted-foreground">{{ agent.lastModel }} · {{ agent.channelName || `Channel ${agent.currentChannel}` }}</div>
+          </div>
+          <span class="border border-border bg-muted/30 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{{ agent.status }}</span>
+        </div>
+        <button
+          v-if="subagents.length > visibleSubagents.length"
+          type="button"
+          class="w-full px-2 py-1 text-left text-[10px] text-muted-foreground hover:text-foreground"
+          @click.stop="emit('toggleExpand')"
+        >
+          +{{ subagents.length - visibleSubagents.length }} more
+        </button>
+      </div>
 
       <!-- Subagent Routing：为主对话与 subagent 分别指定渠道 -->
-      <div v-if="showSubagentSection" class="subagent-routing mt-3 border-t border-dashed border-border pt-2" @click.stop>
+      <div class="subagent-routing mt-3">
         <div class="mb-1 flex items-center">
-          <span class="text-xs text-muted-foreground">Subagent 渠道</span>
+          <span class="text-xs text-muted-foreground">{{ t('cockpit.subagentRouting') }}</span>
           <span v-if="hasSubagentOverride" class="ml-2 text-xs text-amber-500">[{{ t('cockpit.subagentOverride') }}]</span>
           <span v-else class="ml-2 text-xs text-muted-foreground">[{{ t('cockpit.subagentFollowMain') }}]</span>
           <span class="flex-1" />
@@ -624,6 +680,27 @@ function shortId(value: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.display-label-text--expanded {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.main-conversation-detail,
+.subagent-summary,
+.subagent-list {
+  border-radius: 0;
+}
+
+.main-conversation-text {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
 }
 
 .next-label {

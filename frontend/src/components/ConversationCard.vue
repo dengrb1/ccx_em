@@ -17,7 +17,7 @@
         <span class="task-card-title">
           <v-tooltip :text="tooltipText" location="top" :open-delay="150" content-class="ccx-tooltip">
             <template #activator="{ props: tp }">
-              <span v-bind="tp" class="display-label-text">{{ displayLabel }}</span>
+              <span v-bind="tp" :class="['display-label-text', { 'display-label-text--expanded': expanded }]">{{ displayLabel }}</span>
             </template>
           </v-tooltip>
         </span>
@@ -35,7 +35,7 @@
         </v-chip>
       </div>
 
-      <div v-if="hasSubagentActivity" class="subagent-summary" @click.stop="$emit('toggleExpand')">
+      <div v-if="!expanded && hasSubagentActivity" class="subagent-summary" @click.stop="$emit('toggleExpand')">
         <div class="subagent-summary-main">
           <v-icon size="16">mdi-source-branch</v-icon>
           <span>{{ t('cockpit.subagents') }}</span>
@@ -51,28 +51,8 @@
         </div>
       </div>
 
-      <div v-if="subagents.length > 0" class="subagent-list" @click.stop>
-        <div class="subagent-list-head">
-          <span>Subagents</span>
-          <span>{{ subagentSummary.streaming }} streaming · {{ subagentSummary.active }} active · {{ subagentSummary.idle }} idle</span>
-        </div>
-        <div v-for="agent in visibleSubagents" :key="agent.id" class="subagent-row">
-          <span :class="['subagent-dot', `subagent-dot--${agent.status}`]"></span>
-          <div class="subagent-row-main">
-            <span class="subagent-row-title">{{ agent.title || agent.userId }}</span>
-            <span class="subagent-row-meta">{{ agent.lastModel }} · {{ agent.channelName || `Channel ${agent.currentChannel}` }}</span>
-          </div>
-          <v-chip size="x-small" variant="tonal" :color="subagentStatusColor(agent.status)">
-            {{ agent.status }}
-          </v-chip>
-        </div>
-        <button v-if="subagents.length > visibleSubagents.length" type="button" class="subagent-more" @click.stop="$emit('toggleExpand')">
-          +{{ subagents.length - visibleSubagents.length }} more
-        </button>
-      </div>
-
       <div
-        v-if="conversation.parentConversationId || conversation.parentThreadId || childConversationCount > 0"
+        v-if="conversation.parentConversationId || conversation.parentThreadId || (!expanded && childConversationCount > 0)"
         class="relation-row"
         @click.stop
       >
@@ -96,7 +76,7 @@
         </span>
 
         <button
-          v-if="childConversationCount > 0 && firstChildConversationId"
+          v-if="!expanded && childConversationCount > 0 && firstChildConversationId"
           type="button"
           class="relation-chip relation-chip--children"
           :title="firstChildConversationId"
@@ -110,6 +90,14 @@
       <div class="task-card-notes">
         <span>{{ conversation.lastModel }}</span>
         <span class="task-card-channel">{{ conversation.channelName || `Channel ${conversation.currentChannel}` }}</span>
+      </div>
+
+      <div v-if="expanded" class="main-conversation-detail">
+        <div class="conversation-section-head">
+          <span>{{ t('cockpit.mainConversation') }}</span>
+          <span>{{ shortConversationId }}</span>
+        </div>
+        <div class="main-conversation-text">{{ displayLabel }}</div>
       </div>
 
       <!-- Row 2: Model + Channel chips (collapsed) -->
@@ -152,8 +140,8 @@
       </v-alert>
 
       <!-- Expanded: Full channel sequence -->
-      <div v-if="expanded" class="mt-3">
-        <div class="text-caption text-medium-emphasis mb-1">{{ conversation.lastModel }}</div>
+      <div v-if="expanded" class="main-routing-section">
+        <div class="text-caption text-medium-emphasis mb-1">{{ t('cockpit.mainRouting') }} · {{ conversation.lastModel }}</div>
         <ConversationChannelSequence
           :channels="channelSequence"
           :current-channel="conversation.currentChannel"
@@ -163,11 +151,61 @@
           @move-to-top="handleMoveToTop"
           @demote="handleDemote"
         />
+      </div>
+
+      <div v-if="expanded && showSubagentSection" class="subagent-expanded-section" @click.stop>
+        <div v-if="childConversationCount > 0 && firstChildConversationId" class="relation-row relation-row--subagents">
+          <button
+            type="button"
+            class="relation-chip relation-chip--children"
+            :title="firstChildConversationId"
+            @click="navigateConversation(firstChildConversationId)"
+          >
+            <v-icon size="12">mdi-source-branch</v-icon>
+            <span>{{ t('cockpit.relation.children', { count: String(childConversationCount) }) }}</span>
+          </button>
+        </div>
+
+        <div class="subagent-summary subagent-summary--expanded">
+          <div class="subagent-summary-main">
+            <v-icon size="16">mdi-source-branch</v-icon>
+            <span>{{ t('cockpit.subagents') }}</span>
+            <strong>{{ displaySubagentCount }}</strong>
+          </div>
+          <div class="subagent-summary-route">
+            <span v-if="subagentSummary.total > 0">{{ subagentSummary.streaming }} {{ t('cockpit.column.streaming') }} / {{ subagentSummary.active }} {{ t('cockpit.column.active') }} / {{ subagentSummary.idle }} {{ t('cockpit.column.idle') }}</span>
+            <template v-else>
+              <span>{{ mainChannelLabel }}</span>
+              <v-icon size="13">mdi-arrow-right</v-icon>
+              <span>{{ subagentChannelLabel }}</span>
+            </template>
+          </div>
+        </div>
+
+        <div v-if="subagents.length > 0" class="subagent-list">
+          <div class="subagent-list-head">
+            <span>{{ t('cockpit.subagents') }}</span>
+            <span>{{ subagentSummary.streaming }} {{ t('cockpit.column.streaming') }} · {{ subagentSummary.active }} {{ t('cockpit.column.active') }} · {{ subagentSummary.idle }} {{ t('cockpit.column.idle') }}</span>
+          </div>
+          <div v-for="agent in visibleSubagents" :key="agent.id" class="subagent-row">
+            <span :class="['subagent-dot', `subagent-dot--${agent.status}`]"></span>
+            <div class="subagent-row-main">
+              <span class="subagent-row-title">{{ agent.title || agent.userId }}</span>
+              <span class="subagent-row-meta">{{ agent.lastModel }} · {{ agent.channelName || `Channel ${agent.currentChannel}` }}</span>
+            </div>
+            <v-chip size="x-small" variant="tonal" :color="subagentStatusColor(agent.status)">
+              {{ agent.status }}
+            </v-chip>
+          </div>
+          <button v-if="subagents.length > visibleSubagents.length" type="button" class="subagent-more" @click.stop="$emit('toggleExpand')">
+            +{{ subagents.length - visibleSubagents.length }} more
+          </button>
+        </div>
 
         <!-- Subagent Routing：为主对话与 subagent 分别指定渠道 -->
-        <div v-if="showSubagentSection" class="subagent-routing mt-3" @click.stop>
+        <div class="subagent-routing mt-3">
           <div class="d-flex align-center mb-1">
-            <span class="text-caption text-medium-emphasis">Subagent routing</span>
+            <span class="text-caption text-medium-emphasis">{{ t('cockpit.subagentRouting') }}</span>
             <span v-if="hasSubagentOverride" class="text-caption text-warning ml-2">[{{ t('cockpit.subagentOverride') }}]</span>
             <span v-else class="text-caption text-medium-emphasis ml-2">[{{ t('cockpit.subagentFollowMain') }}]</span>
             <v-spacer />
@@ -670,11 +708,65 @@ function shortId(value: string): string {
   white-space: nowrap;
 }
 
+.display-label-text--expanded {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.main-conversation-detail {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgb(var(--v-theme-surface) / 72%);
+}
+
+.conversation-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgb(var(--v-theme-on-surface) / 56%);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.main-conversation-text {
+  display: -webkit-box;
+  margin-top: 6px;
+  overflow: hidden;
+  color: rgb(var(--v-theme-on-surface) / 86%);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.main-routing-section {
+  margin-top: 12px;
+}
+
+.subagent-expanded-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .subagent-summary {
   margin-top: 10px;
   padding: 8px 10px;
   border: 1px solid rgba(var(--v-theme-warning), 0.45);
   background: rgba(var(--v-theme-warning), 0.1);
+}
+
+.subagent-summary--expanded {
+  margin-top: 0;
 }
 
 .subagent-summary-main,
@@ -790,6 +882,11 @@ function shortId(value: string): string {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
+}
+
+.relation-row--subagents {
+  margin-top: 0;
+  margin-bottom: 8px;
 }
 
 .relation-chip {
