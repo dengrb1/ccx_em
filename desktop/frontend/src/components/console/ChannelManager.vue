@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert } from '@/components/ui/alert'
@@ -109,6 +109,8 @@ const globalStatsChartRef = ref<InstanceType<typeof GlobalStatsChart> | null>(nu
 const statsLoading = ref(false)
 const showGlobalStats = ref(false)
 const globalStatsDuration = ref('6h')
+let isMounted = true
+let globalStatsRequestSeq = 0
 
 // 渠道级 Key 趋势图
 const expandedChannelId = ref<number | null>(null)
@@ -162,7 +164,23 @@ function apiPathForType(type: ManagedChannelType): string {
   return typeMap[type]
 }
 
+function shouldLoadGlobalStats() {
+  return status.value.running && isConsoleChannelsActive.value && showGlobalStats.value
+}
+
+function canApplyGlobalStatsRequest(seq: number, requestType: ManagedChannelType, duration: string) {
+  return (
+    isMounted &&
+    seq === globalStatsRequestSeq &&
+    showGlobalStats.value &&
+    props.type === requestType &&
+    globalStatsDuration.value === duration
+  )
+}
+
 async function loadGlobalStats(duration?: string) {
+  if (!showGlobalStats.value) return
+  const requestSeq = ++globalStatsRequestSeq
   statsLoading.value = true
   globalStatsChartRef.value?.setLoading(true)
   try {
@@ -195,13 +213,17 @@ async function loadGlobalStats(duration?: string) {
         )
       }
     }
-    if (props.type !== requestType || globalStatsDuration.value !== dur) return
+    if (!canApplyGlobalStatsRequest(requestSeq, requestType, dur)) return
     globalStatsChartRef.value?.updateData(data.dataPoints, data.summary, data.modelDataPoints)
   } catch {
     // Silently fail
   } finally {
-    statsLoading.value = false
-    globalStatsChartRef.value?.setLoading(false)
+    if (requestSeq === globalStatsRequestSeq) {
+      statsLoading.value = false
+      if (isMounted && showGlobalStats.value) {
+        globalStatsChartRef.value?.setLoading(false)
+      }
+    }
   }
 }
 
@@ -517,15 +539,33 @@ function onDragEnd() {
 watch([() => status.value.running, isConsoleChannelsActive], ([running, active]) => {
   if (running && active) {
     loadFuzzyMode()
-    loadGlobalStats()
+    if (showGlobalStats.value) {
+      loadGlobalStats()
+    }
   }
 }, { immediate: true })
 
 // 类型切换时重新加载统计
 watch(() => props.type, () => {
-  if (status.value.running && isConsoleChannelsActive.value) {
+  if (shouldLoadGlobalStats()) {
     loadGlobalStats()
   }
+})
+
+watch(showGlobalStats, (visible) => {
+  if (!visible) {
+    globalStatsRequestSeq += 1
+    statsLoading.value = false
+    return
+  }
+  if (shouldLoadGlobalStats()) {
+    loadGlobalStats(globalStatsDuration.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  isMounted = false
+  globalStatsRequestSeq += 1
 })
 </script>
 
@@ -610,7 +650,7 @@ watch(() => props.type, () => {
           </div>
           <ChevronDown class="h-4 w-4 transition-transform" :class="{ '-rotate-180': showGlobalStats }" />
         </button>
-        <div v-if="showGlobalStats">
+        <div v-show="showGlobalStats">
           <GlobalStatsChart
             ref="globalStatsChartRef"
             :api-type="props.type"
