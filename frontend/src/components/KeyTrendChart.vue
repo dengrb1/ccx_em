@@ -106,6 +106,7 @@ import VueApexCharts from 'vue3-apexcharts'
 import { api, type ChannelKeyMetricsHistoryResponse, type GlobalStatsSummary } from '../services/api'
 import { useGlobalTick } from '../composables/useGlobalTick'
 import { useI18n } from '../i18n'
+import { effectiveChartIntervalMs, selectDenseSamplingInterval } from '../utils/chartSampling'
 
 // Register apexchart component
 const apexchart = VueApexCharts
@@ -171,6 +172,11 @@ const selectedDuration = ref<Duration>(savedPrefs.duration)
 const isLoading = ref(false)
 const isRefreshing = ref(false) // includes auto-refresh (silent) requests
 const historyData = ref<ChannelKeyMetricsHistoryResponse | null>(null)
+const samplingKey = computed(() => `${props.channelType}:${props.channelId}:${selectedDuration.value}`)
+const adaptiveInterval = ref<{ key: string; interval: string } | null>(null)
+const currentAdaptiveInterval = computed(() => (
+  adaptiveInterval.value?.key === samplingKey.value ? adaptiveInterval.value.interval : undefined
+))
 const showError = ref(false)
 const errorMessage = ref('')
 
@@ -227,10 +233,8 @@ const AGGREGATION_INTERVALS: Record<Duration, number> = {
 
 // Get the aggregation interval based on the selected duration
 const getAggregationInterval = (duration: Duration): number => {
-  const intervalSeconds = summaryData.value?.intervalSeconds
-  if (intervalSeconds && intervalSeconds > 0) {
-    return intervalSeconds * 1000
-  }
+  const interval = effectiveChartIntervalMs(summaryData.value?.intervalSeconds, currentAdaptiveInterval.value)
+  if (interval) return interval
   return AGGREGATION_INTERVALS[duration] || 60000
 }
 
@@ -816,6 +820,46 @@ const getChartColors = (): string[] => {
   return colors
 }
 
+const fetchKeyMetrics = async (duration: Duration, interval?: string): Promise<ChannelKeyMetricsHistoryResponse> => {
+  if (props.channelType === 'chat') {
+    return api.getChatChannelKeyMetricsHistory(props.channelId, duration, interval)
+  }
+  if (props.channelType === 'images') {
+    return api.getImagesChannelKeyMetricsHistory(props.channelId, duration, interval)
+  }
+  if (props.channelType === 'responses') {
+    return api.getResponsesChannelKeyMetricsHistory(props.channelId, duration, interval)
+  }
+  if (props.channelType === 'gemini') {
+    return api.getGeminiChannelKeyMetricsHistory(props.channelId, duration, interval)
+  }
+  return api.getChannelKeyMetricsHistory(props.channelId, duration, interval)
+}
+
+const withAdaptiveInterval = async (duration: Duration): Promise<ChannelKeyMetricsHistoryResponse> => {
+  const requestKey = samplingKey.value
+  const interval = adaptiveInterval.value?.key === requestKey ? adaptiveInterval.value.interval : undefined
+  let newData = await fetchKeyMetrics(duration, interval)
+  if (interval) {
+    return newData
+  }
+
+  const points = (newData.keys || []).flatMap(keyData => keyData.dataPoints || [])
+  const denseInterval = selectDenseSamplingInterval(
+    duration,
+    points,
+    dp => dp.requestCount > 0 || dp.inputTokens > 0 || dp.outputTokens > 0 || dp.cacheReadTokens > 0 || dp.cacheCreationTokens > 0,
+    newData.summary?.intervalSeconds
+  )
+  if (!denseInterval) {
+    return newData
+  }
+
+  adaptiveInterval.value = { key: requestKey, interval: denseInterval }
+  newData = await fetchKeyMetrics(duration, denseInterval)
+  return newData
+}
+
 // Fetch data
 const refreshData = async (isAutoRefresh = false) => {
   // Prevent out-of-order responses from overwriting newer state
@@ -828,18 +872,7 @@ const refreshData = async (isAutoRefresh = false) => {
   }
   errorMessage.value = ''
   try {
-    let newData: ChannelKeyMetricsHistoryResponse
-    if (props.channelType === 'chat') {
-      newData = await api.getChatChannelKeyMetricsHistory(props.channelId, selectedDuration.value)
-    } else if (props.channelType === 'images') {
-      newData = await api.getImagesChannelKeyMetricsHistory(props.channelId, selectedDuration.value)
-    } else if (props.channelType === 'responses') {
-      newData = await api.getResponsesChannelKeyMetricsHistory(props.channelId, selectedDuration.value)
-    } else if (props.channelType === 'gemini') {
-      newData = await api.getGeminiChannelKeyMetricsHistory(props.channelId, selectedDuration.value)
-    } else {
-      newData = await api.getChannelKeyMetricsHistory(props.channelId, selectedDuration.value)
-    }
+    const newData = await withAdaptiveInterval(selectedDuration.value)
 
     // Ignore stale response
     if (requestId !== refreshRequestId) return
@@ -881,6 +914,7 @@ const refreshData = async (isAutoRefresh = false) => {
 // Watchers
 watch(selectedDuration, () => {
   savePreference(props.channelType, 'duration', selectedDuration.value)
+  adaptiveInterval.value = null
   refreshData()
 }, { flush: 'sync' })
 
@@ -896,10 +930,17 @@ watch(() => props.channelType, (newChannelType) => {
   selectedView.value = prefs.view
   selectedDuration.value = prefs.duration
   historyData.value = null
+  adaptiveInterval.value = null
   // Only explicitly refresh if duration didn't change (otherwise duration watcher handles it)
   if (oldDuration === prefs.duration) {
     refreshData()
   }
+})
+
+watch(() => props.channelId, () => {
+  historyData.value = null
+  adaptiveInterval.value = null
+  refreshData()
 })
 
 // Initial load and start auto refresh

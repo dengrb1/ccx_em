@@ -114,6 +114,7 @@ import VueApexCharts from 'vue3-apexcharts'
 import { api, type GlobalStatsHistoryResponse, type GlobalHistoryDataPoint as _GlobalHistoryDataPoint, type GlobalStatsSummary, type ModelHistoryDataPoint } from '../services/api'
 import { useI18n } from '../i18n'
 import { useGlobalTick } from '../composables/useGlobalTick'
+import { effectiveChartIntervalMs, selectDenseSamplingInterval } from '../utils/chartSampling'
 
 // Register apexchart component
 const apexchart = VueApexCharts
@@ -161,6 +162,11 @@ const selectedView = ref<ViewMode>(savedPrefs.view)
 const selectedDuration = ref<Duration>(savedPrefs.duration)
 const isLoading = ref(false)
 const historyData = ref<GlobalStatsHistoryResponse | null>(null)
+const samplingKey = computed(() => `${props.apiType}:${selectedDuration.value}`)
+const adaptiveInterval = ref<{ key: string; interval: string } | null>(null)
+const currentAdaptiveInterval = computed(() => (
+  adaptiveInterval.value?.key === samplingKey.value ? adaptiveInterval.value.interval : undefined
+))
 const showError = ref(false)
 const errorMessage = ref('')
 
@@ -252,10 +258,8 @@ const AGGREGATION_INTERVALS: Record<Duration, number> = {
 }
 
 const getAggregationInterval = (duration: Duration): number => {
-  const intervalSeconds = summary.value?.intervalSeconds
-  if (intervalSeconds && intervalSeconds > 0) {
-    return intervalSeconds * 1000
-  }
+  const interval = effectiveChartIntervalMs(summary.value?.intervalSeconds, currentAdaptiveInterval.value)
+  if (interval) return interval
   return AGGREGATION_INTERVALS[duration] || 60000
 }
 
@@ -596,6 +600,45 @@ const chartSeries = computed(() => {
   }
 })
 
+const fetchGlobalStats = async (duration: Duration, interval?: string): Promise<GlobalStatsHistoryResponse> => {
+  if (props.apiType === 'messages') {
+    return api.getMessagesGlobalStats(duration, interval)
+  }
+  if (props.apiType === 'chat') {
+    return api.getChatGlobalStats(duration, interval)
+  }
+  if (props.apiType === 'gemini') {
+    return api.getGeminiGlobalStats(duration, interval)
+  }
+  if (props.apiType === 'images') {
+    return api.getImagesGlobalStats(duration, interval)
+  }
+  return api.getResponsesGlobalStats(duration, interval)
+}
+
+const withAdaptiveInterval = async (duration: Duration): Promise<GlobalStatsHistoryResponse> => {
+  const requestKey = samplingKey.value
+  const interval = adaptiveInterval.value?.key === requestKey ? adaptiveInterval.value.interval : undefined
+  let newData = await fetchGlobalStats(duration, interval)
+  if (interval) {
+    return newData
+  }
+
+  const denseInterval = selectDenseSamplingInterval(
+    duration,
+    newData.dataPoints || [],
+    dp => dp.requestCount > 0 || dp.inputTokens > 0 || dp.outputTokens > 0 || dp.cacheReadTokens > 0 || dp.cacheCreationTokens > 0,
+    newData.summary?.intervalSeconds
+  )
+  if (!denseInterval) {
+    return newData
+  }
+
+  adaptiveInterval.value = { key: requestKey, interval: denseInterval }
+  newData = await fetchGlobalStats(duration, denseInterval)
+  return newData
+}
+
 // Fetch data
 const refreshData = async (isAutoRefresh = false) => {
   const requestId = ++refreshRequestId
@@ -606,18 +649,7 @@ const refreshData = async (isAutoRefresh = false) => {
   errorMessage.value = ''
 
   try {
-    let newData: GlobalStatsHistoryResponse
-    if (props.apiType === 'messages') {
-      newData = await api.getMessagesGlobalStats(selectedDuration.value)
-    } else if (props.apiType === 'chat') {
-      newData = await api.getChatGlobalStats(selectedDuration.value)
-    } else if (props.apiType === 'gemini') {
-      newData = await api.getGeminiGlobalStats(selectedDuration.value)
-    } else if (props.apiType === 'images') {
-      newData = await api.getImagesGlobalStats(selectedDuration.value)
-    } else {
-      newData = await api.getResponsesGlobalStats(selectedDuration.value)
-    }
+    const newData = await withAdaptiveInterval(selectedDuration.value)
 
     // Check whether updateSeries can be used for a smooth update
     const oldModels = historyData.value?.modelDataPoints ? Object.keys(historyData.value.modelDataPoints).sort().join(',') : ''
@@ -659,6 +691,7 @@ const refreshData = async (isAutoRefresh = false) => {
 // Watchers
 watch(selectedDuration, (newVal) => {
   savePreference(props.apiType, 'duration', newVal)
+  adaptiveInterval.value = null
   refreshData()
 })
 
@@ -671,6 +704,7 @@ watch(() => props.apiType, (newApiType) => {
   const prefs = loadSavedPreferences(newApiType)
   selectedView.value = prefs.view
   selectedDuration.value = prefs.duration
+  adaptiveInterval.value = null
   refreshData()
 })
 

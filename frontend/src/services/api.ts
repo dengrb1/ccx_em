@@ -37,6 +37,14 @@ export * from './api-helpers'
 export * from './api-types'
 
 export class ApiService {
+  private historyQuery(duration: string, interval?: string): string {
+    const params = new URLSearchParams({ duration })
+    if (interval) {
+      params.set('interval', interval)
+    }
+    return params.toString()
+  }
+
   private t(key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]): string {
     const preferencesStore = usePreferencesStore()
     return translate(normalizeLocale(preferencesStore.uiLanguage as unknown as string), key, params)
@@ -505,37 +513,37 @@ export class ApiService {
   // ============== 历史指标 API ==============
 
   // 获取 Messages 渠道历史指标（用于时间序列图表）
-  async getChannelMetricsHistory(duration: string = '24h'): Promise<MetricsHistoryResponse[]> {
-    return this.request(`/messages/channels/metrics/history?duration=${duration}`)
+  async getChannelMetricsHistory(duration: string = '24h', interval?: string): Promise<MetricsHistoryResponse[]> {
+    return this.request(`/messages/channels/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
   // 获取 Responses 渠道历史指标
-  async getResponsesChannelMetricsHistory(duration: string = '24h'): Promise<MetricsHistoryResponse[]> {
-    return this.request(`/responses/channels/metrics/history?duration=${duration}`)
+  async getResponsesChannelMetricsHistory(duration: string = '24h', interval?: string): Promise<MetricsHistoryResponse[]> {
+    return this.request(`/responses/channels/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
   // ============== Key 级别历史指标 API ==============
 
   // 获取 Messages 渠道 Key 级别历史指标（用于 Key 趋势图表）
-  async getChannelKeyMetricsHistory(channelId: number, duration: string = '6h'): Promise<ChannelKeyMetricsHistoryResponse> {
-    return this.request(`/messages/channels/${channelId}/keys/metrics/history?duration=${duration}`)
+  async getChannelKeyMetricsHistory(channelId: number, duration: string = '6h', interval?: string): Promise<ChannelKeyMetricsHistoryResponse> {
+    return this.request(`/messages/channels/${channelId}/keys/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
   // 获取 Responses 渠道 Key 级别历史指标
-  async getResponsesChannelKeyMetricsHistory(channelId: number, duration: string = '6h'): Promise<ChannelKeyMetricsHistoryResponse> {
-    return this.request(`/responses/channels/${channelId}/keys/metrics/history?duration=${duration}`)
+  async getResponsesChannelKeyMetricsHistory(channelId: number, duration: string = '6h', interval?: string): Promise<ChannelKeyMetricsHistoryResponse> {
+    return this.request(`/responses/channels/${channelId}/keys/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
   // ============== 全局统计 API ==============
 
   // 获取 Messages 全局统计历史
-  async getMessagesGlobalStats(duration: string = '24h'): Promise<GlobalStatsHistoryResponse> {
-    return this.request(`/messages/global/stats/history?duration=${duration}`)
+  async getMessagesGlobalStats(duration: string = '24h', interval?: string): Promise<GlobalStatsHistoryResponse> {
+    return this.request(`/messages/global/stats/history?${this.historyQuery(duration, interval)}`)
   }
 
   // 获取 Responses 全局统计历史
-  async getResponsesGlobalStats(duration: string = '24h'): Promise<GlobalStatsHistoryResponse> {
-    return this.request(`/responses/global/stats/history?duration=${duration}`)
+  async getResponsesGlobalStats(duration: string = '24h', interval?: string): Promise<GlobalStatsHistoryResponse> {
+    return this.request(`/responses/global/stats/history?${this.historyQuery(duration, interval)}`)
   }
   // ============== 模型统计 API ==============
 
@@ -642,16 +650,16 @@ export class ApiService {
 
   // ============== Chat 历史指标 API ==============
 
-  async getChatChannelMetricsHistory(duration: string = '24h'): Promise<MetricsHistoryResponse[]> {
-    return this.request(`/chat/channels/metrics/history?duration=${duration}`)
+  async getChatChannelMetricsHistory(duration: string = '24h', interval?: string): Promise<MetricsHistoryResponse[]> {
+    return this.request(`/chat/channels/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
-  async getChatChannelKeyMetricsHistory(channelId: number, duration: string = '6h'): Promise<ChannelKeyMetricsHistoryResponse> {
-    return this.request(`/chat/channels/${channelId}/keys/metrics/history?duration=${duration}`)
+  async getChatChannelKeyMetricsHistory(channelId: number, duration: string = '6h', interval?: string): Promise<ChannelKeyMetricsHistoryResponse> {
+    return this.request(`/chat/channels/${channelId}/keys/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
-  async getChatGlobalStats(duration: string = '24h'): Promise<GlobalStatsHistoryResponse> {
-    return this.request(`/chat/global/stats/history?duration=${duration}`)
+  async getChatGlobalStats(duration: string = '24h', interval?: string): Promise<GlobalStatsHistoryResponse> {
+    return this.request(`/chat/global/stats/history?${this.historyQuery(duration, interval)}`)
   }
 
   async pingChatChannel(id: number): Promise<PingResult> {
@@ -771,16 +779,16 @@ export class ApiService {
     })
   }
 
-  async getImagesChannelMetricsHistory(duration: string = '24h'): Promise<MetricsHistoryResponse[]> {
-    return this.request(`/images/channels/metrics/history?duration=${duration}`)
+  async getImagesChannelMetricsHistory(duration: string = '24h', interval?: string): Promise<MetricsHistoryResponse[]> {
+    return this.request(`/images/channels/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
-  async getImagesChannelKeyMetricsHistory(channelId: number, duration: string = '6h'): Promise<ChannelKeyMetricsHistoryResponse> {
-    return this.request(`/images/channels/${channelId}/keys/metrics/history?duration=${duration}`)
+  async getImagesChannelKeyMetricsHistory(channelId: number, duration: string = '6h', interval?: string): Promise<ChannelKeyMetricsHistoryResponse> {
+    return this.request(`/images/channels/${channelId}/keys/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
-  async getImagesGlobalStats(duration: string = '24h'): Promise<GlobalStatsHistoryResponse> {
-    return this.request(`/images/global/stats/history?duration=${duration}`)
+  async getImagesGlobalStats(duration: string = '24h', interval?: string): Promise<GlobalStatsHistoryResponse> {
+    return this.request(`/images/global/stats/history?${this.historyQuery(duration, interval)}`)
   }
 
   async pingImagesChannel(id: number): Promise<PingResult> {
@@ -906,18 +914,18 @@ export class ApiService {
   // ============== Gemini 历史指标 API ==============
 
   // 获取 Gemini 渠道历史指标
-  async getGeminiChannelMetricsHistory(duration: string = '24h'): Promise<MetricsHistoryResponse[]> {
-    return this.request(`/gemini/channels/metrics/history?duration=${duration}`)
+  async getGeminiChannelMetricsHistory(duration: string = '24h', interval?: string): Promise<MetricsHistoryResponse[]> {
+    return this.request(`/gemini/channels/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
   // 获取 Gemini 渠道 Key 级别历史指标
-  async getGeminiChannelKeyMetricsHistory(channelId: number, duration: string = '6h'): Promise<ChannelKeyMetricsHistoryResponse> {
-    return this.request(`/gemini/channels/${channelId}/keys/metrics/history?duration=${duration}`)
+  async getGeminiChannelKeyMetricsHistory(channelId: number, duration: string = '6h', interval?: string): Promise<ChannelKeyMetricsHistoryResponse> {
+    return this.request(`/gemini/channels/${channelId}/keys/metrics/history?${this.historyQuery(duration, interval)}`)
   }
 
   // 获取 Gemini 全局统计历史
-  async getGeminiGlobalStats(duration: string = '24h'): Promise<GlobalStatsHistoryResponse> {
-    return this.request(`/gemini/global/stats/history?duration=${duration}`)
+  async getGeminiGlobalStats(duration: string = '24h', interval?: string): Promise<GlobalStatsHistoryResponse> {
+    return this.request(`/gemini/global/stats/history?${this.historyQuery(duration, interval)}`)
   }
 
   async pingGeminiChannel(id: number): Promise<PingResult> {
