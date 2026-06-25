@@ -807,6 +807,7 @@ export const builtinUpstreamModelCapabilities: Record<string, UpstreamModelCapab
   "(?:^|[-/])mimo-v2\\.5(?=$|@)": {
     "provider": "xiaomi",
     "displayName": "MiMo V2.5",
+    "description": "MiMo multimodal model with text, image, video and audio input.",
     "contextWindowTokens": 1048576,
     "maxOutputTokens": 131072,
     "reasoningEfforts": [
@@ -814,7 +815,35 @@ export const builtinUpstreamModelCapabilities: Record<string, UpstreamModelCapab
       "medium",
       "high",
       "max"
-    ]
+    ],
+    "capabilities": {
+      "contextCaching": true,
+      "jsonOutput": true,
+      "toolCalls": true,
+      "vision": true,
+      "videoInput": true,
+      "audioInput": true,
+      "webSearch": true
+    }
+  },
+  "(?:^|[-/])mimo-v2\\.5-pro(?=$|@)": {
+    "provider": "xiaomi",
+    "displayName": "MiMo V2.5 Pro",
+    "description": "MiMo flagship text-only model.",
+    "contextWindowTokens": 1048576,
+    "maxOutputTokens": 131072,
+    "reasoningEfforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
+    "capabilities": {
+      "contextCaching": true,
+      "jsonOutput": true,
+      "toolCalls": true,
+      "webSearch": true
+    }
   },
   "(?:^|[-/])mimo-v2-flash(?=$|@)": {
     "provider": "xiaomi",

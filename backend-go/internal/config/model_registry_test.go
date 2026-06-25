@@ -200,6 +200,38 @@ func TestResolveUpstreamCapability_Qwen37PlusTieredPricing(t *testing.T) {
 	assertFloatPointerValue(t, secondTier.OutputPrice, 24, "Pricing.Tiers[1].OutputPrice")
 }
 
+func TestResolveUpstreamCapability_MimoVisionCapabilities(t *testing.T) {
+	upstream := &UpstreamConfig{}
+
+	pro := ResolveUpstreamCapability("mimo-v2.5-pro", upstream, nil)
+	if !pro.Known || pro.Source != "builtin" {
+		t.Fatalf("pro source = %q known=%v, want builtin known", pro.Source, pro.Known)
+	}
+	if pro.Capability.ContextWindowTokens != 1048576 {
+		t.Fatalf("pro ContextWindowTokens = %d, want 1048576", pro.Capability.ContextWindowTokens)
+	}
+	if pro.Capability.MaxOutputTokens != 131072 {
+		t.Fatalf("pro MaxOutputTokens = %d, want 131072", pro.Capability.MaxOutputTokens)
+	}
+	if pro.Capability.Capabilities["vision"] {
+		t.Fatal("mimo-v2.5-pro should not advertise vision")
+	}
+
+	multimodal := ResolveUpstreamCapability("mimo-v2.5", upstream, nil)
+	if !multimodal.Known || multimodal.Source != "builtin" {
+		t.Fatalf("multimodal source = %q known=%v, want builtin known", multimodal.Source, multimodal.Known)
+	}
+	if !multimodal.Capability.Capabilities["vision"] {
+		t.Fatal("mimo-v2.5 should advertise vision")
+	}
+	if !multimodal.Capability.Capabilities["videoInput"] {
+		t.Fatal("mimo-v2.5 should advertise videoInput")
+	}
+	if !multimodal.Capability.Capabilities["audioInput"] {
+		t.Fatal("mimo-v2.5 should advertise audioInput")
+	}
+}
+
 func TestResolveUpstreamCapability_RequestModelFallback(t *testing.T) {
 	upstream := &UpstreamConfig{
 		ModelMapping: map[string]string{"agent-1m": "vendor-hidden-model"},
