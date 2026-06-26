@@ -2,43 +2,47 @@
   <div class="cockpit-board-page">
     <div class="cockpit-toolbar">
       <div class="cockpit-controls">
-        <v-select
-          v-if="xs"
-          v-model="kindFilter"
-          :items="kindFilterOptions"
-          density="compact"
-          variant="outlined"
-          hide-details
-          class="kind-filter-select"
-        />
-        <v-chip-group v-else v-model="kindFilter" mandatory selected-class="text-primary" class="cockpit-kind-filter">
-          <v-chip value="" variant="outlined" size="small" class="filter-chip" filter>ALL</v-chip>
-          <v-chip value="messages" variant="outlined" size="small" color="purple" class="filter-chip" filter>MESSAGES</v-chip>
-          <v-chip value="chat" variant="outlined" size="small" color="blue" class="filter-chip" filter>CHAT</v-chip>
-          <v-chip value="images" variant="outlined" size="small" color="pink" class="filter-chip" filter>IMAGES</v-chip>
-          <v-chip value="responses" variant="outlined" size="small" color="teal" class="filter-chip" filter>RESPONSES</v-chip>
-          <v-chip value="gemini" variant="outlined" size="small" color="orange" class="filter-chip" filter>GEMINI</v-chip>
-        </v-chip-group>
+        <div class="cockpit-filter-controls">
+          <v-select
+            v-if="xs"
+            v-model="kindFilter"
+            :items="kindFilterOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="kind-filter-select"
+          />
+          <v-chip-group v-else v-model="kindFilter" mandatory selected-class="filter-chip-selected" class="cockpit-kind-filter">
+            <v-chip value="" variant="outlined" size="small" class="filter-chip kind-all" filter>ALL</v-chip>
+            <v-chip value="messages" variant="outlined" size="small" class="filter-chip kind-messages" filter>MESSAGES</v-chip>
+            <v-chip value="chat" variant="outlined" size="small" class="filter-chip kind-chat" filter>CHAT</v-chip>
+            <v-chip value="images" variant="outlined" size="small" class="filter-chip kind-images" filter>IMAGES</v-chip>
+            <v-chip value="responses" variant="outlined" size="small" class="filter-chip kind-responses" filter>RESPONSES</v-chip>
+            <v-chip value="gemini" variant="outlined" size="small" class="filter-chip kind-gemini" filter>GEMINI</v-chip>
+          </v-chip-group>
+        </div>
 
-        <v-text-field
-          v-model="searchQuery"
-          density="compact"
-          variant="outlined"
-          hide-details
-          clearable
-          prepend-inner-icon="mdi-magnify"
-          :placeholder="t('cockpit.searchPlaceholder')"
-          class="conversation-search-field"
-        />
-        <v-select
-          v-model="overrideDuration"
-          :items="durationOptions"
-          density="compact"
-          variant="outlined"
-          hide-details
-          class="override-duration-select"
-          :label="t('cockpit.overrideDuration')"
-        />
+        <div class="cockpit-tool-controls">
+          <v-text-field
+            v-model="searchQuery"
+            density="compact"
+            variant="outlined"
+            hide-details
+            clearable
+            prepend-inner-icon="mdi-magnify"
+            :placeholder="t('cockpit.searchPlaceholder')"
+            class="conversation-search-field"
+          />
+          <v-select
+            v-model="overrideDuration"
+            :items="durationOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            class="override-duration-select"
+            :label="t('cockpit.overrideDuration')"
+          />
+        </div>
       </div>
     </div>
 
@@ -401,6 +405,22 @@ fetchAllChannels()
   flex-wrap: wrap;
 }
 
+.cockpit-filter-controls {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.cockpit-tool-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
+  flex: 1 1 420px;
+}
+
 .cockpit-kind-filter {
   flex: 0 1 auto;
 }
@@ -410,6 +430,61 @@ fetchAllChannels()
   font-size: 10px !important;
   font-weight: 700;
   letter-spacing: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.kind-all {
+  color: rgb(var(--v-theme-primary)) !important;
+}
+
+.kind-messages {
+  color: #8b5cf6 !important;
+}
+
+.kind-chat {
+  color: #3b82f6 !important;
+}
+
+.kind-images {
+  color: #ec4899 !important;
+}
+
+.kind-responses {
+  color: #14b8a6 !important;
+}
+
+.kind-gemini {
+  color: #f97316 !important;
+}
+
+.filter-chip-selected.kind-all {
+  background: rgb(var(--v-theme-primary) / 10%) !important;
+  border-color: rgb(var(--v-theme-primary)) !important;
+}
+
+.filter-chip-selected.kind-messages {
+  background: rgb(139 92 246 / 10%) !important;
+  border-color: rgb(139 92 246 / 60%) !important;
+}
+
+.filter-chip-selected.kind-chat {
+  background: rgb(59 130 246 / 10%) !important;
+  border-color: rgb(59 130 246 / 60%) !important;
+}
+
+.filter-chip-selected.kind-images {
+  background: rgb(236 72 153 / 10%) !important;
+  border-color: rgb(236 72 153 / 60%) !important;
+}
+
+.filter-chip-selected.kind-responses {
+  background: rgb(20 184 166 / 10%) !important;
+  border-color: rgb(20 184 166 / 60%) !important;
+}
+
+.filter-chip-selected.kind-gemini {
+  background: rgb(249 115 22 / 10%) !important;
+  border-color: rgb(249 115 22 / 60%) !important;
 }
 
 .kind-filter-select {
@@ -425,7 +500,7 @@ fetchAllChannels()
 .conversation-search-field {
   max-width: 320px;
   min-width: 180px;
-  flex: 1 1 auto;
+  flex: 1 1 240px;
 }
 
 .cockpit-empty {
@@ -496,15 +571,24 @@ fetchAllChannels()
   box-shadow: 0 0 0 2px rgb(var(--v-theme-primary) / 24%);
 }
 
-@media (max-width: 1280px) {
+@media (min-width: 900px) and (max-width: 1280px) {
   .cockpit-board {
     grid-template-columns: repeat(2, minmax(260px, 1fr));
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 899px) {
   .cockpit-board {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .cockpit-tool-controls {
+    margin-left: 0;
+    width: 100%;
+    flex-basis: 100%;
+    flex-wrap: wrap;
   }
 
   .conversation-search-field,
