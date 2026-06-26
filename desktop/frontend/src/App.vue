@@ -9,6 +9,7 @@ import ChannelTab from '@/components/channel/ChannelTab.vue'
 import ConversationDashboard from '@/components/console/ConversationDashboard.vue'
 import SetupLoading from '@/components/setup/SetupLoading.vue'
 import SetupView from '@/components/setup/SetupView.vue'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { useStatus } from '@/composables/useStatus'
 import { useWailsEvents } from '@/composables/useWailsEvents'
 import { useSetup } from '@/composables/useSetup'
@@ -150,7 +151,8 @@ onBeforeUnmount(() => {
 <template>
   <SetupLoading v-if="!setupChecked" />
   <SetupView v-else-if="!setupComplete" />
-  <div v-else class="flex h-screen w-screen bg-background text-foreground overflow-hidden font-sans">
+  <TooltipProvider v-else>
+    <div class="flex h-screen w-screen bg-background text-foreground overflow-hidden font-sans">
     <!-- 全局 SVG Gradient 定义（活动图表共享） -->
     <svg aria-hidden="true" width="0" height="0" class="absolute">
       <defs>
@@ -255,5 +257,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </main>
-  </div>
+    </div>
+  </TooltipProvider>
 </template>
