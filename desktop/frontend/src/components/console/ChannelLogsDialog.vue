@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, RefreshCw, X, List } from 'lucide-vue-next'
+import { Loader2, X, List } from 'lucide-vue-next'
 import { useAdminApi } from '@/composables/useAdminApi'
 import { useLanguage } from '@/composables/useLanguage'
 import type { ChannelLogEntry, ChannelLogsResponse } from '@/services/admin-api'
@@ -230,9 +230,6 @@ onBeforeUnmount(() => {
               </Badge>
             </div>
             <div class="flex items-center gap-2">
-              <Button variant="ghost" size="icon-sm" :disabled="loading || refreshing" @click="fetchLogs()">
-                <RefreshCw class="h-3.5 w-3.5" :class="{ 'animate-spin': loading || refreshing }" />
-              </Button>
               <Button variant="ghost" size="icon-sm" @click="emit('close')" class="relative group">
                 <X class="h-4 w-4" />
                 <span class="absolute -bottom-6 right-0 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Esc</span>
