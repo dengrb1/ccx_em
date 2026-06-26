@@ -26,6 +26,9 @@
 
 - **区分主对话与子代理覆盖状态** - ui: 区分主对话与子代理覆盖状态
 - **支持仅子代理渠道覆盖** - backend: 支持仅子代理渠道覆盖
+- **覆盖 Gemini 内联图并加固图片 token 估算** - utils: 覆盖 Gemini 内联图并加固图片 token 估算
+- **按真实尺寸估算内联 base64 图片的 token** - utils: 按真实尺寸估算内联 base64 图片的 token
+- **跳过空 tool_calls 避免 text block 被拆分** - providers: 跳过空 tool_calls 避免 text block 被拆分
 - **移除折叠态子代理摘要** - frontend: 移除折叠态子代理摘要
 - **按展开状态置顶对话卡片** - ui: 按展开状态置顶对话卡片
 - **修正对话卡片展开展示** - ui: 修正对话卡片展开展示
@@ -91,6 +94,7 @@
 ### 测试
 
 - **补齐 vLLM reasoning 兼容覆盖** - providers: 补齐 vLLM reasoning 兼容覆盖
+- **强化 Gemini 图片估算测试并提速** - utils: 强化 Gemini 图片估算测试并提速
 - **补齐 copilot 包 httptest 覆盖** - copilot: 补齐 copilot 包 httptest 覆盖
 
 ### 文档
