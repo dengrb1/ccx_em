@@ -319,12 +319,6 @@ const subagentNextChannelInfo = computed(() => {
 
 const subagentNextChannelCircuitOpen = computed(() => subagentNextChannelInfo.value?.circuitOpen === true)
 
-const subagentRouteLabel = computed(() => {
-  if (props.conversation.subagentChannel === undefined) return t('cockpit.subagentFollowMain')
-  return t('cockpit.subagentOverride')
-})
-
-
 function subagentStatusClass(status: ConversationInfo['status']): string {
   switch (status) {
     case 'streaming': return 'bg-rose-500'
@@ -500,9 +494,13 @@ function shortId(value: string): string {
         <div
           v-for="(turn, index) in mainConversationTurns"
           :key="`${index}-${turn}`"
-          class="main-conversation-turn text-xs font-semibold leading-relaxed text-foreground"
+          :class="[
+            'main-conversation-turn text-xs font-semibold leading-relaxed text-foreground',
+            { 'main-conversation-turn--numbered': mainConversationTurns.length > 1 },
+          ]"
         >
-          {{ turn }}
+          <span v-if="mainConversationTurns.length > 1" class="main-conversation-turn-index">{{ index + 1 }}</span>
+          <span class="main-conversation-turn-text">{{ turn }}</span>
         </div>
       </div>
       <div class="mt-2 grid grid-cols-2 gap-2">
@@ -573,36 +571,10 @@ function shortId(value: string): string {
     </div>
 
     <div v-if="expanded && showSubagentSection" class="subagent-expanded-section mt-3 border-t border-dashed border-border pt-2" @click.stop>
-      <div v-if="childConversationCount > 0 && firstChildConversationId" class="relation-row mb-2 flex flex-wrap items-center gap-1.5">
-        <button
-          type="button"
-          class="relation-chip border border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
-          :title="firstChildConversationId"
-          @click="navigateConversation(firstChildConversationId)"
-        >
-          <GitBranch class="h-3 w-3" />
-          <span>{{ t('cockpit.relation.children', { count: String(childConversationCount) }) }}</span>
-        </button>
-      </div>
-
-      <div class="subagent-summary border border-amber-500/50 bg-amber-500/10 p-2 text-amber-500">
-        <div class="flex items-center gap-1.5 text-xs font-bold">
-          <GitBranch class="h-3.5 w-3.5" />
-          <span>{{ t('cockpit.board.subagents') }}</span>
-          <strong>{{ displaySubagentCount }}</strong>
-        </div>
-        <div class="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span v-if="subagentSummary.total > 0" class="truncate">
-            {{ subagentSummary.streaming }} {{ t('cockpit.board.streaming') }} / {{ subagentSummary.active }} {{ t('cockpit.board.active') }} / {{ subagentSummary.idle }} {{ t('cockpit.board.idle') }}
-          </span>
-          <span v-else class="truncate">{{ subagentRouteLabel }}</span>
-        </div>
-      </div>
-
-      <div v-if="subagents.length > 0" class="subagent-list mt-2 border border-border bg-background/60">
+      <div v-if="subagents.length > 0" class="subagent-list border border-border bg-background/60">
         <div class="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5 text-[10px] font-semibold text-muted-foreground">
           <span>{{ t('cockpit.board.subagents') }}</span>
-          <span>{{ subagentSummary.streaming }} {{ t('cockpit.board.streaming') }} · {{ subagentSummary.active }} {{ t('cockpit.board.active') }} · {{ subagentSummary.idle }} {{ t('cockpit.board.idle') }}</span>
+          <span>{{ subagents.length }}</span>
         </div>
         <div
           v-for="agent in visibleSubagents"
@@ -777,6 +749,26 @@ function shortId(value: string): string {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.main-conversation-turn--numbered {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.main-conversation-turn-index {
+  color: var(--color-muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.7;
+  opacity: 0.7;
+  text-align: right;
+}
+
+.main-conversation-turn-text {
+  min-width: 0;
 }
 
 .main-conversation-turns {

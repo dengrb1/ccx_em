@@ -31,8 +31,7 @@
           <strong>{{ displaySubagentCount }}</strong>
         </div>
         <div class="subagent-summary-route">
-          <span v-if="subagentSummary.total > 0">{{ subagentSummary.streaming }} streaming / {{ subagentSummary.active }} active</span>
-          <span v-else>{{ subagentRouteLabel }}</span>
+          <span>{{ subagentRouteLabel }}</span>
         </div>
       </div>
 
@@ -85,9 +84,10 @@
           <div
             v-for="(turn, index) in mainConversationTurns"
             :key="`${index}-${turn}`"
-            class="main-conversation-turn"
+            :class="['main-conversation-turn', { 'main-conversation-turn--numbered': mainConversationTurns.length > 1 }]"
           >
-            {{ turn }}
+            <span v-if="mainConversationTurns.length > 1" class="main-conversation-turn-index">{{ index + 1 }}</span>
+            <span class="main-conversation-turn-text">{{ turn }}</span>
           </div>
         </div>
         <div class="main-conversation-grid">
@@ -152,34 +152,10 @@
       </div>
 
       <div v-if="expanded && showSubagentSection" class="subagent-expanded-section" @click.stop>
-        <div v-if="childConversationCount > 0 && firstChildConversationId" class="relation-row relation-row--subagents">
-          <button
-            type="button"
-            class="relation-chip relation-chip--children"
-            :title="firstChildConversationId"
-            @click="navigateConversation(firstChildConversationId)"
-          >
-            <v-icon size="12">mdi-source-branch</v-icon>
-            <span>{{ t('cockpit.relation.children', { count: String(childConversationCount) }) }}</span>
-          </button>
-        </div>
-
-        <div class="subagent-summary subagent-summary--expanded">
-          <div class="subagent-summary-main">
-            <v-icon size="16">mdi-source-branch</v-icon>
-            <span>{{ t('cockpit.subagents') }}</span>
-            <strong>{{ displaySubagentCount }}</strong>
-          </div>
-          <div class="subagent-summary-route">
-            <span v-if="subagentSummary.total > 0">{{ subagentSummary.streaming }} {{ t('cockpit.column.streaming') }} / {{ subagentSummary.active }} {{ t('cockpit.column.active') }} / {{ subagentSummary.idle }} {{ t('cockpit.column.idle') }}</span>
-            <span v-else>{{ subagentRouteLabel }}</span>
-          </div>
-        </div>
-
         <div v-if="subagents.length > 0" class="subagent-list">
           <div class="subagent-list-head">
             <span>{{ t('cockpit.subagents') }}</span>
-            <span>{{ subagentSummary.streaming }} {{ t('cockpit.column.streaming') }} · {{ subagentSummary.active }} {{ t('cockpit.column.active') }} · {{ subagentSummary.idle }} {{ t('cockpit.column.idle') }}</span>
+            <span>{{ subagents.length }}</span>
           </div>
           <div v-for="agent in visibleSubagents" :key="agent.id" class="subagent-row">
             <span :class="['subagent-dot', `subagent-dot--${agent.status}`]"></span>
@@ -812,9 +788,29 @@ function shortId(value: string): string {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.55;
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.main-conversation-turn--numbered {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.main-conversation-turn-index {
+  color: rgb(var(--v-theme-on-surface) / 42%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.7;
+  text-align: right;
+}
+
+.main-conversation-turn-text {
+  min-width: 0;
 }
 
 .main-conversation-grid {
@@ -867,10 +863,6 @@ function shortId(value: string): string {
   padding: 8px 10px;
   border: 1px solid rgba(var(--v-theme-warning), 0.45);
   background: rgba(var(--v-theme-warning), 0.1);
-}
-
-.subagent-summary--expanded {
-  margin-top: 0;
 }
 
 .subagent-summary-main,
@@ -986,11 +978,6 @@ function shortId(value: string): string {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
-}
-
-.relation-row--subagents {
-  margin-top: 0;
-  margin-bottom: 8px;
 }
 
 .relation-chip {
