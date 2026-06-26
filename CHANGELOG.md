@@ -1,9 +1,109 @@
-## [Unreleased]
+## [v2.9.18] - 2026-06-26
+
+### 新增
+
+- **捕获 WebView 前端运行时错误** - desktop: 捕获 WebView 前端运行时错误
+- **支持前端错误写入桌面日志** - desktop: 支持前端错误写入桌面日志
+- **同步渠道预设兼容选项** - channel: 同步渠道预设兼容选项
+- **优化兼容诊断默认建议** - channel: 优化兼容诊断默认建议
+- **展示主对话最新消息** - frontend: 展示主对话最新消息
+- **更新 MiMo V2.5 模型能力** - model-registry: 更新 MiMo V2.5 模型能力
+- **添加兼容性诊断入口** - channel: 添加兼容性诊断入口
+- **添加兼容性诊断** - channel: 添加兼容性诊断
+- **优化驾驶舱展开对话卡片展示** - ui: 优化驾驶舱展开对话卡片展示
+- **添加驾驶舱关联对话导航** - ui: 添加驾驶舱关联对话导航
+- **GitHub Copilot 共享认证支持与安全加固** - GitHub Copilot 共享认证支持与安全加固
+- **支持 Chat/Messages/Gemini 入口转换到 Copilot** - copilot: 支持 Chat/Messages/Gemini 入口转换到 Copilot
+- **优化添加渠道引导与文档** - copilot: 优化添加渠道引导与文档
+- **优化前端诊断结果展示** - copilot: 优化前端诊断结果展示
+- **增加 OAuth 重试/取消与渠道诊断** - copilot: 增加 OAuth 重试/取消与渠道诊断
+- **补齐 ping、错误分类与 OAuth 状态展示** - copilot: 补齐 ping、错误分类与 OAuth 状态展示
+- **支持 GitHub Copilot OAuth 与 Responses 上游接入** - copilot: 支持 GitHub Copilot OAuth 与 Responses 上游接入
+- **ConversationCard 展示子代理列表与状态摘要** - web: ConversationCard 展示子代理列表与状态摘要
+- **支持流式会话状态追踪** - conversation: 支持流式会话状态追踪
 
 ### 修复
 
+- **区分主对话与子代理覆盖状态** - ui: 区分主对话与子代理覆盖状态
+- **支持仅子代理渠道覆盖** - backend: 支持仅子代理渠道覆盖
+- **移除折叠态子代理摘要** - frontend: 移除折叠态子代理摘要
+- **按展开状态置顶对话卡片** - ui: 按展开状态置顶对话卡片
+- **修正对话卡片展开展示** - ui: 修正对话卡片展开展示
+- **跳过 Claude Command 文档标题回退** - messages: 跳过 Claude Command 文档标题回退
+- **优化对话卡片展开展示** - ui: 优化对话卡片展开展示
+- **同步单轮主对话预览截断** - desktop: 同步单轮主对话预览截断
+- **优化单轮主对话预览截断** - frontend: 优化单轮主对话预览截断
+- **拆分驾驶舱主对话轮次展示** - frontend: 拆分驾驶舱主对话轮次展示
+- **提供全局提示组件上下文** - desktop: 提供全局提示组件上下文
+- **优化驾驶舱对话 ID 展示** - ui: 优化驾驶舱对话 ID 展示
+- **优化驾驶舱窄屏工具栏布局** - desktop: 优化驾驶舱窄屏工具栏布局
+- **优化渠道搜索框响应式宽度** - channel: 优化渠道搜索框响应式宽度
+- **优化驾驶舱窄屏筛选布局** - frontend: 优化驾驶舱窄屏筛选布局
+- **添加搜索框清除按钮** - desktop: 添加搜索框清除按钮
+- **优化驾驶舱筛选栏布局** - frontend: 优化驾驶舱筛选栏布局
+- **优化驾驶舱对话展示** - frontend: 优化驾驶舱对话展示
+- **精简驾驶舱统计卡片** - frontend: 精简驾驶舱统计卡片
+- **修正子代理总数统计** - frontend: 修正子代理总数统计
+- **过滤重复对话卡片** - frontend: 过滤重复对话卡片
+- **过滤重复渠道索引** - frontend: 过滤重复渠道索引
+- **修正驾驶舱卡片与统计文案** - frontend: 修正驾驶舱卡片与统计文案
+- **延迟加载全局统计图** - desktop: 延迟加载全局统计图
+- **保留快速输入清理后的 URL** - frontend: 保留快速输入清理后的 URL
+- **修正快速输入 URL 清理** - frontend: 修正快速输入 URL 清理
+- **新建/编辑渠道默认开启自动学习上游限速** - frontend: 新建/编辑渠道默认开启自动学习上游限速
+- **用 unref() 包装 store 响应式值** - frontend: 用 unref() 包装 store 响应式值
+- **过滤标题回退中的注入上下文** - backend: 过滤标题回退中的注入上下文
+- **修复托盘开机自启切换状态** - desktop: 修复托盘开机自启切换状态
+- **调整统一会话 ID 提取优先级** - backend: 调整统一会话 ID 提取优先级
+- **更新火山方舟控制台链接** - desktop: 更新火山方舟控制台链接
 - **驾驶舱展开卡片排序稳定** - Web 与桌面端会话驾驶舱在存在展开卡片时固定当前卡片顺序，避免轮询刷新或最新消息更新时间导致卡片跳动；全部收起后恢复按最新消息排序，并补充桌面端排序稳定性测试
+- **兼容 vLLM 响应中的 reasoning 字段** - providers: 兼容 vLLM 响应中的 reasoning 字段
+- **清理会话反馈残留引用** - backend: 清理会话反馈残留引用
+- **移除驾驶舱会话反馈输入框** - ui: 移除驾驶舱会话反馈输入框
+- **移除驾驶舱卡片展开折叠按钮** - ui: 移除驾驶舱卡片展开折叠按钮
+- **调整驾驶舱渠道列表高度** - ui: 调整驾驶舱渠道列表高度
+- **修复 customHeaders 覆盖 Copilot token 的安全漏洞** - copilot: 修复 customHeaders 覆盖 Copilot token 的安全漏洞
+- **修复响应协议转换与认证头泄露** - copilot: 修复响应协议转换与认证头泄露
+- **修复 ConversationChannelSequence Vuetify CSS 颜色变量 alpha 写法** - ui: 修复 ConversationChannelSequence Vuetify CSS 颜色变量 alpha 写法
 - **Compshare 月度额度耗尽自动拉黑** - `extractErrorInfo`/`extractErrorCode` 兼容大写字段名 (`RetCode`/`Message`) 和数字类型错误码；`isInsufficientBalanceMessage` 增加 `monthly limit exceeded` 等精确短语，使 429 + 月度额度耗尽错误能正确触发 key 拉黑
+- **收敛会话卡片高度避免撑爆页面** - cockpit: 收敛会话卡片高度避免撑爆页面
+- **保留原始元数据识别子代理** - conversation: 保留原始元数据识别子代理
+- **增强调试日志定位响应协议** - messages: 增强调试日志定位响应协议
+- **补齐驾驶舱看板文案** - i18n: 补齐驾驶舱看板文案
+- **注册驾驶舱图标** - web: 注册驾驶舱图标
+- **恢复驾驶舱顶部入口** - web: 恢复驾驶舱顶部入口
+
+### 优化
+
+- **优化控制台图表长周期采样** - desktop: 优化控制台图表长周期采样
+- **优化历史图表长周期采样** - frontend: 优化历史图表长周期采样
+
+### 重构
+
+- **清理会话反馈功能** - 清理会话反馈功能
+- **提取 ConversationChannelSequence 组件，消除主对话/子代理渠道列表重复** - ui: 提取 ConversationChannelSequence 组件，消除主对话/子代理渠道列表重复
+- **子代理渠道交互改为行列表，与主对话保持一致** - cockpit: 子代理渠道交互改为行列表，与主对话保持一致
+- **同步驾驶舱 BoardItem 模型到桌面端** - desktop: 同步驾驶舱 BoardItem 模型到桌面端
+- **Dashboard 适配 ConversationBoardItem 结构** - web: Dashboard 适配 ConversationBoardItem 结构
+- **重构驾驶舱子代理分组与聚合逻辑** - web: 重构驾驶舱子代理分组与聚合逻辑
+- **抽取驾驶舱列分组工具** - web: 抽取驾驶舱列分组工具
+
+### 测试
+
+- **补齐 vLLM reasoning 兼容覆盖** - providers: 补齐 vLLM reasoning 兼容覆盖
+- **补齐 copilot 包 httptest 覆盖** - copilot: 补齐 copilot 包 httptest 覆盖
+
+### 文档
+
+- **记录 Claude Code v2.1.193 变更评估** - todo: 记录 Claude Code v2.1.193 变更评估
+- **完善兼容选项提示** - frontend: 完善兼容选项提示
+- **记录 Codex 上游变更评估** - todo: 记录 Codex 上游变更评估
+- **更新 CHANGELOG 记录 Compshare 月度额度拉黑修复** - 更新 CHANGELOG 记录 Compshare 月度额度拉黑修复
+
+### 其他
+
+- **升级前端依赖** - deps: 升级前端依赖
+- **更新 Go 与 Wails 相关依赖** - deps: 更新 Go 与 Wails 相关依赖
 
 ## [v2.9.17] - 2026-06-23
 
