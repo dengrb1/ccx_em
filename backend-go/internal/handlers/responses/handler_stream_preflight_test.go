@@ -151,3 +151,22 @@ func TestBuildResponsesPreflightDiagnostic(t *testing.T) {
 		t.Fatal("expected diagnostic to mention unknown responses event type")
 	}
 }
+
+func TestFirstUnknownResponsesEventType_AllowsResponsesLifecycleAndErrorTypes(t *testing.T) {
+	eventTypes := []string{
+		"response.created",
+		"response.in_progress",
+		"keepalive",
+		"response.error",
+		"response.failed",
+		"error",
+	}
+	for _, eventType := range eventTypes {
+		t.Run(eventType, func(t *testing.T) {
+			event := "event: " + eventType + "\ndata: {\"type\":\"" + eventType + "\"}\n\n"
+			if got, ok := firstUnknownResponsesEventType(event); ok {
+				t.Fatalf("firstUnknownResponsesEventType() = %q, true; want known type", got)
+			}
+		})
+	}
+}

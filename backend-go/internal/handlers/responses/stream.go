@@ -97,6 +97,7 @@ func handleStreamSuccess(
 	seenUsageOnlyEvent := false
 	seenUnknownEvent := false
 	unknownEventType := ""
+	currentSSEEventName := ""
 
 	// enterPhaseB 进入阶段B（首字后连续性确认）
 	enterPhaseB := func() {
@@ -141,6 +142,11 @@ func handleStreamSuccess(
 			}
 			line := sl.text
 			bufferedLines = append(bufferedLines, line)
+			if strings.TrimSpace(line) == "" {
+				currentSSEEventName = ""
+			} else if strings.HasPrefix(line, "event:") {
+				currentSSEEventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			}
 
 			// 检测 SSE error 事件中的拉黑条件
 			if blacklistReason == "" {
@@ -188,6 +194,18 @@ func handleStreamSuccess(
 
 			for _, event := range eventsToCheck {
 				seenConvertedEvent = true
+				if upstreamErr, ok := detectResponsesStreamError(event, currentSSEEventName); ok {
+					preflightDiagnostic = formatResponsesErrorDiagnostic(upstreamErr)
+					close(scanDone)
+					if r, m := detectResponsesErrorBlacklist(upstreamErr); r != "" {
+						return nil, &common.ErrBlacklistKey{Reason: r, Message: m}
+					}
+					if isRetryableResponsesError(upstreamErr) {
+						common.RequestLogf(c, "[Responses-UpstreamError] %s，触发重试", preflightDiagnostic)
+						return nil, fmt.Errorf("%w: %s", common.ErrEmptyStreamResponse, preflightDiagnostic)
+					}
+					return nil, fmt.Errorf("upstream Responses error: %s", preflightDiagnostic)
+				}
 				hadPendingToolCall := preflightToolTracker.HasPendingToolCall()
 				if malformed, name := preflightToolTracker.ProcessResponsesEvent(event); malformed {
 					preflightEmpty = true

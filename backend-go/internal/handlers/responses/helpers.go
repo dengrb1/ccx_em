@@ -220,11 +220,13 @@ func isResponsesUsageOnlyEvent(event string) bool {
 
 func firstUnknownResponsesEventType(event string) (string, bool) {
 	knownTypes := map[string]struct{}{
+		"response.created": {}, "response.in_progress": {}, "response.incomplete": {},
 		"response.output_text.delta": {}, "response.function_call_arguments.delta": {}, "response.function_call_arguments.done": {},
 		"response.custom_tool_call_input.delta": {}, "response.custom_tool_call_input.done": {},
 		"response.reasoning_summary_text.delta": {}, "response.reasoning_summary_text.done": {}, "response.reasoning_summary_part.added": {}, "response.reasoning_summary_part.done": {},
 		"response.output_json.delta": {}, "response.content_part.delta": {}, "response.audio.delta": {}, "response.audio_transcript.delta": {},
 		"response.output_item.added": {}, "response.output_item.done": {}, "response.completed": {},
+		"response.error": {}, "response.failed": {}, "error": {}, "keepalive": {},
 	}
 	lines := strings.Split(event, "\n")
 	for _, line := range lines {
@@ -246,4 +248,137 @@ func firstUnknownResponsesEventType(event string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+type responsesStreamErrorInfo struct {
+	Type    string
+	Code    string
+	Message string
+}
+
+func detectResponsesStreamError(event, sseEventName string) (responsesStreamErrorInfo, bool) {
+	for _, line := range strings.Split(event, "\n") {
+		var jsonStr string
+		if strings.HasPrefix(line, "data:") {
+			jsonStr = strings.TrimPrefix(line, "data:")
+			jsonStr = strings.TrimPrefix(jsonStr, " ")
+		} else {
+			continue
+		}
+
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+			continue
+		}
+
+		eventType, _ := data["type"].(string)
+		if eventType == "" {
+			eventType = sseEventName
+		}
+		if !isResponsesErrorEventType(eventType) && !isResponsesErrorEventType(sseEventName) {
+			continue
+		}
+
+		info := extractResponsesErrorInfo(data)
+		if info.Message == "" {
+			info.Message = "upstream returned a Responses error event"
+		}
+		return info, true
+	}
+	return responsesStreamErrorInfo{}, false
+}
+
+func isResponsesErrorEventType(eventType string) bool {
+	switch strings.TrimSpace(eventType) {
+	case "error", "response.error", "response.failed":
+		return true
+	default:
+		return false
+	}
+}
+
+func extractResponsesErrorInfo(data map[string]interface{}) responsesStreamErrorInfo {
+	if errObj, ok := data["error"].(map[string]interface{}); ok {
+		return responsesErrorInfoFromMap(errObj)
+	}
+	if response, ok := data["response"].(map[string]interface{}); ok {
+		if errObj, ok := response["error"].(map[string]interface{}); ok {
+			return responsesErrorInfoFromMap(errObj)
+		}
+	}
+	if errMsg, ok := data["error"].(string); ok {
+		return responsesStreamErrorInfo{Message: errMsg}
+	}
+	if msg, ok := data["message"].(string); ok {
+		return responsesStreamErrorInfo{Message: msg}
+	}
+	return responsesStreamErrorInfo{}
+}
+
+func responsesErrorInfoFromMap(errObj map[string]interface{}) responsesStreamErrorInfo {
+	errType, _ := errObj["type"].(string)
+	errCode, _ := errObj["code"].(string)
+	errMsg, _ := errObj["message"].(string)
+	return responsesStreamErrorInfo{
+		Type:    errType,
+		Code:    errCode,
+		Message: errMsg,
+	}
+}
+
+func detectResponsesErrorBlacklist(info responsesStreamErrorInfo) (reason, message string) {
+	errType := info.Type
+	if errType == "" {
+		errType = info.Code
+	}
+	errObj := map[string]interface{}{
+		"type":    errType,
+		"code":    info.Code,
+		"message": info.Message,
+	}
+	payload, err := json.Marshal(map[string]interface{}{
+		"type":  "error",
+		"error": errObj,
+	})
+	if err != nil {
+		return "", ""
+	}
+	return common.DetectStreamBlacklistError("event: error\ndata: " + string(payload) + "\n\n")
+}
+
+func isRetryableResponsesError(info responsesStreamErrorInfo) bool {
+	code := strings.ToLower(strings.TrimSpace(info.Code))
+	errType := strings.ToLower(strings.TrimSpace(info.Type))
+	message := strings.ToLower(strings.TrimSpace(info.Message))
+
+	switch code {
+	case "server_is_overloaded", "slow_down", "rate_limit_exceeded", "rate_limit", "temporarily_unavailable",
+		"service_unavailable", "server_error", "internal_error", "timeout":
+		return true
+	}
+	switch errType {
+	case "service_unavailable_error", "server_error", "rate_limit_error", "timeout_error":
+		return true
+	}
+	return strings.Contains(message, "server") && strings.Contains(message, "overload")
+}
+
+func formatResponsesErrorDiagnostic(info responsesStreamErrorInfo) string {
+	parts := make([]string, 0, 2)
+	if info.Code != "" {
+		parts = append(parts, info.Code)
+	}
+	if info.Type != "" && info.Type != info.Code {
+		parts = append(parts, info.Type)
+	}
+	if info.Message == "" {
+		if len(parts) == 0 {
+			return "上游返回 Responses 错误事件"
+		}
+		return "上游返回 Responses 错误: " + strings.Join(parts, "/")
+	}
+	if len(parts) == 0 {
+		return "上游返回 Responses 错误: " + info.Message
+	}
+	return "上游返回 Responses 错误: " + info.Message + " (" + strings.Join(parts, "/") + ")"
 }
