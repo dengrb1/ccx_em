@@ -1,3 +1,25 @@
+## [v2.9.19] - 2026-06-27
+
+### 新增
+
+- **为对话驾驶舱补充悬浮提示** - ui: 为对话驾驶舱补充悬浮提示
+
+### 修复
+
+- **strip Codex response metadata passthrough** - strip Codex response metadata passthrough
+- **处理 Responses 流式错误事件** - responses: 处理 Responses 流式错误事件
+- **补齐印尼语缺失翻译** - i18n: 补齐印尼语缺失翻译
+- **跳过 Claude 空输出重试标题** - backend: 跳过 Claude 空输出重试标题
+- **remove channel logs refresh button** - desktop: remove channel logs refresh button
+
+### 重构
+
+- **抽取 Responses WebSocket 回退处理器** - backend: 抽取 Responses WebSocket 回退处理器
+
+### 其他
+
+- **配置 macOS 签名公证** - desktop: 配置 macOS 签名公证
+
 ## [v2.9.18] - 2026-06-26
 
 ### 新增
