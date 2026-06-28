@@ -494,6 +494,8 @@
   "channelLogs.autoRefresh": "Auto refresh",
   "channelLogs.autoRefreshing": "Auto refreshing",
   "channelLogs.empty": "No logs yet",
+  "channelLogs.copyEntry": "Copy this log",
+  "channelLogs.copiedEntry": "Log copied",
   "channelLogs.retry": "Retry",
   "channelLogs.sourceCapabilityTest": "Capability Test",
   "channelLogs.reasoning.original": "Original",

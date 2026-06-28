@@ -494,6 +494,8 @@
   "channelLogs.autoRefresh": "自动刷新",
   "channelLogs.autoRefreshing": "自动刷新中",
   "channelLogs.empty": "暂无日志记录",
+  "channelLogs.copyEntry": "复制此条日志",
+  "channelLogs.copiedEntry": "已复制日志",
   "channelLogs.retry": "重试",
   "channelLogs.sourceCapabilityTest": "能力测试",
   "channelLogs.reasoning.original": "原始",

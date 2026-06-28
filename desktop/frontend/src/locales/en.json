@@ -929,6 +929,8 @@
   "channelLogs.status.failed": "Failed",
   "channelLogs.status.cancelled": "Cancelled",
   "channelLogs.sourceCapabilityTest": "Capability test",
+  "channelLogs.copyEntry": "Copy this log",
+  "channelLogs.copiedEntry": "Log copied",
   "channelLogs.reasoning.original": "Original",
   "channelLogs.reasoning.actual": "Sent",
   "channelLogs.retry": "Retry",

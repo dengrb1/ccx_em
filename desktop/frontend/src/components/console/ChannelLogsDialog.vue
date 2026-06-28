@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, X, List } from 'lucide-vue-next'
+import { Check, Copy, Loader2, X, List } from 'lucide-vue-next'
 import { useAdminApi } from '@/composables/useAdminApi'
 import { useLanguage } from '@/composables/useLanguage'
 import type { ChannelLogEntry, ChannelLogsResponse } from '@/services/admin-api'
@@ -30,7 +30,9 @@ const refreshing = ref(false)
 const error = ref('')
 const expandedIndex = ref<number | null>(null)
 const autoRefresh = ref(true)
+const copiedLogKey = ref<string | null>(null)
 let fetchPromise: Promise<void> | null = null
+let copyLogResetTimer: ReturnType<typeof setTimeout> | null = null
 
 const shouldPoll = computed(() => props.open && autoRefresh.value && visibility.value === 'visible')
 
@@ -60,6 +62,56 @@ async function fetchLogs(options: { silent?: boolean } = {}) {
 
 function toggleExpand(index: number) {
   expandedIndex.value = expandedIndex.value === index ? null : index
+}
+
+function getLogCopyKey(log: ChannelLogEntry, index: number) {
+  return log.requestId || `${log.timestamp}-${index}`
+}
+
+async function writeClipboardText(text: string) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      // 继续使用传统复制路径
+    }
+  }
+
+  if (typeof document === 'undefined') {
+    throw new Error('Clipboard API is unavailable')
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.top = '-9999px'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('Copy command failed')
+    }
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+async function copyLogEntry(log: ChannelLogEntry, index: number) {
+  try {
+    await writeClipboardText(JSON.stringify(log, null, 2))
+    copiedLogKey.value = getLogCopyKey(log, index)
+    if (copyLogResetTimer) clearTimeout(copyLogResetTimer)
+    copyLogResetTimer = setTimeout(() => {
+      copiedLogKey.value = null
+      copyLogResetTimer = null
+    }, 1600)
+  } catch (e) {
+    console.error('Failed to copy channel log:', e)
+  }
 }
 
 function statusColorClass(code: number) {
@@ -202,6 +254,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 onBeforeUnmount(() => {
+  if (copyLogResetTimer) clearTimeout(copyLogResetTimer)
   window.removeEventListener('keydown', onKeyDown)
 })
 </script>
@@ -256,10 +309,22 @@ onBeforeUnmount(() => {
                 <div
                   v-for="(log, index) in logs"
                   :key="log.requestId || index"
-                  class="cursor-pointer px-4 py-3 transition-colors hover:bg-accent/40"
+                  class="group relative cursor-pointer px-4 py-3 pr-14 transition-colors hover:bg-accent/40"
                   :class="{ 'bg-destructive/5': log.status === 'failed' }"
                   @click="toggleExpand(index)"
                 >
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    class="absolute right-3 top-3 h-7 w-7 bg-card/95 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    :class="{ 'border-emerald-500/40 text-emerald-600 opacity-100 dark:text-emerald-300': copiedLogKey === getLogCopyKey(log, index) }"
+                    :title="copiedLogKey === getLogCopyKey(log, index) ? t('channelLogs.copiedEntry') : t('channelLogs.copyEntry')"
+                    :aria-label="t('channelLogs.copyEntry')"
+                    @click.stop="copyLogEntry(log, index)"
+                  >
+                    <Check v-if="copiedLogKey === getLogCopyKey(log, index)" class="h-3.5 w-3.5" />
+                    <Copy v-else class="h-3.5 w-3.5" />
+                  </Button>
                   <div class="flex flex-wrap items-center gap-2 text-xs">
                     <span
                       v-if="log.statusCode > 0"

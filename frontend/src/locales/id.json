@@ -494,6 +494,8 @@
   "channelLogs.autoRefresh": "Refresh otomatis",
   "channelLogs.autoRefreshing": "Sedang auto refresh",
   "channelLogs.empty": "Belum ada log",
+  "channelLogs.copyEntry": "Salin log ini",
+  "channelLogs.copiedEntry": "Log disalin",
   "channelLogs.retry": "Retry",
   "channelLogs.sourceCapabilityTest": "Tes Kemampuan",
   "channelLogs.reasoning.original": "Asli",

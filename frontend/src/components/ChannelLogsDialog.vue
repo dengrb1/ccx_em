@@ -28,6 +28,28 @@
         <v-list v-else density="comfortable" class="pa-0">
           <template v-for="(log, i) in logs" :key="i">
             <v-list-item :class="['log-item', { 'bg-error-subtle': log.status === 'failed' }]" @click="toggleExpand(i)">
+              <template #append>
+                <v-tooltip
+                  :text="copiedLogKey === getLogCopyKey(log, i) ? t('channelLogs.copiedEntry') : t('channelLogs.copyEntry')"
+                  location="left"
+                  content-class="ccx-tooltip"
+                >
+                  <template #activator="{ props: tooltipProps }">
+                    <v-btn
+                      v-bind="tooltipProps"
+                      icon
+                      size="x-small"
+                      variant="flat"
+                      class="log-copy-btn"
+                      :class="{ 'log-copy-btn--visible': copiedLogKey === getLogCopyKey(log, i) }"
+                      :aria-label="t('channelLogs.copyEntry')"
+                      @click.stop="copyLogEntry(log, i)"
+                    >
+                      <v-icon size="16">{{ copiedLogKey === getLogCopyKey(log, i) ? 'mdi-check' : 'mdi-content-copy' }}</v-icon>
+                    </v-btn>
+                  </template>
+                </v-tooltip>
+              </template>
               <template #prepend>
                 <v-chip
                   v-if="log.statusCode > 0"
@@ -168,12 +190,64 @@ const logs = ref<ChannelLogEntry[]>([])
 const isLoading = ref(false)
 const autoRefresh = ref(true)
 const expandedIndex = ref<number | null>(null)
+const copiedLogKey = ref<string | null>(null)
+let copyLogResetTimer: ReturnType<typeof setTimeout> | null = null
 
 // 全局 tick（3s），visibility hidden 时自动暂停
 const logsTick = useGlobalTick(3000, 'ChannelLogs')
 let pollingActive = false
 const startPolling = () => { pollingActive = true }
 const stopPolling = () => { pollingActive = false }
+
+const getLogCopyKey = (log: ChannelLogEntry, index: number): string => {
+  return log.requestId || `${log.timestamp}-${index}`
+}
+
+const writeClipboardText = async (text: string) => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      // 继续使用传统复制路径
+    }
+  }
+
+  if (typeof document === 'undefined') {
+    throw new Error('Clipboard API is unavailable')
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.top = '-9999px'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('Copy command failed')
+    }
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+const copyLogEntry = async (log: ChannelLogEntry, index: number) => {
+  try {
+    await writeClipboardText(JSON.stringify(log, null, 2))
+    copiedLogKey.value = getLogCopyKey(log, index)
+    if (copyLogResetTimer) clearTimeout(copyLogResetTimer)
+    copyLogResetTimer = setTimeout(() => {
+      copiedLogKey.value = null
+      copyLogResetTimer = null
+    }, 1600)
+  } catch (e) {
+    console.error('Failed to copy channel log:', e)
+  }
+}
 
 const toggleExpand = (i: number) => {
   expandedIndex.value = expandedIndex.value === i ? null : i
@@ -361,6 +435,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopPolling()
+  if (copyLogResetTimer) clearTimeout(copyLogResetTimer)
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
@@ -378,8 +453,37 @@ onUnmounted(() => {
 }
 
 .log-item {
+  position: relative;
   padding-top: 10px;
+  padding-inline-end: 52px !important;
   padding-bottom: 10px;
+}
+
+.log-item :deep(.v-list-item__append) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  margin-inline-start: 0;
+}
+
+.log-copy-btn {
+  background: rgba(var(--v-theme-surface), 0.94) !important;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  transform: translateY(-2px);
+}
+
+.log-item:hover .log-copy-btn,
+.log-copy-btn:focus-visible,
+.log-copy-btn--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.log-copy-btn--visible {
+  color: rgb(var(--v-theme-success)) !important;
 }
 
 .log-status-chip {
