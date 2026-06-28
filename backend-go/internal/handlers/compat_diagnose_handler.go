@@ -145,7 +145,7 @@ func runCompatDiagnose(channel *config.UpstreamConfig, channelKind, apiKey, base
 var strictClaudeThinkingKeywords = []string{
 	"deepseek", "glm", "zhipu", "bigmodel",
 	"volc", "volces", "ark.cn-beijing",
-	"compshare", "modelscope", "dashscope", "aliyun", "aliyuncs",
+	"compshare", "modelscope",
 	"opencode",
 }
 
@@ -274,7 +274,8 @@ func probeBaseURLCandidate(channel *config.UpstreamConfig, channelKind, apiKey, 
 		req *http.Request
 		err error
 	)
-	switch channelKind {
+	protocol := compatProbeProtocol(channel, channelKind)
+	switch protocol {
 	case "gemini":
 		req, err = buildGeminiCompatRequest(baseURL, "/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse", buildGeminiCompatProbeBody(), &candidate, apiKey)
 	case "chat":
@@ -294,10 +295,24 @@ func probeBaseURLCandidate(channel *config.UpstreamConfig, channelKind, apiKey, 
 	if sendErr != nil || statusCode < 200 || statusCode >= 300 {
 		return compatBaseURLProbeFailed
 	}
-	if !hasMeaningfulCompatSSE(events, channelKind) {
+	if !hasMeaningfulCompatSSE(events, protocol) {
 		return compatBaseURLProbeFailed
 	}
 	return compatBaseURLProbeSucceeded
+}
+
+func compatProbeProtocol(channel *config.UpstreamConfig, channelKind string) string {
+	if channelKind == "responses" {
+		switch channel.ServiceType {
+		case "claude", "gemini", "responses":
+			return channel.ServiceType
+		case "copilot":
+			return "responses"
+		case "openai", "chat":
+			return "chat"
+		}
+	}
+	return channelKind
 }
 
 // diagnoseClaudeChannel 探测 Claude 兼容渠道
@@ -306,6 +321,7 @@ func diagnoseClaudeChannel(channel *config.UpstreamConfig, apiKey, baseURL strin
 	probeModel := capabilityProbeModelClaudeFable5
 	shouldPassbackThinkingBlocks := shouldPassbackThinkingBlocksByDefault(channel, baseURL)
 	shouldNormalizeSystemRole := shouldNormalizeSystemRoleToTopLevelByDefault(channel, baseURL)
+	hasThinkingProbe := false
 
 	// 探测 1：带 thinking 的流式请求
 	ctx1, cancel1 := context.WithTimeout(context.Background(), 20*time.Second)
@@ -321,16 +337,15 @@ func diagnoseClaudeChannel(channel *config.UpstreamConfig, apiKey, baseURL strin
 			log.Printf("[CompatDiagnose] thinking probe failed (status=%d): %v", statusCode, reqErr)
 		} else {
 			hasThinking, hasEmptyText := analyzeClaudeSSE(events)
+			hasThinkingProbe = hasThinking
 			if hasThinking {
 				recs["passbackReasoningContent"] = true
 				evid["passbackReasoningContent"] = "upstream returned thinking block in stream"
-				if shouldPassbackThinkingBlocks {
-					recs["passbackThinkingBlocks"] = true
-					evid["passbackThinkingBlocks"] = "domestic/strict Claude-compatible upstream should receive prior thinking as content thinking blocks"
-				}
 			} else {
 				recs["passbackReasoningContent"] = false
 				evid["passbackReasoningContent"] = "no thinking block detected"
+				recs["passbackThinkingBlocks"] = false
+				evid["passbackThinkingBlocks"] = "no thinking block detected"
 			}
 			if hasEmptyText {
 				recs["stripEmptyTextBlocks"] = true
@@ -340,6 +355,10 @@ func diagnoseClaudeChannel(channel *config.UpstreamConfig, apiKey, baseURL strin
 				evid["stripEmptyTextBlocks"] = "no empty text blocks detected"
 			}
 		}
+	}
+
+	if hasThinkingProbe {
+		diagnoseClaudeThinkingBlockPassback(channel, apiKey, baseURL, probeModel, shouldPassbackThinkingBlocks, recs, evid)
 	}
 
 	// 探测 2：system role 放在 messages 数组中，检测是否需要 normalizeSystemRoleToTopLevel
@@ -361,6 +380,38 @@ func diagnoseClaudeChannel(channel *config.UpstreamConfig, apiKey, baseURL strin
 			evid["normalizeSystemRoleToTopLevel"] = "upstream accepted system role in messages array"
 		}
 	}
+}
+
+func diagnoseClaudeThinkingBlockPassback(channel *config.UpstreamConfig, apiKey, baseURL, probeModel string, defaultEnabled bool, recs map[string]bool, evid map[string]string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := buildClaudeCompatRequest(baseURL, buildClaudeHistoricalThinkingBlockProbeBody(probeModel), channel, apiKey)
+	if err != nil {
+		log.Printf("[CompatDiagnose] build historical thinking probe: %v", err)
+		recs["passbackThinkingBlocks"] = defaultEnabled
+		evid["passbackThinkingBlocks"] = "historical content thinking block probe failed to build; used provider default"
+		return
+	}
+
+	_, statusCode, reqErr := sendAndReadSSE(ctx, req, channel)
+	if reqErr == nil && statusCode >= 200 && statusCode < 300 {
+		recs["passbackThinkingBlocks"] = true
+		evid["passbackThinkingBlocks"] = "upstream accepted historical content thinking blocks"
+		return
+	}
+
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
+		recs["passbackReasoningContent"] = false
+		recs["passbackThinkingBlocks"] = false
+		evid["passbackReasoningContent"] = fmt.Sprintf("upstream rejected historical content thinking blocks (HTTP %d)", statusCode)
+		evid["passbackThinkingBlocks"] = fmt.Sprintf("upstream rejected historical content thinking blocks (HTTP %d)", statusCode)
+		return
+	}
+
+	log.Printf("[CompatDiagnose] historical thinking probe inconclusive (status=%d): %v", statusCode, reqErr)
+	recs["passbackThinkingBlocks"] = defaultEnabled
+	evid["passbackThinkingBlocks"] = "historical content thinking block probe inconclusive; used provider default"
 }
 
 // diagnoseGeminiChannel 探测 Gemini 兼容渠道
@@ -469,6 +520,32 @@ func buildClaudeThinkingProbeBody(model string) []byte {
 		"system":     []map[string]interface{}{{"type": "text", "text": "You are a helpful assistant. Nonce: " + nonce}},
 		"messages":   []map[string]string{{"role": "user", "content": "Reply with one word."}},
 		"max_tokens": 300,
+		"stream":     true,
+		"thinking":   map[string]interface{}{"type": "enabled", "budget_tokens": 512},
+	})
+	return body
+}
+
+// buildClaudeHistoricalThinkingBlockProbeBody 检测上游是否接受历史 assistant content[].thinking。
+func buildClaudeHistoricalThinkingBlockProbeBody(model string) []byte {
+	nonce := fmt.Sprintf("%d", time.Now().UnixNano())
+	body, _ := json.Marshal(map[string]interface{}{
+		"model": model,
+		"system": []map[string]interface{}{
+			{"type": "text", "text": "You are a helpful assistant. Nonce: " + nonce},
+		},
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "Reply with ok."},
+			{
+				"role": "assistant",
+				"content": []map[string]string{
+					{"type": "thinking", "thinking": "previous reasoning"},
+					{"type": "text", "text": "ok"},
+				},
+			},
+			{"role": "user", "content": "Reply with ok again."},
+		},
+		"max_tokens": 50,
 		"stream":     true,
 		"thinking":   map[string]interface{}{"type": "enabled", "budget_tokens": 512},
 	})

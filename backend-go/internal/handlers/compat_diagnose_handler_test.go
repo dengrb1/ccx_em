@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/BenedictKing/ccx/internal/config"
@@ -43,6 +45,19 @@ func TestCompatDiagnoseThinkingPassbackDefaults(t *testing.T) {
 			},
 			baseURL: "https://api.example.com/messages",
 			want:    true,
+		},
+		{
+			name: "dashscope qwen should use probe instead of default",
+			channel: &config.UpstreamConfig{
+				Name:        "code-gpt5.5-ali-qwen",
+				ServiceType: "claude",
+				ModelMapping: map[string]string{
+					"codex": "qwen3.7-plus",
+					"gpt":   "qwen3.7-plus",
+				},
+			},
+			baseURL: "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+			want:    false,
 		},
 		{
 			name: "anthropic standard channel",
@@ -137,6 +152,83 @@ func TestCompatDiagnoseSystemRoleNormalizeDefaults(t *testing.T) {
 	}
 }
 
+func TestDiagnoseClaudeChannelDisablesThinkingBlocksWhenProbeRejected(t *testing.T) {
+	var historicalThinkingProbeSeen bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		switch {
+		case strings.Contains(string(body), `"type":"thinking"`):
+			historicalThinkingProbeSeen = true
+			http.Error(w, `{"error":{"message":"Unexpected item type in content."}}`, http.StatusBadRequest)
+		case strings.Contains(string(body), `"thinking":{"budget_tokens":512,"type":"enabled"}`):
+			_, _ = w.Write([]byte(`data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}` + "\n\n"))
+			_, _ = w.Write([]byte(`data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"thinking"}}` + "\n\n"))
+		default:
+			_, _ = w.Write([]byte(`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}` + "\n\n"))
+		}
+	}))
+	defer server.Close()
+
+	channel := &config.UpstreamConfig{
+		Name:        "code-gpt5.5-ali-qwen",
+		ServiceType: "claude",
+		ModelMapping: map[string]string{
+			"codex": "qwen3.7-plus",
+			"gpt":   "qwen3.7-plus",
+		},
+	}
+
+	result := runCompatDiagnose(channel, "messages", "sk-test", server.URL)
+	if !historicalThinkingProbeSeen {
+		t.Fatal("historical thinking block probe was not sent")
+	}
+	if got := result.Recommendations["passbackReasoningContent"]; got != false {
+		t.Fatalf("passbackReasoningContent = %v, want false; evidence=%q", got, result.Evidence["passbackReasoningContent"])
+	}
+	if got := result.Recommendations["passbackThinkingBlocks"]; got != false {
+		t.Fatalf("passbackThinkingBlocks = %v, want false; evidence=%q", got, result.Evidence["passbackThinkingBlocks"])
+	}
+}
+
+func TestDiagnoseClaudeChannelEnablesThinkingBlocksWhenProbeAccepted(t *testing.T) {
+	var historicalThinkingProbeSeen bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request: %v", err)
+		}
+		if strings.Contains(string(body), `"type":"thinking"`) {
+			historicalThinkingProbeSeen = true
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		switch {
+		case strings.Contains(string(body), `"thinking":{"budget_tokens":512,"type":"enabled"}`) && !strings.Contains(string(body), `"type":"thinking"`):
+			_, _ = w.Write([]byte(`data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}` + "\n\n"))
+			_, _ = w.Write([]byte(`data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"thinking"}}` + "\n\n"))
+		default:
+			_, _ = w.Write([]byte(`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}` + "\n\n"))
+		}
+	}))
+	defer server.Close()
+
+	channel := &config.UpstreamConfig{
+		Name:        "deepseek",
+		ServiceType: "claude",
+	}
+
+	result := runCompatDiagnose(channel, "messages", "sk-test", server.URL)
+	if !historicalThinkingProbeSeen {
+		t.Fatal("historical thinking block probe was not sent")
+	}
+	if got := result.Recommendations["passbackThinkingBlocks"]; got != true {
+		t.Fatalf("passbackThinkingBlocks = %v, want true; evidence=%q", got, result.Evidence["passbackThinkingBlocks"])
+	}
+}
+
 func TestDiagnoseBaseURLHashRequiresFailedOriginalAndWorkingCandidate(t *testing.T) {
 	var originalHits, candidateHits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +257,43 @@ func TestDiagnoseBaseURLHashRequiresFailedOriginalAndWorkingCandidate(t *testing
 	}
 	if originalHits != 1 || candidateHits != 1 {
 		t.Fatalf("probe hits original=%d candidate=%d, want 1/1", originalHits, candidateHits)
+	}
+}
+
+func TestDiagnoseBaseURLHashResponsesClaudeUpstreamUsesMessagesEndpoint(t *testing.T) {
+	var messagesHits, responsesHits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/messages":
+			messagesHits++
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte(`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}` + "\n\n"))
+		case "/messages":
+			messagesHits++
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte(`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}` + "\n\n"))
+		case "/v1/responses":
+			responsesHits++
+			http.Error(w, "wrong endpoint", http.StatusNotFound)
+		case "/responses":
+			responsesHits++
+			http.Error(w, "wrong endpoint", http.StatusNotFound)
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	channel := &config.UpstreamConfig{BaseURL: server.URL, ServiceType: "claude"}
+	if rec := diagnoseBaseURLHash(channel, "responses", "sk-test", server.URL); rec != nil {
+		t.Fatalf("diagnoseBaseURLHash() = %#v, want nil", rec)
+	}
+	if messagesHits == 0 {
+		t.Fatal("messages endpoint was not probed")
+	}
+	if responsesHits != 0 {
+		t.Fatalf("responses endpoint hits = %d, want 0", responsesHits)
 	}
 }
 
