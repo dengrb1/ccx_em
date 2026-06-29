@@ -46,7 +46,13 @@ export const claudeMessagesPresets: Record<string, ClaudeMessagesPreset> = {
       "opus": "mimo-v2.5-pro",
       "sonnet": "mimo-v2.5-pro"
     },
-    "reasoningMapping": {},
+    "reasoningMapping": {
+      "fable": "max",
+      "haiku": "high",
+      "mimo-v2.5": "max",
+      "opus": "max",
+      "sonnet": "max"
+    },
     "reasoningParamStyle": "reasoning",
     "passbackReasoningContent": true,
     "passbackThinkingBlocks": false,

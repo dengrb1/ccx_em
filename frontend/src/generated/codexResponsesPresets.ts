@@ -44,7 +44,12 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
       "gpt": "mimo-v2.5-pro",
       "mini": "mimo-v2.5-pro"
     },
-    "reasoningMapping": {},
+    "reasoningMapping": {
+      "codex": "high",
+      "gpt": "max",
+      "mimo-v2.5": "max",
+      "mini": "high"
+    },
     "reasoningParamStyle": "reasoning",
     "codexNativeToolPassthrough": false,
     "codexToolCompat": true,

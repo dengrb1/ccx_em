@@ -23,6 +23,13 @@
         "opus": "mimo-v2.5-pro",
         "sonnet": "mimo-v2.5-pro"
       },
+      "reasoningMapping": {
+        "fable": "max",
+        "haiku": "high",
+        "mimo-v2.5": "max",
+        "opus": "max",
+        "sonnet": "max"
+      },
       "reasoningParamStyle": "reasoning",
       "passbackReasoningContent": true,
       "normalizeSystemRoleToTopLevel": true,
