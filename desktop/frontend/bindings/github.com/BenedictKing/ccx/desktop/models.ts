@@ -155,6 +155,9 @@ export class VersionInfo {
     "buildTime": string;
     "gitCommit": string;
     "distribution": string;
+    "platform": string;
+    "arch": string;
+    "supportsInAppUpdate": boolean;
 
     /** Creates a new VersionInfo instance. */
     constructor($$source: Partial<VersionInfo> = {}) {
@@ -169,6 +172,15 @@ export class VersionInfo {
         }
         if (!("distribution" in $$source)) {
             this["distribution"] = "";
+        }
+        if (!("platform" in $$source)) {
+            this["platform"] = "";
+        }
+        if (!("arch" in $$source)) {
+            this["arch"] = "";
+        }
+        if (!("supportsInAppUpdate" in $$source)) {
+            this["supportsInAppUpdate"] = false;
         }
 
         Object.assign(this, $$source);

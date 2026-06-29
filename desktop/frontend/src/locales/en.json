@@ -509,6 +509,8 @@
   "sidebar.versionClickCheck": "Click to check for updates",
   "sidebar.updateAvailable": "New {version}",
   "sidebar.updateAvailableHint": "Click to view release notes",
+  "sidebar.updateInstallHint": "Click to install update",
+  "sidebar.updateOpenReleaseHint": "Click to view release notes",
   "sidebar.theme": "Theme",
   "sidebar.themeAuto": "System",
   "sidebar.themeLight": "Light",

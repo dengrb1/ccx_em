@@ -43,3 +43,17 @@ func TestPrereleasePattern(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckLatestReleaseSkipsStoreDistribution(t *testing.T) {
+	service := &DesktopService{
+		versionInfo: VersionInfo{
+			Version:      "1.2.3",
+			Distribution: "store",
+		},
+	}
+
+	got := service.CheckLatestRelease(true)
+	if got.CurrentVersion != "1.2.3" || got.Status != "latest" || got.HasUpdate {
+		t.Fatalf("CheckLatestRelease(store) = %+v, want current 1.2.3 latest without update", got)
+	}
+}

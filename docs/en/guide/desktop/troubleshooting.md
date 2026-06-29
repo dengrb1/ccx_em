@@ -215,9 +215,11 @@ curl -sS -i "http://localhost:3688/v1/chat/completions" \
 
 ## Auto update issues
 
-### macOS shows an unverified developer warning
+### macOS still says the app cannot be opened
 
-Open **System Settings → Privacy & Security**, find the blocked app, and click **Open Anyway**.
+Official macOS release packages are signed with Apple Developer ID and notarized, so they should open directly under normal conditions.
+
+If macOS still blocks the app, confirm that you downloaded the latest stable release. If the problem persists, open a GitHub Issue with the package version and your macOS version.
 
 ### Linux AppImage cannot update
 

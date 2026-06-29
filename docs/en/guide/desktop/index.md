@@ -43,7 +43,7 @@ shasum -a 256 -c CCX-Desktop-*.sha256
 
 1. Open the `.dmg` file.
 2. Drag `CCX Desktop` into `Applications`.
-3. On first launch, macOS may show an unverified developer warning. Open **System Settings → Privacy & Security** and click **Open Anyway**.
+3. Open `CCX Desktop` from `Applications`. The macOS build is signed with Apple Developer ID and notarized, so it should launch directly under normal conditions.
 
 #### Windows
 

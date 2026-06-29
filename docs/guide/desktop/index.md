@@ -43,7 +43,7 @@ shasum -a 256 -c CCX-Desktop-*.sha256
 
 1. 双击 `.dmg` 文件。
 2. 将 `CCX Desktop` 拖入 `Applications` 文件夹。
-3. 首次打开时，macOS 可能提示“无法验证开发者”，前往 **系统设置 → 隐私与安全性** 点击“仍要打开”。
+3. 打开 `Applications` 中的 `CCX Desktop`。macOS 版本已使用 Apple Developer ID 签名并完成公证，正常情况下可直接运行。
 
 #### Windows
 

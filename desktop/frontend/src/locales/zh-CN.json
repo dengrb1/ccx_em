@@ -509,6 +509,8 @@
   "sidebar.versionClickCheck": "点击检查更新",
   "sidebar.updateAvailable": "新版 {version}",
   "sidebar.updateAvailableHint": "点击查看发布说明",
+  "sidebar.updateInstallHint": "点击安装更新",
+  "sidebar.updateOpenReleaseHint": "点击查看发布说明",
   "sidebar.theme": "主题",
   "sidebar.themeAuto": "跟随系统",
   "sidebar.themeLight": "亮色",

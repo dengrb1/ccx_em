@@ -30,7 +30,7 @@ const modelValue = defineModel<TabValue>({ required: true })
 
 const { status, loading, autostartEnabled, startService, stopService, setAutostart } = useStatus()
 const { locale, languageOptions, setLanguage, t } = useLanguage()
-const { releaseInfo, isChecking, manualCheck } = useReleaseCheck()
+const { releaseInfo, isChecking, isStartingUpdate, manualCheck, startInAppUpdate } = useReleaseCheck()
 const { theme, setTheme } = useTheme()
 
 const themeOptions = computed(() => [
@@ -41,6 +41,7 @@ const themeOptions = computed(() => [
 
 const versionInfo = ref<VersionInfo | null>(null)
 const isStoreDistribution = computed(() => versionInfo.value?.distribution === 'store')
+const canInstallInAppUpdate = computed(() => !!versionInfo.value?.supportsInAppUpdate)
 
 // Store 分发由 Store 接管更新通道，桌面端不应再展示 GitHub release 胶囊
 const showUpdateBadge = computed(
@@ -51,6 +52,18 @@ const handleOpenRelease = () => {
   const url = releaseInfo.value?.releaseUrl
   if (!url) return
   openExternalLink(url)
+}
+
+const handleUpdateClick = async () => {
+  if (canInstallInAppUpdate.value) {
+    try {
+      await startInAppUpdate()
+      return
+    } catch {
+      // 回退到发布页，避免更新入口静默失败
+    }
+  }
+  handleOpenRelease()
 }
 
 /** 点击版本号：无更新提示时触发手动检查，计入冷却时间 */
@@ -289,11 +302,12 @@ const handleDaemonAction = async () => {
               <button
                 v-if="showUpdateBadge"
                 type="button"
-                @click="handleOpenRelease"
+                @click="handleUpdateClick"
                 class="flex items-center gap-1 px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-800 dark:hover:text-emerald-200 transition-all duration-200 cursor-pointer animate-pulse"
-                :title="t('sidebar.updateAvailableHint')"
+                :title="canInstallInAppUpdate ? t('sidebar.updateInstallHint') : t('sidebar.updateOpenReleaseHint')"
               >
-                <Sparkles class="w-2.5 h-2.5" />
+                <Loader2 v-if="isStartingUpdate" class="w-2.5 h-2.5 animate-spin" />
+                <Sparkles v-else class="w-2.5 h-2.5" />
                 <span>{{ t('sidebar.updateAvailable', { version: releaseInfo?.latestVersion || '' }) }}</span>
               </button>
               <span

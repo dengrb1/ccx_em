@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	_ "embed"
 	"fmt"
@@ -20,7 +19,6 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/dock"
 	"github.com/wailsapp/wails/v3/pkg/updater"
-	updaterGithub "github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
 //go:embed all:frontend/dist
@@ -345,17 +343,18 @@ func run() error {
 		if desktopService.isStoreDistribution() {
 			updateItem := menu.Add("由 Microsoft Store 更新")
 			updateItem.SetEnabled(false)
+		} else if !desktopService.versionInfo.SupportsInAppUpdate {
+			updateItem := menu.Add("请从发布页更新")
+			updateItem.SetEnabled(false)
 		} else if !updaterInitialized {
 			updateItem := menu.Add("更新不可用")
 			updateItem.SetEnabled(false)
 		} else {
 			menu.Add("检查更新…").OnClick(func(ctx *application.Context) {
-				go func() {
-					if err := app.Updater.CheckAndInstall(context.Background()); err != nil {
-						log.Printf("[Desktop-Updater] 检查更新失败: %v", err)
-						app.Event.Emit("desktop:tray-error", fmt.Sprintf("检查更新失败: %v", err))
-					}
-				}()
+				if err := desktopService.StartInAppUpdate(); err != nil {
+					log.Printf("[Desktop-Updater] 检查更新失败: %v", err)
+					app.Event.Emit("desktop:tray-error", fmt.Sprintf("检查更新失败: %v", err))
+				}
 			})
 		}
 
@@ -433,16 +432,13 @@ func run() error {
 		}
 	})
 
-	// 初始化 Wails v3 内置 Updater（非 Store 分发时）。
+	// 初始化 Wails v3 内置 Updater（当前仅非 Store macOS 分发启用）。
 	// 不开启 CheckInterval：自动轮询会在每个间隔自动 CheckAndInstall 弹出更新窗口，
 	// 即便「up-to-date」或失败也会保留窗口，干扰严重。改为静默调用 GitHub Releases
 	// API（见 desktopservice.CheckLatestRelease）+ 侧栏胶囊提示，用户主动点击托盘
 	// 菜单或胶囊后再走 wails updater 的下载安装流程。
-	if !desktopService.isStoreDistribution() {
-		gh, err := updaterGithub.New(updaterGithub.Config{
-			Repository:    "BenedictKing/ccx",
-			ChecksumAsset: "SHA256SUMS",
-		})
+	if desktopService.versionInfo.SupportsInAppUpdate {
+		gh, err := newGitHubUpdaterProvider()
 		if err != nil {
 			log.Printf("[Desktop-Updater] 创建 GitHub provider 失败: %v", err)
 		} else {

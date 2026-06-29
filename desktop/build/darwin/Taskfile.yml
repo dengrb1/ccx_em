@@ -198,6 +198,86 @@ tasks:
           APPLE_APP_SPECIFIC_PASSWORD:
             ref: .APPLE_APP_SPECIFIC_PASSWORD
 
+  package:release:
+    summary: Packages a production build into updater ZIP and Finder-styled DMG artifacts
+    vars:
+      DISPLAY_APP_NAME: '{{.DISPLAY_APP_NAME | default "CCX Desktop"}}'
+      DMG_WINDOW_SIZE: '{{.DMG_WINDOW_SIZE | default "520,340"}}'
+      DMG_APP_POSITION: '{{.DMG_APP_POSITION | default "120,130"}}'
+      DMG_APPLICATIONS_POSITION: '{{.DMG_APPLICATIONS_POSITION | default "390,130"}}'
+      DMG_APP_ICON_SIZE: '{{.DMG_APP_ICON_SIZE | default 96}}'
+      DMG_APPLICATIONS_ICON_SIZE: '{{.DMG_APPLICATIONS_ICON_SIZE | default 96}}'
+    deps:
+      - task: package
+        vars:
+          ARCH:
+            ref: .ARCH
+          BUILD_VERSION:
+            ref: .BUILD_VERSION
+          BUILD_TIME:
+            ref: .BUILD_TIME
+          GIT_COMMIT:
+            ref: .GIT_COMMIT
+          MACOS_CODESIGN_IDENTITY:
+            ref: .MACOS_CODESIGN_IDENTITY
+    cmds:
+      - task: create:update:zip
+        vars:
+          DISPLAY_APP_NAME:
+            ref: .DISPLAY_APP_NAME
+          BUILD_VERSION:
+            ref: .BUILD_VERSION
+          ARCH:
+            ref: .ARCH
+      - task: create:dmg
+        vars:
+          DISPLAY_APP_NAME:
+            ref: .DISPLAY_APP_NAME
+          DMG_WINDOW_SIZE:
+            ref: .DMG_WINDOW_SIZE
+          DMG_APP_POSITION:
+            ref: .DMG_APP_POSITION
+          DMG_APPLICATIONS_POSITION:
+            ref: .DMG_APPLICATIONS_POSITION
+          DMG_APP_ICON_SIZE:
+            ref: .DMG_APP_ICON_SIZE
+          DMG_APPLICATIONS_ICON_SIZE:
+            ref: .DMG_APPLICATIONS_ICON_SIZE
+          BUILD_VERSION:
+            ref: .BUILD_VERSION
+          MACOS_CODESIGN_IDENTITY:
+            ref: .MACOS_CODESIGN_IDENTITY
+          MACOS_NOTARIZE:
+            ref: .MACOS_NOTARIZE
+          MACOS_NOTARY_KEYCHAIN_PROFILE:
+            ref: .MACOS_NOTARY_KEYCHAIN_PROFILE
+          APPLE_ID:
+            ref: .APPLE_ID
+          APPLE_TEAM_ID:
+            ref: .APPLE_TEAM_ID
+          APPLE_APP_SPECIFIC_PASSWORD:
+            ref: .APPLE_APP_SPECIFIC_PASSWORD
+
+  create:update:zip:
+    summary: Creates a single-top-level `.app` ZIP for the in-app updater
+    vars:
+      DISPLAY_APP_NAME: '{{.DISPLAY_APP_NAME | default "CCX Desktop"}}'
+      VERSION: '{{.BUILD_VERSION | default "0.0.0"}}'
+      ZIP_OUTPUT: '{{.BIN_DIR}}/CCX-Desktop-{{.VERSION}}-darwin-{{.ARCH | default ARCH}}.zip'
+    cmds:
+      - rm -f "{{.ZIP_OUTPUT}}"
+      - |
+        APP_PATH="{{.BIN_DIR}}/{{.APP_NAME}}.app"
+        if [ ! -d "$APP_PATH" ]; then
+          echo "ERROR: app bundle not found: $APP_PATH" >&2
+          exit 1
+        fi
+        STAGING=$(mktemp -d)
+        trap 'rm -rf "$STAGING"' EXIT
+        cp -R "$APP_PATH" "$STAGING/{{.DISPLAY_APP_NAME}}.app"
+        codesign --verify --deep --strict --verbose=4 "$STAGING/{{.DISPLAY_APP_NAME}}.app"
+        ditto -c -k --sequesterRsrc --keepParent "$STAGING/{{.DISPLAY_APP_NAME}}.app" "{{.ZIP_OUTPUT}}"
+
   create:dmg:
     summary: Creates a DMG with a custom Finder layout using create-dmg
     vars:

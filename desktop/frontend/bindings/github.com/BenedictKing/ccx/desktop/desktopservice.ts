@@ -28,7 +28,7 @@ export function ApplyAgentConfig(req: configservice$0.ApplyAgentConfigRequest): 
 
 /**
  * CheckLatestRelease 查询 GitHub Releases，返回是否有新版本。
- * 结果在内存中缓存 30 分钟（错误状态缓存 5 分钟），避免频繁访问 GitHub API。
+ * 结果在内存中缓存 4 小时（错误状态缓存 30 分钟），避免频繁访问 GitHub API。
  * 失败不返回 error，仅将 Status 置为 "error"，让前端安静忽略。
  * 传入 force=true 时绕过缓存（用户主动「立即检查」场景）。
  */
@@ -237,6 +237,13 @@ export function ShowWebUITab(): $CancellablePromise<void> {
 
 export function Shutdown(): $CancellablePromise<void> {
     return $Call.ByID(3879395531);
+}
+
+/**
+ * StartInAppUpdate 打开内置更新窗口，并启动检查、下载、安装流程。
+ */
+export function StartInAppUpdate(): $CancellablePromise<void> {
+    return $Call.ByID(2256678950);
 }
 
 export function StartService(): $CancellablePromise<void> {

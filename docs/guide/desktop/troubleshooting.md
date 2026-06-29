@@ -215,9 +215,11 @@ curl -sS -i "http://localhost:3688/v1/chat/completions" \
 
 ## 自动更新问题
 
-### macOS 提示“无法验证开发者”
+### macOS 仍提示无法打开
 
-前往 **系统设置 → 隐私与安全性**，找到被阻止的应用，点击“仍要打开”。
+macOS 正式发布包已使用 Apple Developer ID 签名并完成公证，正常情况下可直接打开。
+
+如仍提示无法打开，请确认下载的是最新正式版本；若问题持续，请在 GitHub Issues 反馈安装包版本和 macOS 版本。
 
 ### Linux AppImage 无法更新
 

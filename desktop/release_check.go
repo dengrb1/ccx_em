@@ -46,10 +46,17 @@ type releaseCheckCache struct {
 var releaseCache releaseCheckCache
 
 // CheckLatestRelease 查询 GitHub Releases，返回是否有新版本。
-// 结果在内存中缓存 30 分钟（错误状态缓存 5 分钟），避免频繁访问 GitHub API。
+// 结果在内存中缓存 4 小时（错误状态缓存 30 分钟），避免频繁访问 GitHub API。
 // 失败不返回 error，仅将 Status 置为 "error"，让前端安静忽略。
 // 传入 force=true 时绕过缓存（用户主动「立即检查」场景）。
 func (s *DesktopService) CheckLatestRelease(force bool) ReleaseCheckResult {
+	if s.isStoreDistribution() {
+		return ReleaseCheckResult{
+			CurrentVersion: s.versionInfo.Version,
+			Status:         "latest",
+		}
+	}
+
 	releaseCache.mu.Lock()
 	defer releaseCache.mu.Unlock()
 

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -32,10 +33,13 @@ type DesktopService struct {
 }
 
 type VersionInfo struct {
-	Version      string `json:"version"`
-	BuildTime    string `json:"buildTime"`
-	GitCommit    string `json:"gitCommit"`
-	Distribution string `json:"distribution"`
+	Version             string `json:"version"`
+	BuildTime           string `json:"buildTime"`
+	GitCommit           string `json:"gitCommit"`
+	Distribution        string `json:"distribution"`
+	Platform            string `json:"platform"`
+	Arch                string `json:"arch"`
+	SupportsInAppUpdate bool   `json:"supportsInAppUpdate"`
 }
 
 type EnvFileState struct {
@@ -80,6 +84,13 @@ func (s *DesktopService) setVersion(v VersionInfo) {
 	if v.Distribution == "" {
 		v.Distribution = "github"
 	}
+	if v.Platform == "" {
+		v.Platform = runtime.GOOS
+	}
+	if v.Arch == "" {
+		v.Arch = runtime.GOARCH
+	}
+	v.SupportsInAppUpdate = supportsInAppUpdate(v.Distribution)
 	s.versionInfo = v
 }
 
@@ -106,6 +117,23 @@ func (s *DesktopService) WebURL() string {
 // GetVersion 返回构建时注入的版本信息。
 func (s *DesktopService) GetVersion() VersionInfo {
 	return s.versionInfo
+}
+
+// StartInAppUpdate 打开内置更新窗口，并启动检查、下载、安装流程。
+func (s *DesktopService) StartInAppUpdate() error {
+	if !supportsInAppUpdate(s.versionInfo.Distribution) {
+		return fmt.Errorf("当前分发渠道不支持应用内更新")
+	}
+	if s.app == nil {
+		return fmt.Errorf("应用未初始化")
+	}
+	go func() {
+		if err := s.app.Updater.CheckAndInstall(context.Background()); err != nil {
+			log.Printf("[Desktop-Updater] 检查更新失败: %v", err)
+			s.app.Event.Emit("desktop:tray-error", fmt.Sprintf("检查更新失败: %v", err))
+		}
+	}()
+	return nil
 }
 
 func (s *DesktopService) GetStatus() backend.Status {

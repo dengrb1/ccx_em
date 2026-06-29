@@ -1,5 +1,5 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { CheckLatestRelease } from '@bindings/github.com/BenedictKing/ccx/desktop/desktopservice'
+import { CheckLatestRelease, StartInAppUpdate } from '@bindings/github.com/BenedictKing/ccx/desktop/desktopservice'
 import type { ReleaseCheckResult } from '@bindings/github.com/BenedictKing/ccx/desktop/models'
 
 // 4 小时与 Go 端 releasesCacheTTL 对齐：组件层面也只需 4h 触发一次。
@@ -11,6 +11,7 @@ const INITIAL_DELAY_MS = 8 * 1000
 
 const releaseInfo = ref<ReleaseCheckResult | null>(null)
 const isChecking = ref(false)
+const isStartingUpdate = ref(false)
 let timer: ReturnType<typeof setInterval> | null = null
 let initialTimeout: ReturnType<typeof setTimeout> | null = null
 let mountedCount = 0
@@ -42,6 +43,16 @@ async function manualCheck() {
   }
 }
 
+async function startInAppUpdate() {
+  if (isStartingUpdate.value) return
+  isStartingUpdate.value = true
+  try {
+    await StartInAppUpdate()
+  } finally {
+    isStartingUpdate.value = false
+  }
+}
+
 export function useReleaseCheck() {
   onMounted(() => {
     mountedCount += 1
@@ -66,7 +77,9 @@ export function useReleaseCheck() {
   return {
     releaseInfo,
     isChecking,
+    isStartingUpdate,
     refresh: () => pollOnce(true),
     manualCheck,
+    startInAppUpdate,
   }
 }
