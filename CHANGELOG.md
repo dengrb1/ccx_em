@@ -1,3 +1,22 @@
+## [Unreleased]
+
+## [v2.9.24] - 2026-06-29
+
+### 新增
+
+- **MiMo 预设思考强度配置** - channel: 将 MiMo 预设的思考强度配置学习到一键预设
+
+### 修复
+
+- **Volc Ark coding 端点预设** - desktop: 修正 Volc Ark coding 端点预设配置
+- **渠道日志与 Key 错误展示** - desktop: 改善渠道日志和 key 错误信息的显示
+- **认证区域置于重定向前** - channel: 将认证配置区域放在重定向区域之前
+- **Copilot OAuth 外部链接** - desktop: 修复 Copilot OAuth 链接在桌面端无法打开的问题
+
+### 其他
+
+- **延长桌面端 macOS 公证超时** - release: 延长桌面端 macOS 公证任务超时时间
+
 ## [v2.9.23] - 2026-06-29
 
 ### 修复
