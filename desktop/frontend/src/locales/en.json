@@ -702,7 +702,7 @@
   "channelEditor.runtime.title": "Runtime",
   "channelEditor.transport.title": "Transport",
   "channelEditor.rateLimit.title": "Rate Limit",
-  "channelEditor.compat.fastMode.hint": "Prefer low-latency lightweight edge routing",
+  "channelEditor.compat.fastMode.hint": "Codex /fast mode speeds up generation on supported models for faster coding iteration, but consumes credits or usage limits at a higher rate",
   "channelEditor.compat.textVerbosity.style": "Text Verbosity Style",
   "channelEditor.compat.vision.title": "Vision",
   "channelEditor.compat.selectDefault": "Default",

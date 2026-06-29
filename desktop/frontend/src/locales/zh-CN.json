@@ -702,7 +702,7 @@
   "channelEditor.runtime.title": "运行期策略",
   "channelEditor.transport.title": "代理路由网络",
   "channelEditor.rateLimit.title": "上游主动限速流量阀",
-  "channelEditor.compat.fastMode.hint": "优先选取低延迟的轻量边缘路由链路",
+  "channelEditor.compat.fastMode.hint": "Codex /fast mode：在支持的模型上提升生成速度，适合更快编码迭代；会以更高倍率消耗额度或使用限制",
   "channelEditor.compat.textVerbosity.style": "文本详细程度样式",
   "channelEditor.compat.vision.title": "视觉控制",
   "channelEditor.compat.selectDefault": "默认",
