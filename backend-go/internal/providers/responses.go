@@ -147,31 +147,13 @@ func (p *ResponsesProvider) buildProviderRequestBody(c *gin.Context, requestPath
 		if model, ok := reqMap["model"].(string); ok {
 			reqMap["model"] = config.RedirectModel(model, upstream)
 			if effort := config.ResolveReasoningEffort(model, upstream); effort != "" {
-				if upstream.ReasoningParamStyle == "thinking" {
-					delete(reqMap, "reasoning")
-					delete(reqMap, "reasoning_effort")
-					if effort != "none" {
-						reqMap["thinking"] = map[string]interface{}{"type": "enabled"}
-					}
-				} else if upstream.ReasoningParamStyle == "reasoning_effort" {
-					delete(reqMap, "reasoning")
-					reqMap["reasoning_effort"] = effort
-				} else {
-					reqMap["reasoning"] = map[string]interface{}{"effort": effort}
-				}
+				config.ApplyReasoningParamStyle(reqMap, upstream.ReasoningParamStyle, effort)
 			} else if reasoning, hasReasoning := reqMap["reasoning"]; hasReasoning {
 				// 无 ReasoningMapping 配置时，按 ReasoningParamStyle 转换客户端原始 reasoning
 				if upstream.ReasoningParamStyle == "thinking" {
-					delete(reqMap, "reasoning")
-					delete(reqMap, "reasoning_effort")
-					if effort := extractEffortFromReasoning(reasoning); effort != "" && effort != "none" {
-						reqMap["thinking"] = map[string]interface{}{"type": "enabled"}
-					}
+					config.ApplyReasoningParamStyle(reqMap, upstream.ReasoningParamStyle, extractEffortFromReasoning(reasoning))
 				} else if upstream.ReasoningParamStyle == "reasoning_effort" {
-					delete(reqMap, "reasoning")
-					if effort := extractEffortFromReasoning(reasoning); effort != "" {
-						reqMap["reasoning_effort"] = effort
-					}
+					config.ApplyReasoningParamStyle(reqMap, upstream.ReasoningParamStyle, extractEffortFromReasoning(reasoning))
 				}
 				// 默认样式保持原样透传（原始 reasoning 对象直接转发）
 			}
@@ -228,33 +210,16 @@ func (p *ResponsesProvider) buildProviderRequestBody(c *gin.Context, requestPath
 		if reqMap, ok := convertedReq.(map[string]interface{}); ok {
 			model := originalModel
 			if effort := config.ResolveReasoningEffort(model, upstream); effort != "" {
-				if upstream.ReasoningParamStyle == "thinking" {
-					delete(reqMap, "reasoning")
-					delete(reqMap, "reasoning_effort")
-					if effort != "none" {
-						reqMap["thinking"] = map[string]interface{}{"type": "enabled"}
-					}
-				} else if upstream.ReasoningParamStyle == "reasoning_effort" {
-					reqMap["reasoning_effort"] = effort
-				} else {
-					reqMap["reasoning"] = map[string]interface{}{"effort": effort}
-				}
+				config.ApplyReasoningParamStyle(reqMap, upstream.ReasoningParamStyle, effort)
 			} else {
 				// 无 ReasoningMapping 配置时，透传客户端原始 reasoning 并按 style 转换
 				var rawReq map[string]interface{}
 				if json.Unmarshal(bodyBytes, &rawReq) == nil {
 					if reasoning, hasReasoning := rawReq["reasoning"]; hasReasoning {
 						if upstream.ReasoningParamStyle == "thinking" {
-							delete(reqMap, "reasoning")
-							delete(reqMap, "reasoning_effort")
-							if effort := extractEffortFromReasoning(reasoning); effort != "" && effort != "none" {
-								reqMap["thinking"] = map[string]interface{}{"type": "enabled"}
-							}
+							config.ApplyReasoningParamStyle(reqMap, upstream.ReasoningParamStyle, extractEffortFromReasoning(reasoning))
 						} else if upstream.ReasoningParamStyle == "reasoning_effort" {
-							delete(reqMap, "reasoning")
-							if effort := extractEffortFromReasoning(reasoning); effort != "" {
-								reqMap["reasoning_effort"] = effort
-							}
+							config.ApplyReasoningParamStyle(reqMap, upstream.ReasoningParamStyle, extractEffortFromReasoning(reasoning))
 						} else {
 							reqMap["reasoning"] = reasoning
 						}
@@ -397,13 +362,7 @@ func (p *ResponsesProvider) buildResponsesRequestFromClaude(c *gin.Context, body
 		"stream": claudeReq.Stream,
 	}
 	if effort := config.ResolveReasoningEffort(claudeReq.Model, upstream); effort != "" {
-		if upstream.ReasoningParamStyle == "thinking" {
-			if effort != "none" {
-				responsesReq["thinking"] = map[string]interface{}{"type": "enabled"}
-			}
-		} else {
-			responsesReq["reasoning"] = map[string]interface{}{"effort": effort}
-		}
+		config.ApplyReasoningParamStyle(responsesReq, upstream.ReasoningParamStyle, effort)
 	}
 	if instructions := extractResponsesInstructions(claudeReq.System); instructions != "" {
 		responsesReq["instructions"] = instructions

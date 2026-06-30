@@ -232,6 +232,59 @@ func TestBuildProviderRequest_InjectsReasoningEffortStyle(t *testing.T) {
 	}
 }
 
+func TestBuildProviderRequest_InjectsThinkingParamStyle(t *testing.T) {
+	tests := []struct {
+		name     string
+		effort   string
+		wantType string
+	}{
+		{name: "none disables thinking", effort: "none", wantType: "disabled"},
+		{name: "high enables thinking", effort: "high", wantType: "enabled"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(context.Background())
+
+			bodyBytes := []byte(`{"model":"gpt-5.1-codex","messages":[{"role":"user","content":"hi"}],"reasoning":{"effort":"medium"},"reasoning_effort":"medium"}`)
+			upstream := &config.UpstreamConfig{
+				ServiceType:         "openai",
+				ReasoningParamStyle: "thinking",
+				ReasoningMapping: map[string]string{
+					"gpt-5.1-codex": tt.effort,
+				},
+			}
+
+			req, err := buildProviderRequest(c, upstream, "https://api.example.com", "sk-test", bodyBytes, "gpt-5.1-codex", false)
+			if err != nil {
+				t.Fatalf("buildProviderRequest() err = %v", err)
+			}
+
+			var got map[string]interface{}
+			if err := json.NewDecoder(req.Body).Decode(&got); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+
+			thinking, ok := got["thinking"].(map[string]interface{})
+			if !ok || thinking["type"] != tt.wantType {
+				t.Fatalf("thinking = %#v, want type=%s; body=%#v", got["thinking"], tt.wantType, got)
+			}
+			if _, ok := thinking["effort"]; ok {
+				t.Fatalf("thinking should not include effort for thinking.type style: %#v", thinking)
+			}
+			if _, ok := got["reasoning"]; ok {
+				t.Fatalf("reasoning should be removed for thinking style: %#v", got)
+			}
+			if _, ok := got["reasoning_effort"]; ok {
+				t.Fatalf("reasoning_effort should be removed for thinking style: %#v", got)
+			}
+		})
+	}
+}
+
 func TestBuildProviderRequest_NormalizeNonstandardChatRolesDefaultOff(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

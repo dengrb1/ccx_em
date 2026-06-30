@@ -151,6 +151,36 @@ func ResolveReasoningEffort(model string, upstream *UpstreamConfig) string {
 	return ""
 }
 
+// ApplyReasoningParamStyle 将统一的 reasoning effort 写成上游要求的参数形态。
+func ApplyReasoningParamStyle(req map[string]interface{}, style string, effort string) {
+	if req == nil {
+		return
+	}
+
+	switch style {
+	case "thinking":
+		delete(req, "reasoning")
+		delete(req, "reasoning_effort")
+		if effort == "" {
+			return
+		}
+		if effort == "off" || effort == "none" {
+			req["thinking"] = map[string]interface{}{"type": "disabled"}
+			return
+		}
+		req["thinking"] = map[string]interface{}{"type": "enabled"}
+	case "reasoning_effort":
+		delete(req, "reasoning")
+		if effort != "" {
+			req["reasoning_effort"] = effort
+		}
+	default:
+		if effort != "" {
+			req["reasoning"] = map[string]interface{}{"effort": effort}
+		}
+	}
+}
+
 func isValidReasoningEffort(reasoning string) bool {
 	switch reasoning {
 	case "", "off", "none", "low", "medium", "high", "xhigh", "max":

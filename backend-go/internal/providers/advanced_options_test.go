@@ -101,3 +101,53 @@ func TestResponsesProvider_PassthroughInjectsModelLevelReasoningAndChannelLevelO
 		t.Fatalf("service_tier = %v, want priority", got)
 	}
 }
+
+func TestResponsesProvider_PassthroughInjectsThinkingParamStyle(t *testing.T) {
+	tests := []struct {
+		name     string
+		effort   string
+		wantType string
+	}{
+		{name: "none disables thinking", effort: "none", wantType: "disabled"},
+		{name: "high enables thinking", effort: "high", wantType: "enabled"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			c := newGinContext(http.MethodPost, "/v1/responses", []byte(`{"model":"gpt-5","input":"hi","reasoning":{"effort":"medium"},"reasoning_effort":"medium"}`), context.Background())
+			upstream := &config.UpstreamConfig{
+				BaseURL:             "https://api.example.com",
+				ServiceType:         "responses",
+				ReasoningParamStyle: "thinking",
+				ReasoningMapping: map[string]string{
+					"gpt-5": tt.effort,
+				},
+			}
+
+			req, _, err := (&ResponsesProvider{}).ConvertToProviderRequest(c, upstream, "sk-test")
+			if err != nil {
+				t.Fatalf("ConvertToProviderRequest() err = %v", err)
+			}
+
+			var body map[string]interface{}
+			if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+				t.Fatalf("decode request body: %v", err)
+			}
+
+			thinking, ok := body["thinking"].(map[string]interface{})
+			if !ok || thinking["type"] != tt.wantType {
+				t.Fatalf("thinking = %#v, want type=%s; body=%#v", body["thinking"], tt.wantType, body)
+			}
+			if _, ok := thinking["effort"]; ok {
+				t.Fatalf("thinking should not include effort for thinking.type style: %#v", thinking)
+			}
+			if _, ok := body["reasoning"]; ok {
+				t.Fatalf("reasoning should be removed for thinking style: %#v", body)
+			}
+			if _, ok := body["reasoning_effort"]; ok {
+				t.Fatalf("reasoning_effort should be removed for thinking style: %#v", body)
+			}
+		})
+	}
+}
