@@ -53,6 +53,18 @@ func newVectorsTestEnvConfig() *config.EnvConfig {
 	return envCfg
 }
 
+func serveVectorsEmbeddingRequest(cfgManager *config.ConfigManager, sch *scheduler.ChannelScheduler, body string) *httptest.ResponseRecorder {
+	r := gin.New()
+	r.POST("/v1/embeddings", Handler(newVectorsTestEnvConfig(), cfgManager, sch))
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-proxy-key")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
 func TestBuildEmbeddingsURL(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -221,6 +233,167 @@ func TestHandlerFailoverAndUsage(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(&attempts); got != 2 {
 		t.Fatalf("attempts = %d, want 2", got)
+	}
+}
+
+func TestHandlerAppliesVectorsModelMappingToUpstreamBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var upstreamModel string
+	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read upstream body: %v", err)
+			return
+		}
+		var payload map[string]interface{}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Errorf("decode upstream body: %v", err)
+			return
+		}
+		upstreamModel, _ = payload["model"].(string)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer upstreamServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "jina-vectors",
+		ServiceType:  "openai",
+		BaseURL:      upstreamServer.URL,
+		APIKeys:      []string{"sk-jina"},
+		ModelMapping: map[string]string{"text-embedding-3-small": "jina-embeddings-v2-base-zh"},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream() error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"text-embedding-3-small","input":"hello"}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if upstreamModel != "jina-embeddings-v2-base-zh" {
+		t.Fatalf("upstream model = %q, want jina-embeddings-v2-base-zh", upstreamModel)
+	}
+}
+
+func TestHandlerPassesThroughVectorsModelWhenMappingMisses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var upstreamModel string
+	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read upstream body: %v", err)
+			return
+		}
+		var payload map[string]interface{}
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Errorf("decode upstream body: %v", err)
+			return
+		}
+		upstreamModel, _ = payload["model"].(string)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer upstreamServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "openai-vectors",
+		ServiceType:  "openai",
+		BaseURL:      upstreamServer.URL,
+		APIKeys:      []string{"sk-openai"},
+		ModelMapping: map[string]string{"embed-public": "jina-embeddings-v2-base-zh"},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream() error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"text-embedding-3-small","input":"hello"}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if upstreamModel != "text-embedding-3-small" {
+		t.Fatalf("upstream model = %q, want text-embedding-3-small", upstreamModel)
+	}
+}
+
+func TestHandlerVectors422DoesNotFailoverOrAffectBreaker(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var primaryAttempts int32
+	primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&primaryAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"error":{"message":"Validation error: bad embedding model","type":"invalid_request_error","code":"invalid_request"}}`))
+	}))
+	defer primaryServer.Close()
+
+	var secondaryAttempts int32
+	secondaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&secondaryAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer secondaryServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:        "secondary-vectors",
+		ServiceType: "openai",
+		BaseURL:     secondaryServer.URL,
+		APIKeys:     []string{"sk-secondary"},
+		Priority:    2,
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(secondary) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:        "primary-vectors",
+		ServiceType: "openai",
+		BaseURL:     primaryServer.URL,
+		APIKeys:     []string{"sk-primary"},
+		Priority:    1,
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(primary) error = %v", err)
+	}
+
+	vectorsMetrics := metrics.NewMetricsManager()
+	sch := newVectorsTestScheduler(cfgManager, vectorsMetrics)
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"text-embedding-3-small","input":"hello"}`)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if got := atomic.LoadInt32(&primaryAttempts); got != 1 {
+		t.Fatalf("primary attempts = %d, want 1", got)
+	}
+	if got := atomic.LoadInt32(&secondaryAttempts); got != 0 {
+		t.Fatalf("secondary attempts = %d, want 0", got)
+	}
+
+	keyMetrics := vectorsMetrics.GetKeyMetrics(primaryServer.URL, "sk-primary", "openai")
+	if keyMetrics == nil {
+		t.Fatal("expected primary key metrics")
+	}
+	if keyMetrics.RequestCount != 1 || keyMetrics.FailureCount != 1 {
+		t.Fatalf("metrics counts = requests:%d failures:%d, want 1/1", keyMetrics.RequestCount, keyMetrics.FailureCount)
+	}
+	if keyMetrics.ConsecutiveFailures != 0 {
+		t.Fatalf("consecutive breaker failures = %d, want 0", keyMetrics.ConsecutiveFailures)
+	}
+	if got := vectorsMetrics.CalculateKeyFailureRate(primaryServer.URL, "sk-primary", "openai"); got != 0 {
+		t.Fatalf("breaker failure rate = %v, want 0", got)
+	}
+	if state := vectorsMetrics.GetKeyCircuitState(primaryServer.URL, "sk-primary", "openai"); state != metrics.CircuitStateClosed {
+		t.Fatalf("circuit state = %s, want closed", state)
 	}
 }
 

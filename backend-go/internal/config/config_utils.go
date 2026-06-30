@@ -93,13 +93,19 @@ func (e *ConfigError) Error() string {
 
 // RedirectModel 模型重定向
 func RedirectModel(model string, upstream *UpstreamConfig) string {
-	if upstream.ModelMapping == nil || len(upstream.ModelMapping) == 0 {
-		return model
+	redirected, _ := RedirectModelWithMatch(model, upstream)
+	return redirected
+}
+
+// RedirectModelWithMatch 返回模型重定向结果，并标记是否命中 ModelMapping。
+func RedirectModelWithMatch(model string, upstream *UpstreamConfig) (string, bool) {
+	if upstream == nil || upstream.ModelMapping == nil || len(upstream.ModelMapping) == 0 {
+		return model, false
 	}
 
 	// 直接匹配（精确匹配优先）
 	if mapped, ok := upstream.ModelMapping[model]; ok {
-		return mapped
+		return mapped, true
 	}
 
 	// 模糊匹配：按源模型长度从长到短排序，确保最长匹配优先
@@ -117,11 +123,11 @@ func RedirectModel(model string, upstream *UpstreamConfig) string {
 
 	for _, m := range mappings {
 		if strings.Contains(model, m.source) {
-			return m.target
+			return m.target, true
 		}
 	}
 
-	return model
+	return model, false
 }
 
 // ResolveReasoningEffort 根据原始模型名解析 reasoning effort

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -203,14 +204,19 @@ func buildProviderRequest(
 	}
 	upstream.ServiceType = serviceType
 
-	requestBody, err := buildEmbeddingsRequestBody(bodyBytes, model, config.RedirectModel(model, upstream))
+	redirectedModel, mappingMatched := config.RedirectModelWithMatch(model, upstream)
+	requestBody, err := buildEmbeddingsRequestBody(bodyBytes, model, redirectedModel)
 	if err != nil {
 		common.RequestLogf(c, "[Vectors-BuildRequest] base_url=%q key_mask=%s model=%q stage=build_json reason=invalid_json error=%q",
 			baseURL, utils.MaskAPIKey(apiKey), model, sanitizeDiagnosticError(err))
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, buildEmbeddingsURL(baseURL), bytes.NewReader(requestBody))
+	endpointURL := buildEmbeddingsURL(baseURL)
+	common.RequestLogf(c, "[Vectors-Mapping] channel=%q original_model=%q mapped_model=%q upstream_body_model=%q base_host=%q mapping_hit=%t",
+		upstream.Name, model, redirectedModel, extractEmbeddingsBodyModel(requestBody), safeURLHost(endpointURL), mappingMatched)
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, endpointURL, bytes.NewReader(requestBody))
 	if err != nil {
 		common.RequestLogf(c, "[Vectors-BuildRequest] base_url=%q key_mask=%s model=%q stage=new_request reason=request_init_failed error=%q",
 			baseURL, utils.MaskAPIKey(apiKey), model, sanitizeDiagnosticError(err))
@@ -239,6 +245,23 @@ func buildEmbeddingsRequestBody(bodyBytes []byte, model string, redirectedModel 
 		reqMap["model"] = redirectedModel
 	}
 	return utils.MarshalJSONNoEscape(reqMap)
+}
+
+func extractEmbeddingsBodyModel(bodyBytes []byte) string {
+	var reqMap map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &reqMap); err != nil {
+		return ""
+	}
+	model, _ := reqMap["model"].(string)
+	return strings.TrimSpace(model)
+}
+
+func safeURLHost(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return parsed.Host
 }
 
 func buildEmbeddingsURL(baseURL string) string {
