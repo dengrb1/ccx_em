@@ -158,6 +158,7 @@ func (p *ResponsesProvider) buildProviderRequestBody(c *gin.Context, requestPath
 				// 默认样式保持原样透传（原始 reasoning 对象直接转发）
 			}
 		}
+		config.NormalizeReasoningObjectForUpstream(reqMap, upstream)
 		if upstream.TextVerbosity != "" {
 			reqMap["text"] = map[string]interface{}{"verbosity": upstream.TextVerbosity}
 		}
@@ -226,6 +227,7 @@ func (p *ResponsesProvider) buildProviderRequestBody(c *gin.Context, requestPath
 					}
 				}
 			}
+			config.NormalizeReasoningObjectForUpstream(reqMap, upstream)
 			if upstream.TextVerbosity != "" {
 				reqMap["text"] = map[string]interface{}{"verbosity": upstream.TextVerbosity}
 			}
@@ -506,6 +508,9 @@ func (p *ResponsesProvider) buildTargetURL(upstream *config.UpstreamConfig) stri
 			baseURL = copilot.DefaultAPIBaseURL
 		}
 		return baseURL + endpoint
+	}
+	if endpoint != "" && strings.HasSuffix(strings.ToLower(baseURL), endpoint) {
+		return baseURL
 	}
 	if hasVersionSuffix || skipVersionPrefix {
 		return baseURL + endpoint

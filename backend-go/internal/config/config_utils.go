@@ -130,7 +130,7 @@ func ResolveReasoningEffort(model string, upstream *UpstreamConfig) string {
 		return ""
 	}
 	if effort, ok := upstream.ReasoningMapping[model]; ok {
-		return effort
+		return NormalizeReasoningEffortForUpstream(upstream, effort)
 	}
 	type mapping struct {
 		source string
@@ -145,10 +145,56 @@ func ResolveReasoningEffort(model string, upstream *UpstreamConfig) string {
 	})
 	for _, m := range mappings {
 		if strings.Contains(model, m.source) {
-			return m.effort
+			return NormalizeReasoningEffortForUpstream(upstream, m.effort)
 		}
 	}
 	return ""
+}
+
+// NormalizeReasoningEffortForUpstream 将通用 effort 收敛到特定上游实际支持的枚举。
+func NormalizeReasoningEffortForUpstream(upstream *UpstreamConfig, effort string) string {
+	effort = strings.TrimSpace(effort)
+	if !isMiMoResponsesUpstream(upstream) {
+		return effort
+	}
+	switch effort {
+	case "max", "xhigh":
+		return "high"
+	case "off":
+		return "none"
+	default:
+		return effort
+	}
+}
+
+// NormalizeReasoningObjectForUpstream 修正透传请求中上游不支持的 reasoning.effort。
+func NormalizeReasoningObjectForUpstream(req map[string]interface{}, upstream *UpstreamConfig) {
+	if req == nil || !isMiMoResponsesUpstream(upstream) {
+		return
+	}
+	reasoning, ok := req["reasoning"].(map[string]interface{})
+	if !ok || reasoning == nil {
+		return
+	}
+	effort, _ := reasoning["effort"].(string)
+	if normalized := NormalizeReasoningEffortForUpstream(upstream, effort); normalized != effort {
+		reasoning["effort"] = normalized
+	}
+}
+
+func isMiMoResponsesUpstream(upstream *UpstreamConfig) bool {
+	if upstream == nil || !strings.EqualFold(strings.TrimSpace(upstream.ServiceType), "responses") {
+		return false
+	}
+	if strings.Contains(strings.ToLower(upstream.BaseURL), "xiaomimimo.com") {
+		return true
+	}
+	for _, baseURL := range upstream.BaseURLs {
+		if strings.Contains(strings.ToLower(baseURL), "xiaomimimo.com") {
+			return true
+		}
+	}
+	return false
 }
 
 // ApplyReasoningParamStyle 将统一的 reasoning effort 写成上游要求的参数形态。
