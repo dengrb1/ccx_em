@@ -1048,7 +1048,7 @@ func stripCodexClientOnlyToolsFromBody(bodyBytes []byte) []byte {
 
 // stripCodexClientOnlyTools 在 /v1/responses 中剥离仅对官方 Codex 有效的工具条目。
 // Codex CLI 0.130+ 会在 tools 数组里混入字符串简写（如 "exec_command"、"mcp__chrome_devtools__"）
-// 以及 type=namespace/custom/web_search 等客户端侧约定对象，第三方 Responses 镜像通常不认识，
+// 以及 type=namespace/custom/tool_search 等客户端侧约定对象，第三方 Responses 镜像通常不认识，
 // 会直接 400（例如 anyrouter 报 "Missing required parameter: 'tools[15].tools'"）。
 // 这里只保留第三方上游普遍支持的对象型工具（function/tool 等），其它条目连同 tool_choice 一起剥掉。
 func stripCodexClientOnlyTools(reqMap map[string]interface{}) {
@@ -1204,7 +1204,7 @@ func hasToolName(tools []interface{}, name string) bool {
 func shouldDropResponsesToolObject(tool map[string]interface{}) bool {
 	toolType := strings.ToLower(toString(tool["type"]))
 	switch toolType {
-	case "namespace", "custom", "local_shell", "computer_use":
+	case "namespace", "custom", "local_shell", "computer_use", "tool_search":
 		return true
 	}
 	return false
