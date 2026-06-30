@@ -213,9 +213,9 @@ func Presets() []ProviderPreset {
 			Plans: []ProviderPlan{
 				{ID: "anthropic", Label: "按量 (Anthropic)", BaseURL: "https://api.xiaomimimo.com/anthropic", Description: "Claude Messages 原生入口", Recommended: true},
 				{ID: "openai-chat", Label: "按量 (OpenAI)", BaseURL: "https://api.xiaomimimo.com/v1", Description: "Chat / Responses 通用入口"},
-				{ID: "token-cn", Label: "Token Plan - 中国 (OpenAI)", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Description: "中国区 Token Plan Chat 入口"},
-				{ID: "token-sgp", Label: "Token Plan - 新加坡 (OpenAI)", BaseURL: "https://token-plan-sgp.xiaomimimo.com/v1", Description: "新加坡区 Token Plan Chat 入口"},
-				{ID: "token-ams", Label: "Token Plan - 欧洲 (OpenAI)", BaseURL: "https://token-plan-ams.xiaomimimo.com/v1", Description: "欧洲区 Token Plan Chat 入口"},
+				{ID: "token-cn", Label: "Token Plan - 中国 (OpenAI)", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Description: "中国区 Token Plan Chat / Responses 通用入口"},
+				{ID: "token-sgp", Label: "Token Plan - 新加坡 (OpenAI)", BaseURL: "https://token-plan-sgp.xiaomimimo.com/v1", Description: "新加坡区 Token Plan Chat / Responses 通用入口"},
+				{ID: "token-ams", Label: "Token Plan - 欧洲 (OpenAI)", BaseURL: "https://token-plan-ams.xiaomimimo.com/v1", Description: "欧洲区 Token Plan Chat / Responses 通用入口"},
 				{ID: "token-cn-anthropic", Label: "Token Plan - 中国 (Anthropic)", BaseURL: "https://token-plan-cn.xiaomimimo.com/anthropic", Description: "中国区 Token Plan Claude Messages 原生入口"},
 				{ID: "token-sgp-anthropic", Label: "Token Plan - 新加坡 (Anthropic)", BaseURL: "https://token-plan-sgp.xiaomimimo.com/anthropic", Description: "新加坡区 Token Plan Claude Messages 原生入口"},
 				{ID: "token-ams-anthropic", Label: "Token Plan - 欧洲 (Anthropic)", BaseURL: "https://token-plan-ams.xiaomimimo.com/anthropic", Description: "欧洲区 Token Plan Claude Messages 原生入口"},
@@ -528,7 +528,7 @@ func bestPlanForTarget(preset ProviderPreset, target string) string {
 		return preset.Plans[0].ID
 	}
 	for _, plan := range preset.Plans {
-		if !plan.Custom && planCompatibleWithTarget(preset.ID, plan, target) {
+		if !plan.Custom && planCompatibleWithTarget(plan, target) {
 			return plan.ID
 		}
 	}
@@ -560,7 +560,7 @@ func FilterPlansForTarget(preset ProviderPreset, target string) []ProviderPlan {
 	}
 	var filtered []ProviderPlan
 	for _, plan := range plans {
-		if planCompatibleWithTarget(preset.ID, plan, target) {
+		if planCompatibleWithTarget(plan, target) {
 			filtered = append(filtered, plan)
 		}
 	}
@@ -570,7 +570,7 @@ func FilterPlansForTarget(preset ProviderPreset, target string) []ProviderPlan {
 	return filtered
 }
 
-func planCompatibleWithTarget(providerID string, plan ProviderPlan, target string) bool {
+func planCompatibleWithTarget(plan ProviderPlan, target string) bool {
 	if plan.Custom {
 		return true
 	}
@@ -582,17 +582,10 @@ func planCompatibleWithTarget(providerID string, plan ProviderPlan, target strin
 	case TargetChat:
 		return !isAnthropic
 	case TargetResponses:
-		if providerID == ProviderMiMo && isMiMoTokenOpenAIPlan(plan) {
-			return false
-		}
 		return !isAnthropic
 	default:
 		return true
 	}
-}
-
-func isMiMoTokenOpenAIPlan(plan ProviderPlan) bool {
-	return strings.HasPrefix(strings.ToLower(plan.ID), "token-") && plan.Protocol() == "openai"
 }
 
 func ResolveBaseURL(preset ProviderPreset, planID string, customBaseURL string) (string, error) {

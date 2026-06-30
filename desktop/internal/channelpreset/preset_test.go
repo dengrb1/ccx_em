@@ -752,9 +752,12 @@ func TestFilterPlansForTarget_MiMoTokenPlans(t *testing.T) {
 		t.Fatalf("responses plans should include pay-as-you-go OpenAI plan: %#v", responsesPlans)
 	}
 	for _, id := range []string{"token-cn", "token-sgp", "token-ams"} {
-		if hasPlan(responsesPlans, id) {
-			t.Fatalf("responses plans should not include MiMo OpenAI token plan %q: %#v", id, responsesPlans)
+		if !hasPlan(responsesPlans, id) {
+			t.Fatalf("responses plans should include MiMo OpenAI token plan %q: %#v", id, responsesPlans)
 		}
+	}
+	if hasPlan(responsesPlans, "token-cn-anthropic") {
+		t.Fatalf("responses plans should not include Anthropic token plan: %#v", responsesPlans)
 	}
 }
 

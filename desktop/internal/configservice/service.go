@@ -229,6 +229,9 @@ func (s *Service) Apply(req ApplyAgentConfigRequest, port int, accessKey string)
 			return s.applyCodexOpenAI(req.APIKey)
 		}
 		if responsesURL, ok := codexResponsesBaseURL(provider); ok {
+			if baseURL := strings.TrimSpace(req.BaseURL); baseURL != "" {
+				responsesURL = baseURL
+			}
 			if req.Mode == "quick" {
 				return s.applyCodexThirdPartyQuick(provider, responsesURL, req.APIKey)
 			}
@@ -2108,6 +2111,9 @@ func (s *Service) PreviewApply(req ApplyAgentConfigRequest, port int, accessKey 
 			return s.previewApplyCodexOpenAI(req.APIKey)
 		}
 		if responsesURL, ok := codexResponsesBaseURL(provider); ok {
+			if baseURL := strings.TrimSpace(req.BaseURL); baseURL != "" {
+				responsesURL = baseURL
+			}
 			if req.Mode == "quick" {
 				return s.previewApplyCodexThirdPartyQuick(provider, responsesURL, req.APIKey)
 			}
@@ -2856,6 +2862,9 @@ func resolveOpenCodeProvider(req ApplyAgentConfigRequest, port int, accessKey st
 		baseURL, ok := openCodeDirectBaseURL(provider)
 		if !ok {
 			return "", "", "", "", "", fmt.Errorf("%s 缺少 OpenCode Base URL", provider)
+		}
+		if requestedBaseURL := strings.TrimSpace(req.BaseURL); requestedBaseURL != "" {
+			baseURL = requestedBaseURL
 		}
 		return provider, provider, baseURL, apiKey, provider, nil
 	}
