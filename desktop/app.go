@@ -374,24 +374,7 @@ func (s *DesktopService) CreateCCXChannelFromPreset(req channelpreset.CreateChan
 		}
 	}
 	if strings.TrimSpace(req.APIKey) == "" {
-		planID := strings.TrimSpace(req.PlanID)
-		var fallbackKey string
-		for _, asset := range s.configService.GetProviderKeyAssets() {
-			if asset.Provider != strings.TrimSpace(req.Provider) || asset.APIKey == "" {
-				continue
-			}
-			if planID != "" && asset.PlanID != planID {
-				continue
-			}
-			if asset.PlanID == "" {
-				fallbackKey = asset.APIKey
-				break
-			}
-			if fallbackKey == "" {
-				fallbackKey = asset.APIKey
-			}
-		}
-		req.APIKey = fallbackKey
+		req.APIKey = s.savedProviderKeyForPlan(req.Provider, req.PlanID)
 	}
 	payload, err := channelpreset.BuildPayload(req)
 	if err != nil {
@@ -516,6 +499,51 @@ func (s *DesktopService) findChannelIndexByName(ctx context.Context, client *htt
 		}
 	}
 	return -1, nil
+}
+
+func (s *DesktopService) savedProviderKeyForPlan(provider string, planID string) string {
+	if s.configService == nil {
+		return ""
+	}
+	provider = strings.TrimSpace(provider)
+	planID = strings.TrimSpace(planID)
+	if provider == "" {
+		return ""
+	}
+
+	var legacyKey string
+	var firstKey string
+	hasPlanScopedAsset := false
+	for _, asset := range s.configService.GetProviderKeyAssets() {
+		if asset.Provider != provider || strings.TrimSpace(asset.APIKey) == "" {
+			continue
+		}
+		key := strings.TrimSpace(asset.APIKey)
+		assetPlanID := strings.TrimSpace(asset.PlanID)
+		if firstKey == "" {
+			firstKey = key
+		}
+		if assetPlanID != "" {
+			hasPlanScopedAsset = true
+		}
+		if planID != "" && assetPlanID == planID {
+			return key
+		}
+		if assetPlanID == "" && legacyKey == "" {
+			legacyKey = key
+		}
+	}
+
+	if planID != "" {
+		if hasPlanScopedAsset {
+			return ""
+		}
+		return legacyKey
+	}
+	if legacyKey != "" {
+		return legacyKey
+	}
+	return firstKey
 }
 
 func (s *DesktopService) putChannel(ctx context.Context, client *http.Client, baseURL, path string, body []byte, adminKey string) error {
