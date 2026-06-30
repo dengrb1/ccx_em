@@ -90,7 +90,7 @@
   "channel.keySavedPlaceholder": "已保存，留空则复用该 Provider Key",
   "channel.keyInputPlaceholder": "输入 API Key，仅保存在本机 Desktop 配置中",
   "channel.missingKey": "请填写 API Key，或先在 Agent 配置中保存该 Provider 的 key。",
-  "channel.reuseKey": "将复用本机已保存的 {provider} Key",
+  "channel.reuseKey": "将复用本机已保存的 {provider} Key：{key}",
   "channel.name": "渠道名称",
   "channel.nameHint": "同名渠道会被直接覆盖更新；如需新建独立渠道，请改用不同名称。",
   "channel.presetWrites": "预设将自动写入",

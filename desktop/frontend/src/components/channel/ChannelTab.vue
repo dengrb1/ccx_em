@@ -15,6 +15,7 @@ import {
   type CopilotTokenResponse,
 } from '@/services/admin-api'
 import { openExternalLink, openProviderPromotion, openProviderConsole, providerConsoleLinks, providerPromotionLinks } from '@/lib/external-link'
+import { maskApiKey } from '@/utils/api-key-mask'
 import compshareIcon from '@/assets/compshare.png'
 import runapiIcon from '@/assets/runapi.svg'
 import unity2Icon from '@/assets/unity2.jpg'
@@ -134,6 +135,10 @@ const localizeTargetDescription = (preset: ProviderPreset, target: ChannelTarget
 
 const currentAsset = computed(() => {
   return selectedProvider.value ? keysByProvider.value[selectedProvider.value] : undefined
+})
+
+const savedApiKeyMask = computed(() => {
+  return currentAsset.value?.apiKey ? maskApiKey(currentAsset.value.apiKey) : ''
 })
 
 const currentPlan = computed(() => {
@@ -566,7 +571,7 @@ const submit = async () => {
             <Input v-model="apiKey" type="password" autocomplete="off" :placeholder="currentAsset?.apiKey ? t('channel.keySavedPlaceholder') : t('channel.keyInputPlaceholder')" />
             <div v-if="currentAsset?.apiKey" class="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400">
               <KeyRound class="w-3 h-3" />
-              {{ t('channel.reuseKey', { provider: localizePresetLabel(currentPreset) }) }}
+              {{ t('channel.reuseKey', { provider: localizePresetLabel(currentPreset), key: savedApiKeyMask }) }}
             </div>
           </div>
 

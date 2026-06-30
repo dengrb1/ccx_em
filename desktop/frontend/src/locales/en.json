@@ -90,7 +90,7 @@
   "channel.keySavedPlaceholder": "Saved locally; leave empty to reuse this Provider Key",
   "channel.keyInputPlaceholder": "Enter API Key. It is stored only in local Desktop config",
   "channel.missingKey": "Enter an API Key, or save this Provider key in Agent Config first.",
-  "channel.reuseKey": "Will reuse the saved local {provider} key",
+  "channel.reuseKey": "Will reuse the saved local {provider} key: {key}",
   "channel.name": "Channel name",
   "channel.nameHint": "A channel with the same name will be overwritten. Use another name to create a separate channel.",
   "channel.presetWrites": "Preset will write automatically",
