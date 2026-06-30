@@ -132,7 +132,7 @@ func TestResolveRuntimePathsLogDirPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveRuntimePaths() error = %v", err)
 	}
-	if got.LogDir != "/tmp/cli-logs" {
+	if got.LogDir != filepath.Clean("/tmp/cli-logs") {
 		t.Fatalf("LogDir = %q, want CLI logdir", got.LogDir)
 	}
 
@@ -148,6 +148,7 @@ func TestResolveRuntimePathsLogDirPrecedence(t *testing.T) {
 func TestResolveRuntimePathsExpandsHome(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
 
 	got, err := resolveRuntimePaths(cliOptions{
 		ConfigPath: "~/ccx/config.json",

@@ -48,7 +48,7 @@ type ModelEntry struct {
 	InputModalities []string `json:"input_modalities,omitempty"`
 }
 
-// ModelsHandler 处理 /v1/models 请求，从 Messages、Responses、Chat、Gemini 和 Images 渠道获取并合并模型列表
+// ModelsHandler 处理 /v1/models 请求，从 Messages、Responses、Chat、Gemini、Images 和 Vectors 渠道获取并合并模型列表
 func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, channelScheduler *scheduler.ChannelScheduler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		middleware.ProxyAuthMiddleware(envCfg)(c)
@@ -70,8 +70,9 @@ func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, c
 		chatModels := results[scheduler.ChannelKindChat]
 		geminiModels := results[scheduler.ChannelKindGemini]
 		imagesModels := results[scheduler.ChannelKindImages]
+		vectorsModels := results[scheduler.ChannelKindVectors]
 
-		mergedModels := mergeModels(messagesModels, responsesModels, chatModels, geminiModels, imagesModels)
+		mergedModels := mergeModels(messagesModels, responsesModels, chatModels, geminiModels, imagesModels, vectorsModels)
 
 		if len(mergedModels) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -88,8 +89,8 @@ func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, c
 			Data:   mergedModels,
 		}
 
-		log.Printf("[Models] 合并完成: messages=%d, responses=%d, chat=%d, gemini=%d, images=%d, merged=%d",
-			len(messagesModels), len(responsesModels), len(chatModels), len(geminiModels), len(imagesModels), len(mergedModels))
+		log.Printf("[Models] 合并完成: messages=%d, responses=%d, chat=%d, gemini=%d, images=%d, vectors=%d, merged=%d",
+			len(messagesModels), len(responsesModels), len(chatModels), len(geminiModels), len(imagesModels), len(vectorsModels), len(mergedModels))
 
 		c.JSON(http.StatusOK, response)
 	}
@@ -120,6 +121,7 @@ func ModelsDetailHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigMana
 			scheduler.ChannelKindChat,
 			scheduler.ChannelKindGemini,
 			scheduler.ChannelKindImages,
+			scheduler.ChannelKindVectors,
 		} {
 			if body, _, ok := tryModelsRequest(c, cfgManager, channelScheduler, "GET", "/"+modelID, kind); ok {
 				c.Data(http.StatusOK, "application/json", body)
@@ -155,6 +157,7 @@ func collectModelsFromAllKinds(req modelsCollectionRequest) map[scheduler.Channe
 		scheduler.ChannelKindChat,
 		scheduler.ChannelKindGemini,
 		scheduler.ChannelKindImages,
+		scheduler.ChannelKindVectors,
 	}
 
 	results := make(map[scheduler.ChannelKind][]ModelEntry, len(kinds))
@@ -701,6 +704,8 @@ func channelKindLabel(kind scheduler.ChannelKind) string {
 		return "Gemini"
 	case scheduler.ChannelKindImages:
 		return "Images"
+	case scheduler.ChannelKindVectors:
+		return "Vectors"
 	default:
 		return "Messages"
 	}
@@ -719,6 +724,8 @@ func selectChannelWithDisabledKeys(cfgManager *config.ConfigManager, failedChann
 		upstreams = cfg.ChatUpstream
 	case scheduler.ChannelKindImages:
 		upstreams = cfg.ImagesUpstream
+	case scheduler.ChannelKindVectors:
+		upstreams = cfg.VectorsUpstream
 	default:
 		upstreams = cfg.Upstream
 	}

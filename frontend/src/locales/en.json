@@ -15,6 +15,7 @@
   "app.tabs.responses": "Codex",
   "app.tabs.gemini": "Gemini",
   "app.tabs.images": "Images",
+  "app.tabs.vectors": "Vectors",
   "app.tabs.conversations": "Cockpit",
   "app.sidebar.channels": "Channels",
   "cockpit.overrideActive": "Custom channel order is active. Auto-reset in {time}",

@@ -456,6 +456,9 @@ type Config struct {
 	// Images 接口专用配置（OpenAI /v1/images/generations 兼容）
 	ImagesUpstream []UpstreamConfig `json:"imagesUpstream,omitempty"`
 
+	// Vectors 接口专用配置（OpenAI /v1/embeddings 兼容）
+	VectorsUpstream []UpstreamConfig `json:"vectorsUpstream,omitempty"`
+
 	// 上下文路由配置与全局能力覆盖。
 	ContextRouting            ContextRoutingConfig               `json:"contextRouting,omitempty"`
 	AgentModelProfiles        map[string]AgentModelProfile       `json:"agentModelProfiles,omitempty"`
@@ -549,6 +552,14 @@ func (cm *ConfigManager) GetConfig() Config {
 		cloned.ImagesUpstream = make([]UpstreamConfig, len(cm.config.ImagesUpstream))
 		for i := range cm.config.ImagesUpstream {
 			cloned.ImagesUpstream[i] = *cm.config.ImagesUpstream[i].Clone()
+		}
+	}
+
+	// 深拷贝 VectorsUpstream slice
+	if len(cm.config.VectorsUpstream) > 0 {
+		cloned.VectorsUpstream = make([]UpstreamConfig, len(cm.config.VectorsUpstream))
+		for i := range cm.config.VectorsUpstream {
+			cloned.VectorsUpstream[i] = *cm.config.VectorsUpstream[i].Clone()
 		}
 	}
 
@@ -1203,6 +1214,8 @@ func (cm *ConfigManager) getUpstreamSliceLocked(apiType string) *[]UpstreamConfi
 		return &cm.config.ChatUpstream
 	case "Images":
 		return &cm.config.ImagesUpstream
+	case "Vectors":
+		return &cm.config.VectorsUpstream
 	default:
 		return nil
 	}
