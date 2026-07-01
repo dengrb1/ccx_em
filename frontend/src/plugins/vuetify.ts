@@ -134,9 +134,12 @@ import {
   mdiKeyChain,
   mdiRobot,
   mdiRobotOutline,
+  mdiChatProcessingOutline,
   mdiMessageProcessing,
   mdiDiamondStone,
   mdiApi,
+  mdiConsole,
+  mdiGoogle,
   mdiLightningBolt,
   mdiFormTextbox,
   mdiIdentifier,
@@ -171,7 +174,9 @@ import {
   mdiViewDashboardOutline,
   mdiCodeBraces,
   mdiDatabase,
+  mdiImageOutline,
   mdiSignature,
+  mdiTextBoxCheckOutline,
   mdiArrowCollapseUp,
   mdiArrowCollapseDown,
   mdiHistory,
@@ -211,6 +216,8 @@ import {
   mdiFastForward,
   mdiImageMultiple,
   mdiShapeOutline,
+  mdiVectorPoint,
+  mdiVectorPolyline,
 } from '@mdi/js'
 
 // 图标名称到 SVG path 的映射 (使用 kebab-case)
@@ -325,6 +332,7 @@ const iconMap: Record<string, string> = {
   'text': mdiText,
   'tune': mdiTune,
   'image-sync': mdiImageSync,
+  'image-outline': mdiImageOutline,
   'image-multiple': mdiImageMultiple,
   'dice-6': mdiDice6,
   'heart-pulse': mdiHeartPulse,
@@ -347,9 +355,12 @@ const iconMap: Record<string, string> = {
   // 服务类型图标
   'robot': mdiRobot,
   'robot-outline': mdiRobotOutline,
+  'chat-processing-outline': mdiChatProcessingOutline,
   'message-processing': mdiMessageProcessing,
   'diamond-stone': mdiDiamondStone,
   'api': mdiApi,
+  'console': mdiConsole,
+  'google': mdiGoogle,
 
   // 复选框和单选框
   'checkbox-marked': mdiCheckboxMarked,
@@ -379,6 +390,7 @@ const iconMap: Record<string, string> = {
   'view-dashboard-outline': mdiViewDashboardOutline,
   'code-braces': mdiCodeBraces,
   'database': mdiDatabase,
+  'text-box-check-outline': mdiTextBoxCheckOutline,
 
   // 签名图标
   'signature': mdiSignature,
@@ -420,6 +432,8 @@ const iconMap: Record<string, string> = {
   // 渠道配置
   'account-switch': mdiAccountSwitch,
   'chat-outline': mdiChatOutline,
+  'vector-point': mdiVectorPoint,
+  'vector-polyline': mdiVectorPolyline,
   'source-branch': mdiSourceBranch,
   'drag-horizontal-variant': mdiDragHorizontalVariant,
   'filter-remove': mdiFilterRemove,
