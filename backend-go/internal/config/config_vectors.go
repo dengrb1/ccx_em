@@ -15,7 +15,10 @@ import (
 func normalizeVectorsServiceType(serviceType string) (string, error) {
 	normalized := normalizeUpstreamServiceType(serviceType, "openai")
 	if normalized != "openai" {
-		return "", &ConfigError{Message: fmt.Sprintf("Vectors 渠道仅支持 openai serviceType，当前为 %s", normalized)}
+		return "", &ConfigError{
+			Message: fmt.Sprintf("Vectors 渠道仅支持 openai serviceType，当前为 %s", normalized),
+			Cause:   ErrUnsupportedServiceType,
+		}
 	}
 	return normalized, nil
 }
@@ -74,7 +77,10 @@ func (cm *ConfigManager) AddVectorsUpstream(upstream UpstreamConfig) error {
 	// 检查 Name 是否已存在
 	for _, existing := range cm.config.VectorsUpstream {
 		if existing.Name == upstream.Name {
-			return fmt.Errorf("渠道名称 '%s' 已存在", upstream.Name)
+			return &ConfigError{
+				Message: fmt.Sprintf("渠道名称 '%s' 已存在", upstream.Name),
+				Cause:   ErrDuplicateChannelName,
+			}
 		}
 	}
 

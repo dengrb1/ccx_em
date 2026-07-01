@@ -3,6 +3,7 @@ package vectors
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -506,6 +507,28 @@ func TestAddUpstreamReturnsConflictForDuplicateName(t *testing.T) {
 	}
 }
 
+func TestVectorsConfigErrorsAreTyped(t *testing.T) {
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	if _, err := config.NormalizeVectorsServiceTypeForProxy("gemini"); !errors.Is(err, config.ErrUnsupportedServiceType) {
+		t.Fatalf("NormalizeVectorsServiceTypeForProxy() error = %v, want ErrUnsupportedServiceType", err)
+	}
+
+	upstream := config.UpstreamConfig{
+		Name:        "dup-vectors",
+		ServiceType: "openai",
+		BaseURL:     "https://example.com",
+		APIKeys:     []string{"sk-existing"},
+	}
+	if err := cfgManager.AddVectorsUpstream(upstream); err != nil {
+		t.Fatalf("AddVectorsUpstream() error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(upstream); !errors.Is(err, config.ErrDuplicateChannelName) {
+		t.Fatalf("AddVectorsUpstream() duplicate error = %v, want ErrDuplicateChannelName", err)
+	}
+}
+
 func TestGetChannelModelsSSRFLogDoesNotLeakRequestSecrets(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfgManager := newVectorsTestConfigManager(t)
@@ -556,6 +579,58 @@ func TestGetChannelModelsSSRFLogDoesNotLeakRequestSecrets(t *testing.T) {
 	} {
 		if strings.Contains(logText, leaked) {
 			t.Fatalf("SSRF log leaked %q: %s", leaked, logText)
+		}
+	}
+}
+
+func TestGetChannelModelsFailureLogDoesNotLeakTemporaryBaseURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	closedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	sensitiveBaseURL := strings.Replace(closedServer.URL, "http://", "http://user:sk-secret-in-url@", 1) + "?api_key=sk-secret-in-query"
+	closedServer.Close()
+
+	var logs bytes.Buffer
+	origWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() {
+		log.SetOutput(origWriter)
+	})
+
+	r := gin.New()
+	r.POST("/api/vectors/channels/:id/models", GetChannelModels(cfgManager))
+
+	body, err := json.Marshal(GetModelsRequest{
+		Key:     "sk-request-key-do-not-log",
+		BaseURL: sensitiveBaseURL,
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/vectors/channels/0/models", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d, body=%s", w.Code, w.Body.String())
+	}
+
+	logText := logs.String()
+	if !strings.Contains(logText, "using temporary baseUrl") || !strings.Contains(logText, "request failed") {
+		t.Fatalf("expected model probe logs, got: %s", logText)
+	}
+	for _, leaked := range []string{
+		sensitiveBaseURL,
+		"sk-secret-in-url",
+		"sk-secret-in-query",
+		"sk-request-key-do-not-log",
+	} {
+		if strings.Contains(logText, leaked) {
+			t.Fatalf("model probe log leaked %q: %s", leaked, logText)
 		}
 	}
 }

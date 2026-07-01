@@ -2,10 +2,12 @@
 package vectors
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	neturl "net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -40,10 +42,9 @@ func AddUpstream(cfgManager *config.ConfigManager) gin.HandlerFunc {
 		}
 		if err := cfgManager.AddVectorsUpstream(upstream); err != nil {
 			status := http.StatusInternalServerError
-			errMsg := err.Error()
-			if strings.Contains(errMsg, "仅支持 openai serviceType") {
+			if errors.Is(err, config.ErrUnsupportedServiceType) {
 				status = http.StatusBadRequest
-			} else if strings.Contains(errMsg, "已存在") {
+			} else if errors.Is(err, config.ErrDuplicateChannelName) {
 				status = http.StatusConflict
 			}
 			c.JSON(status, gin.H{"error": err.Error()})
@@ -78,7 +79,7 @@ func UpdateUpstream(cfgManager *config.ConfigManager, sch *scheduler.ChannelSche
 		shouldResetMetrics, err := cfgManager.UpdateVectorsUpstream(id, updates)
 		if err != nil {
 			status := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "仅支持 openai serviceType") || strings.Contains(err.Error(), "无效") {
+			if errors.Is(err, config.ErrUnsupportedServiceType) || strings.Contains(err.Error(), "无效") {
 				status = http.StatusBadRequest
 			}
 			c.JSON(status, gin.H{"error": err.Error()})
@@ -332,7 +333,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 			if req.InsecureSkipVerify != nil {
 				insecureSkipVerify = *req.InsecureSkipVerify
 			}
-			log.Printf("[Vectors-Models] using temporary baseUrl: %s", baseURL)
+			log.Printf("[Vectors-Models] using temporary baseUrl: caller=%s", c.ClientIP())
 		} else {
 			cfg := cfgManager.GetConfig()
 			if id < 0 || id >= len(cfg.VectorsUpstream) {
@@ -370,7 +371,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 
 		httpReq, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, url, nil)
 		if err != nil {
-			log.Printf("[Vectors-Models] create request failed: channel=%s, url=%s, error=%v", channelName, url, err)
+			log.Printf("[Vectors-Models] create request failed: channel=%s, error=%s", channelName, sanitizeModelsProbeError(err, url))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create request: %v", err)})
 			return
 		}
@@ -381,7 +382,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 		log.Printf("[Vectors-Models] requesting models: channel=%s, key=%s", channelName, utils.MaskAPIKey(apiKey))
 		resp, err := client.Do(httpReq)
 		if err != nil {
-			log.Printf("[Vectors-Models] request failed: channel=%s, key=%s, url=%s, error=%v", channelName, utils.MaskAPIKey(apiKey), url, err)
+			log.Printf("[Vectors-Models] request failed: channel=%s, key=%s, error=%s", channelName, utils.MaskAPIKey(apiKey), sanitizeModelsProbeError(err, url))
 			c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to fetch models: %v", err)})
 			return
 		}
@@ -397,6 +398,24 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 		}
 		c.Data(resp.StatusCode, "application/json", body)
 	}
+}
+
+func sanitizeModelsProbeError(err error, requestURL string) string {
+	if err == nil {
+		return ""
+	}
+	var urlErr *neturl.Error
+	if errors.As(err, &urlErr) {
+		if inner := sanitizeDiagnosticError(urlErr.Err); inner != "" {
+			return urlErr.Op + ": " + inner
+		}
+		return urlErr.Op
+	}
+	msg := sanitizeDiagnosticError(err)
+	if requestURL != "" {
+		msg = strings.ReplaceAll(msg, requestURL, "[redacted-url]")
+	}
+	return msg
 }
 
 func UpdateModelMapping(cfgManager *config.ConfigManager) gin.HandlerFunc {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -92,11 +93,21 @@ func applyDefaultBaseURL(upstream *UpstreamConfig) {
 // ConfigError 配置错误
 type ConfigError struct {
 	Message string
+	Cause   error
 }
 
 func (e *ConfigError) Error() string {
 	return e.Message
 }
+
+func (e *ConfigError) Unwrap() error {
+	return e.Cause
+}
+
+var (
+	ErrUnsupportedServiceType = errors.New("unsupported service type")
+	ErrDuplicateChannelName   = errors.New("duplicate channel name")
+)
 
 // ============== 模型重定向 ==============
 
