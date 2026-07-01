@@ -17,6 +17,7 @@ import (
 	"github.com/BenedictKing/ccx/internal/types"
 	"github.com/BenedictKing/ccx/internal/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 const embeddingsOperation = "embeddings"
@@ -300,17 +301,14 @@ func handleSuccess(c *gin.Context, resp *http.Response, envCfg *config.EnvConfig
 }
 
 func extractEmbeddingsUsage(bodyBytes []byte) *types.Usage {
-	var respMap map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &respMap); err != nil {
+	usageMap := gjson.GetBytes(bodyBytes, "usage")
+	if !usageMap.Exists() || !usageMap.IsObject() {
 		return nil
 	}
-	usageMap, ok := respMap["usage"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	inputTokens := numericToInt(usageMap["prompt_tokens"])
+
+	inputTokens := int(usageMap.Get("prompt_tokens").Int())
 	if inputTokens == 0 {
-		inputTokens = numericToInt(usageMap["total_tokens"])
+		inputTokens = int(usageMap.Get("total_tokens").Int())
 	}
 	if inputTokens == 0 {
 		return nil
@@ -322,29 +320,6 @@ func extractEmbeddingsUsage(bodyBytes []byte) *types.Usage {
 		PromptTokensTotal: inputTokens,
 		CompletionTokens:  0,
 	}
-}
-
-func numericToInt(value interface{}) int {
-	switch v := value.(type) {
-	case float64:
-		return int(v)
-	case json.Number:
-		n, err := v.Int64()
-		if err == nil {
-			return int(n)
-		}
-		f, err := v.Float64()
-		if err == nil {
-			return int(f)
-		}
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case int32:
-		return int(v)
-	}
-	return 0
 }
 
 func sanitizeDiagnosticError(err error) string {
