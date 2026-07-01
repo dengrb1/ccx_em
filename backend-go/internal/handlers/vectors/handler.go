@@ -285,6 +285,9 @@ func handleSuccess(c *gin.Context, resp *http.Response, envCfg *config.EnvConfig
 	if len(bodyBytes) == 0 {
 		return nil, common.ErrEmptyNonStreamResponse
 	}
+	if err := validateEmbeddingsResponse(bodyBytes); err != nil {
+		return nil, err
+	}
 
 	if envCfg.EnableResponseLogs {
 		responseTime := time.Since(startTime).Milliseconds()
@@ -298,6 +301,41 @@ func handleSuccess(c *gin.Context, resp *http.Response, envCfg *config.EnvConfig
 		return nil, err
 	}
 	return extractEmbeddingsUsage(bodyBytes), nil
+}
+
+func validateEmbeddingsResponse(bodyBytes []byte) error {
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		return fmt.Errorf("%w: invalid embeddings JSON: %v", common.ErrInvalidResponseBody, err)
+	}
+	if payload == nil {
+		return fmt.Errorf("%w: embeddings response must be a JSON object", common.ErrInvalidResponseBody)
+	}
+
+	dataRaw, ok := payload["data"]
+	if !ok {
+		return fmt.Errorf("%w: embeddings response missing data", common.ErrInvalidResponseBody)
+	}
+	dataRaw = bytes.TrimSpace(dataRaw)
+	if len(dataRaw) == 0 || dataRaw[0] != '[' {
+		return fmt.Errorf("%w: embeddings response data must be an array", common.ErrInvalidResponseBody)
+	}
+
+	var data []map[string]json.RawMessage
+	if err := json.Unmarshal(dataRaw, &data); err != nil {
+		return fmt.Errorf("%w: invalid embeddings data: %v", common.ErrInvalidResponseBody, err)
+	}
+	for i, item := range data {
+		embeddingRaw, ok := item["embedding"]
+		if !ok {
+			return fmt.Errorf("%w: embeddings data[%d] missing embedding", common.ErrInvalidResponseBody, i)
+		}
+		embeddingRaw = bytes.TrimSpace(embeddingRaw)
+		if len(embeddingRaw) == 0 || embeddingRaw[0] != '[' {
+			return fmt.Errorf("%w: embeddings data[%d].embedding must be an array", common.ErrInvalidResponseBody, i)
+		}
+	}
+	return nil
 }
 
 func extractEmbeddingsUsage(bodyBytes []byte) *types.Usage {

@@ -239,6 +239,90 @@ func TestHandlerFailoverAndUsage(t *testing.T) {
 	}
 }
 
+func TestHandlerInvalidSuccessResponseFailsOver(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+	}{
+		{
+			name:        "html body",
+			contentType: "text/html",
+			body:        `<html>upstream error</html>`,
+		},
+		{
+			name:        "error json",
+			contentType: "application/json",
+			body:        `{"error":{"message":"upstream error","type":"server_error"}}`,
+		},
+		{
+			name:        "missing data",
+			contentType: "application/json",
+			body:        `{"object":"list","usage":{"prompt_tokens":1,"total_tokens":1}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfgManager := newVectorsTestConfigManager(t)
+			defer cfgManager.Close()
+
+			var primaryAttempts int32
+			primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&primaryAttempts, 1)
+				w.Header().Set("Content-Type", tt.contentType)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer primaryServer.Close()
+
+			var secondaryAttempts int32
+			secondaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&secondaryAttempts, 1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.1],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+			}))
+			defer secondaryServer.Close()
+
+			if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+				Name:        "secondary-vectors",
+				ServiceType: "openai",
+				BaseURL:     secondaryServer.URL,
+				APIKeys:     []string{"sk-secondary"},
+				Priority:    2,
+			}); err != nil {
+				t.Fatalf("AddVectorsUpstream(secondary) error = %v", err)
+			}
+			if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+				Name:        "primary-vectors",
+				ServiceType: "openai",
+				BaseURL:     primaryServer.URL,
+				APIKeys:     []string{"sk-primary"},
+				Priority:    1,
+			}); err != nil {
+				t.Fatalf("AddVectorsUpstream(primary) error = %v", err)
+			}
+
+			sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+			w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"text-embedding-3-small","input":"hello"}`)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), `"embedding":[0.1]`) {
+				t.Fatalf("expected secondary embeddings response, got: %s", w.Body.String())
+			}
+			if got := atomic.LoadInt32(&primaryAttempts); got != 1 {
+				t.Fatalf("primary attempts = %d, want 1", got)
+			}
+			if got := atomic.LoadInt32(&secondaryAttempts); got != 1 {
+				t.Fatalf("secondary attempts = %d, want 1", got)
+			}
+		})
+	}
+}
+
 func TestHandlerAppliesVectorsModelMappingToUpstreamBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfgManager := newVectorsTestConfigManager(t)

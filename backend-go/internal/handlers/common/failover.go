@@ -1388,20 +1388,108 @@ func errorBodySummaryForLog(apiType string, statusCode int, bodyBytes []byte) st
 func vectorsErrorSummaryForLog(statusCode int, bodyBytes []byte) string {
 	parts := []string{fmt.Sprintf("status=%d", statusCode)}
 	errType, _ := extractErrorInfo(bodyBytes)
-	errCode := extractErrorCode(bodyBytes)
+	errType = sanitizeVectorsErrorToken(errType)
+	errCode := sanitizeVectorsErrorToken(extractErrorCode(bodyBytes))
 	if errType != "" {
 		parts = append(parts, "type="+errType)
 	}
 	if errCode != "" && errCode != errType {
 		parts = append(parts, "code="+errCode)
 	}
-	if param := extractErrorParam(bodyBytes); param != "" {
+	if param := sanitizeVectorsErrorParam(extractErrorParam(bodyBytes)); param != "" {
 		parts = append(parts, "param="+param)
 	}
 	if len(parts) == 1 {
 		parts = append(parts, "body=omitted")
 	}
 	return strings.Join(parts, " ")
+}
+
+func sanitizeVectorsErrorToken(value string) string {
+	value = strings.ToLower(sanitizeVectorsDiagnosticField(value, 64))
+	if value == "" {
+		return ""
+	}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' {
+			continue
+		}
+		return ""
+	}
+	if _, ok := allowedVectorsErrorTokens[value]; !ok {
+		return ""
+	}
+	return value
+}
+
+func sanitizeVectorsErrorParam(value string) string {
+	value = strings.ToLower(sanitizeVectorsDiagnosticField(value, 80))
+	if _, ok := allowedVectorsErrorParams[value]; !ok {
+		return ""
+	}
+	return value
+}
+
+func sanitizeVectorsDiagnosticField(value string, maxRunes int) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	var b strings.Builder
+	for _, r := range value {
+		if r < 0x20 || r == 0x7f {
+			b.WriteByte(' ')
+			continue
+		}
+		b.WriteRune(r)
+	}
+	value = strings.Join(strings.Fields(b.String()), " ")
+	runes := []rune(value)
+	if len(runes) > maxRunes {
+		value = string(runes[:maxRunes])
+	}
+	return value
+}
+
+var allowedVectorsErrorTokens = map[string]struct{}{
+	"api_error":               {},
+	"authentication_error":    {},
+	"bad_request":             {},
+	"billing_error":           {},
+	"context_length_exceeded": {},
+	"forbidden":               {},
+	"insufficient_quota":      {},
+	"internal_error":          {},
+	"invalid_api_key":         {},
+	"invalid_json":            {},
+	"invalid_request":         {},
+	"invalid_request_error":   {},
+	"missing_parameter":       {},
+	"model_not_found":         {},
+	"not_found":               {},
+	"not_found_error":         {},
+	"overloaded":              {},
+	"permission_error":        {},
+	"quota_exceeded":          {},
+	"rate_limit_error":        {},
+	"rate_limit_exceeded":     {},
+	"server_error":            {},
+	"service_unavailable":     {},
+	"temporarily_unavailable": {},
+	"timeout":                 {},
+	"too_many_requests":       {},
+	"unauthorized":            {},
+	"unprocessable_entity":    {},
+	"unsupported_model":       {},
+	"validation_error":        {},
+}
+
+var allowedVectorsErrorParams = map[string]struct{}{
+	"dimensions":      {},
+	"encoding_format": {},
+	"input":           {},
+	"model":           {},
+	"user":            {},
 }
 
 func extractErrorParam(bodyBytes []byte) string {
