@@ -60,7 +60,9 @@
                 :restoring-key="restoringKey"
                 :service-type="form.serviceType"
                 :channel-id="props.channel?.index"
+                :proxy-url="form.proxyUrl"
                 @update:api-keys="form.apiKeys = $event"
+                @update:proxy-url="form.proxyUrl = $event"
                 @restore-key="restoreDisabledKey"
               />
             </section>

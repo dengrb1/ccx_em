@@ -36,7 +36,7 @@
       </v-col>
 
       <!-- Base URL -->
-      <v-col cols="12">
+      <v-col v-if="form.serviceType !== 'copilot'" cols="12">
         <v-textarea
           :model-value="baseUrlsText"
           :label="t('channelEditor.basic.baseUrl.label')"

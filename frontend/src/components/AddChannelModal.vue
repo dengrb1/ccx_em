@@ -439,7 +439,7 @@ function handleQuickSubmit() {
     modelMapping: {},
   }
 
-  if (props.channelType === 'responses') {
+  if (props.channelType !== 'messages') {
     Object.assign(channel, { normalizeMetadataUserId: false })
   }
 

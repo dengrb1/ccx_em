@@ -67,7 +67,7 @@ const { t } = useI18n()
     return 'claude'
   }
 
-  const defaultNormalizeMetadataUserId = () => props.channelType !== 'responses'
+  const defaultNormalizeMetadataUserId = () => props.channelType === 'messages'
   
   // 详细表单预期请求 URL 预览（防止输入时抖动）
   const formBaseUrlPreview = ref('')
@@ -354,13 +354,15 @@ const { t } = useI18n()
   const { headerClasses, avatarColor, headerIconStyle, subtitleClasses } = useChannelEditorHeaderState(theme)
 
   const isFormValid = computed(() => {
+    const hasValidBaseUrl = form.serviceType === 'copilot' || (!!form.baseUrl.trim() && isValidUrl(form.baseUrl))
+    const hasValidApiKeys = form.serviceType === 'copilot' || hasConfigurableKeys.value
     return (
-      form.name.trim() && form.serviceType && form.baseUrl.trim() && isValidUrl(form.baseUrl) && hasConfigurableKeys.value && !modelCapabilitiesError.value
+      !!form.name.trim() && !!form.serviceType && hasValidBaseUrl && hasValidApiKeys && !modelCapabilitiesError.value
     )
   })
   
   const buildSubmitPayload = () => {
-    const payload = buildChannelPayload(form)
+    const payload = buildChannelPayload(form, { channelType: props.channelType })
     applyVisionFallbackReasoning(payload)
     if (!form.streamFirstContentTimeoutEnabled) {
       delete payload.streamFirstContentTimeoutMs

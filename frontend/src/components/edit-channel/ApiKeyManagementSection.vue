@@ -4,7 +4,9 @@
       <v-card-title class="d-flex align-center justify-space-between pa-4 pb-2">
         <div class="d-flex align-center ga-2">
           <v-icon :color="hasConfigurableKeys ? 'primary' : 'error'">mdi-key</v-icon>
-          <span class="section-title">{{ t('channelCard.apiKeyManagement') }} *</span>
+          <span class="section-title">
+            {{ t('channelCard.apiKeyManagement') }}<span v-if="serviceType !== 'copilot'"> *</span>
+          </span>
           <v-chip v-if="!hasConfigurableKeys" size="x-small" color="error" variant="tonal">
             {{ t('channelEditor.auth.apiKeyRequired') }}
           </v-chip>
@@ -205,6 +207,18 @@
         >
           <div class="d-flex flex-column ga-2">
             <div class="text-body-2">{{ t('copilotOAuth.description') }}</div>
+            <v-text-field
+              :model-value="proxyUrl || ''"
+              :label="t('channelEditor.transport.proxyUrl.label')"
+              :placeholder="t('channelEditor.transport.proxyUrl.placeholder')"
+              :hint="t('channelEditor.transport.proxyUrl.hint')"
+              prepend-inner-icon="mdi-shield-lock-outline"
+              variant="outlined"
+              density="compact"
+              clearable
+              persistent-hint
+              @update:model-value="$emit('update:proxyUrl', String($event || ''))"
+            />
             <div v-if="copilotUserCode" class="d-flex align-center flex-wrap ga-2">
               <span class="text-body-2">{{ t('copilotOAuth.userCode') }}</span>
               <code class="px-2 py-1 rounded bg-surface">{{ copilotUserCode }}</code>
@@ -381,12 +395,14 @@ interface Props {
   restoringKey: string
   serviceType?: string
   channelId?: number
+  proxyUrl?: string
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
   'update:apiKeys': [string[]]
+  'update:proxyUrl': [string]
   'restore-key': [string]
 }>()
 
@@ -424,7 +440,7 @@ const copilotDiagnoseResult = ref<CopilotDiagnoseResponse | null>(null)
 const copilotDiagnoseError = ref('')
 let copilotPollTimer: number | null = null
 
-const hasConfigurableKeys = computed(() => props.apiKeys.length > 0)
+const hasConfigurableKeys = computed(() => props.serviceType === 'copilot' || props.apiKeys.length > 0)
 
 const visibleDisabledKeys = computed(() => {
   return props.disabledKeys.filter(dk => !props.apiKeys.includes(dk.key))
@@ -489,11 +505,13 @@ const appendOAuthKey = (accessToken: string) => {
   }
 }
 
+const oauthProxyUrl = () => props.proxyUrl?.trim() || undefined
+
 const pollCopilotAccessToken = async (intervalSeconds: number) => {
   if (!copilotDeviceCode.value) return
   copilotPolling.value = true
   try {
-    const token = await apiService.pollCopilotAccessToken(copilotDeviceCode.value)
+    const token = await apiService.pollCopilotAccessToken(copilotDeviceCode.value, oauthProxyUrl())
     if (token.accessToken) {
       appendOAuthKey(token.accessToken)
       copilotOAuthError.value = ''
@@ -539,7 +557,7 @@ const startCopilotOAuth = async () => {
   copilotOAuthError.value = ''
   copilotOAuthSuccess.value = false
   try {
-    const device = await apiService.requestCopilotDeviceCode()
+    const device = await apiService.requestCopilotDeviceCode(oauthProxyUrl())
     copilotDeviceCode.value = device.deviceCode
     copilotUserCode.value = device.userCode
     copilotVerificationUri.value = device.verificationUri

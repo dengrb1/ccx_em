@@ -76,7 +76,7 @@
       </div>
 
       <!-- Normalize Metadata UserId -->
-      <div v-if="channelType === 'messages' || channelType === 'responses'" class="d-flex align-center justify-space-between">
+      <div v-if="channelType === 'messages'" class="d-flex align-center justify-space-between">
         <div class="d-flex align-center ga-2">
           <v-icon color="primary">mdi-identifier</v-icon>
           <div>
