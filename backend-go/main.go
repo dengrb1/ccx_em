@@ -829,10 +829,10 @@ func main() {
 	r.POST("/v1/responses", responsesHandler)
 	r.POST("/:routePrefix/v1/responses", responsesHandler)
 
-	// Responses WebSocket fallback: 返回 426 让 Codex 回退到 HTTP POST。
-	// Codex 内置 openai provider 优先尝试 WebSocket，收到 426 后应回退。
-	r.GET("/v1/responses", responsesWebSocketFallback)
-	r.GET("/:routePrefix/v1/responses", responsesWebSocketFallback)
+	// Responses WebSocket: 支持 Codex 原生 response.create over WebSocket。
+	responsesWebSocketHandler := responses.WebSocketHandler(envCfg, cfgManager, sessionManager, channelScheduler)
+	r.GET("/v1/responses", responsesWebSocketHandler)
+	r.GET("/:routePrefix/v1/responses", responsesWebSocketHandler)
 
 	compactHandler := responses.CompactHandler(envCfg, cfgManager, sessionManager, channelScheduler)
 	r.POST("/v1/responses/compact", compactHandler)
@@ -886,6 +886,20 @@ func main() {
 
 	// 启动服务器
 	addr := fmt.Sprintf(":%d", envCfg.Port)
+	endpoint := endpointForEnv(envCfg)
+
+	// 创建 HTTP 服务器
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       time.Duration(envCfg.ServerReadTimeout) * time.Millisecond, // 仅控制服务端读取入站请求，避免与上游请求超时耦合
+		IdleTimeout:       120 * time.Second,
+	}
+	if err := configureServerTLS(srv, envCfg); err != nil {
+		log.Fatalf("[Server-Fatal] HTTPS 配置无效: %v", err)
+	}
+
 	fmt.Printf("\n[Server-Startup] CCX API代理服务器已启动\n")
 	fmt.Printf("[Server-Info] 版本: %s\n", Version)
 	if BuildTime != "unknown" {
@@ -894,8 +908,19 @@ func main() {
 	if GitCommit != "unknown" {
 		fmt.Printf("[Server-Info] Git提交: %s\n", GitCommit)
 	}
-	fmt.Printf("[Server-Info] 管理界面: http://localhost:%d\n", envCfg.Port)
-	fmt.Printf("[Server-Info] API 地址: http://localhost:%d/v1\n", envCfg.Port)
+	fmt.Printf("\n")
+	fmt.Printf("[Server-Info] 协议: %s\n", strings.ToUpper(endpoint.Scheme))
+	fmt.Printf("[Server-Info] 管理界面: %s\n", endpoint.URL(""))
+	fmt.Printf("[Server-Info] API 地址: %s\n", endpoint.URL("/v1"))
+	if envCfg.EnableHTTPS {
+		if envCfg.TLSCertFile == "" {
+			fmt.Printf("[Server-Info] HTTPS 证书: 自动生成 localhost 自签名证书（仅建议本地使用）\n")
+		} else {
+			fmt.Printf("[Server-Info] HTTPS 证书: %s\n", envCfg.TLSCertFile)
+		}
+		fmt.Printf("[Server-Info] HTTP 兼容: 已启用（同端口同时接受 HTTP/HTTPS）\n")
+	}
+	fmt.Printf("\n")
 	fmt.Printf("[Server-Info] Claude Messages: POST /v1/messages\n")
 	fmt.Printf("[Server-Info] Codex Responses: POST /v1/responses\n")
 	fmt.Printf("[Server-Info] Gemini API: POST /v1beta/models/{model}:generateContent\n")
@@ -906,6 +931,7 @@ func main() {
 	fmt.Printf("[Server-Info] Images Variations: POST /v1/images/variations\n")
 	fmt.Printf("[Server-Info] Embeddings: POST /v1/embeddings\n")
 	fmt.Printf("[Server-Info] 健康检查: GET /health\n")
+	fmt.Printf("\n")
 	fmt.Printf("[Server-Info] 环境: %s\n", envCfg.Env)
 	fmt.Printf("[Server-Info] 配置文件: %s\n", paths.ConfigPath)
 	if paths.LogDir == "none" {
@@ -931,15 +957,6 @@ func main() {
 		fmt.Printf("[Server-Info] 管理 API 密钥 (ADMIN_ACCESS_KEY): 未设置 (回退到 PROXY_ACCESS_KEY)\n")
 	}
 	fmt.Printf("\n")
-
-	// 创建 HTTP 服务器
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           r,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       time.Duration(envCfg.ServerReadTimeout) * time.Millisecond, // 仅控制服务端读取入站请求，避免与上游请求超时耦合
-		IdleTimeout:       120 * time.Second,
-	}
 
 	// 用于传递关闭结果
 	shutdownDone := make(chan struct{})
@@ -981,7 +998,7 @@ func main() {
 	}()
 
 	// 启动服务器（阻塞直到关闭）
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := startHTTPServer(srv, envCfg); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("服务器启动失败: %v", err)
 	}
 
@@ -992,15 +1009,6 @@ func main() {
 	case <-time.After(15 * time.Second):
 		log.Println("[Server-Shutdown] 警告: 等待关闭超时")
 	}
-}
-
-func responsesWebSocketFallback(c *gin.Context) {
-	if strings.EqualFold(c.GetHeader("Upgrade"), "websocket") {
-		c.Status(http.StatusUpgradeRequired)
-		return
-	}
-
-	c.Status(http.StatusMethodNotAllowed)
 }
 
 // maskKey 对密钥进行脱密处理，保留首尾部分字符，中间用 * 遮蔽

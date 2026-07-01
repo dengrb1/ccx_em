@@ -56,6 +56,21 @@ func TestApplyAndRestoreCodex(t *testing.T) {
 	}
 }
 
+func TestCodexDoesNotSupportSenseNovaDirectProvider(t *testing.T) {
+	if baseURL, ok := codexResponsesBaseURL(ProviderSenseNova); ok {
+		t.Fatalf("SenseNova should not be a Codex direct provider, got baseURL %q", baseURL)
+	}
+	if provider, ok := codexThirdPartyQuickBaseURL(sensenovaChatBaseURL); ok {
+		t.Fatalf("SenseNova chat endpoint should not be detected as Codex quick provider, got %q", provider)
+	}
+	if got := normalizeCodexProvider(ProviderSenseNova); got != ProviderCustom {
+		t.Fatalf("normalizeCodexProvider(%q) = %q, want %q", ProviderSenseNova, got, ProviderCustom)
+	}
+	if isCodexThirdPartyProvider(ProviderSenseNova) {
+		t.Fatal("SenseNova should not be in the Codex third-party provider whitelist")
+	}
+}
+
 func TestGetStatusCodex_ThirdPartyProvider(t *testing.T) {
 	svc := newTestService(t)
 	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
@@ -250,6 +265,63 @@ func TestApplyCodex_RunAPIPluginMode(t *testing.T) {
 	}
 }
 
+func TestApplyCodex_MiMoTokenPlanBaseURL(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".codex", "config.toml")
+	authPath := filepath.Join(svc.homeDir, ".codex", "auth.json")
+	os.MkdirAll(filepath.Dir(configPath), 0o755)
+
+	err := svc.Apply(ApplyAgentConfigRequest{
+		Platform: PlatformCodex,
+		Provider: ProviderMiMo,
+		Mode:     "quick",
+		APIKey:   "mimo-key",
+		BaseURL:  "https://token-plan-cn.xiaomimimo.com/v1",
+	}, 0, "")
+	if err != nil {
+		t.Fatalf("Apply quick failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if !strings.Contains(s, `model_provider = "openai"`) {
+		t.Error("quick config should use model_provider = openai")
+	}
+	if !strings.Contains(s, `openai_base_url = "https://token-plan-cn.xiaomimimo.com/v1"`) {
+		t.Error("quick config should contain MiMo Token Plan openai_base_url")
+	}
+	authData, _, _ := readJSONMap(authPath)
+	if authData["OPENAI_API_KEY"] != "mimo-key" {
+		t.Errorf("OPENAI_API_KEY = %v, want mimo-key", authData["OPENAI_API_KEY"])
+	}
+
+	err = svc.Apply(ApplyAgentConfigRequest{
+		Platform: PlatformCodex,
+		Provider: ProviderMiMo,
+		Mode:     "plugin",
+		APIKey:   "mimo-key",
+		BaseURL:  "https://token-plan-sgp.xiaomimimo.com/v1",
+	}, 0, "")
+	if err != nil {
+		t.Fatalf("Apply plugin failed: %v", err)
+	}
+
+	content, _ = os.ReadFile(configPath)
+	s = string(content)
+	if !strings.Contains(s, `model_provider = "mimo"`) {
+		t.Error("plugin config should use model_provider = mimo")
+	}
+	if !strings.Contains(s, `[model_providers.mimo]`) {
+		t.Error("plugin config should contain MiMo provider block")
+	}
+	if !strings.Contains(s, `base_url = "https://token-plan-sgp.xiaomimimo.com/v1"`) {
+		t.Error("plugin config should contain MiMo Token Plan base_url")
+	}
+	if !strings.Contains(s, `wire_api = "responses"`) {
+		t.Error("plugin config should contain wire_api = responses")
+	}
+}
+
 func TestApplyOpenCode_RunAPIProvider(t *testing.T) {
 	svc := newTestService(t)
 	configPath := filepath.Join(svc.homeDir, ".config", "opencode", "opencode.jsonc")
@@ -277,6 +349,67 @@ func TestApplyOpenCode_RunAPIProvider(t *testing.T) {
 	_, key := openCodeAuthKeyFromMap(authData, ProviderRunAPI)
 	if key != "runapi-key" {
 		t.Errorf("RunAPI auth key = %q, want runapi-key", key)
+	}
+}
+
+func TestApplyOpenCode_SenseNovaProvider(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".config", "opencode", "opencode.jsonc")
+	authPath := svc.openCodeAuthPath()
+
+	err := svc.Apply(ApplyAgentConfigRequest{
+		Platform: PlatformOpenCode,
+		Provider: ProviderSenseNova,
+		APIKey:   "sensenova-key",
+	}, 0, "")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if !strings.Contains(s, `"sensenova"`) {
+		t.Error("opencode config should contain sensenova provider")
+	}
+	if !strings.Contains(s, `"baseURL": "https://token.sensenova.cn/v1"`) {
+		t.Error("opencode config should contain SenseNova chat baseURL")
+	}
+
+	authData, _, _ := readJSONMap(authPath)
+	_, key := openCodeAuthKeyFromMap(authData, ProviderSenseNova)
+	if key != "sensenova-key" {
+		t.Errorf("SenseNova auth key = %q, want sensenova-key", key)
+	}
+}
+
+func TestApplyOpenCode_MiMoTokenPlanBaseURL(t *testing.T) {
+	svc := newTestService(t)
+	configPath := filepath.Join(svc.homeDir, ".config", "opencode", "opencode.jsonc")
+	authPath := svc.openCodeAuthPath()
+
+	err := svc.Apply(ApplyAgentConfigRequest{
+		Platform: PlatformOpenCode,
+		Provider: ProviderMiMo,
+		APIKey:   "mimo-key",
+		BaseURL:  "https://token-plan-ams.xiaomimimo.com/v1",
+	}, 0, "")
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, _ := os.ReadFile(configPath)
+	s := string(content)
+	if !strings.Contains(s, `"mimo"`) {
+		t.Error("opencode config should contain mimo provider")
+	}
+	if !strings.Contains(s, `"baseURL": "https://token-plan-ams.xiaomimimo.com/v1"`) {
+		t.Error("opencode config should contain MiMo Token Plan baseURL")
+	}
+
+	authData, _, _ := readJSONMap(authPath)
+	_, key := openCodeAuthKeyFromMap(authData, ProviderMiMo)
+	if key != "mimo-key" {
+		t.Errorf("MiMo auth key = %q, want mimo-key", key)
 	}
 }
 

@@ -73,6 +73,7 @@
           :reasoning-param-style-options="reasoningParamStyleOptions"
           :text-verbosity-options="textVerbosityOptions"
           :diagnosing="diagnosing"
+          :diagnose-result="diagnoseResult"
           @update:field="updateField"
           @menu-update="$emit('menu-update', $event)"
           @diagnose="$emit('diagnose')"
@@ -122,6 +123,7 @@ interface Props {
   reasoningParamStyleOptions: Array<{ title: string; value: string }>
   textVerbosityOptions: Array<{ title: string; value: string }>
   diagnosing?: boolean
+  diagnoseResult?: { type: 'success' | 'error'; message: string; appliedCount: number } | null
 }
 
 defineProps<Props>()

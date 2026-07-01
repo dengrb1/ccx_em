@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -374,24 +375,7 @@ func (s *DesktopService) CreateCCXChannelFromPreset(req channelpreset.CreateChan
 		}
 	}
 	if strings.TrimSpace(req.APIKey) == "" {
-		planID := strings.TrimSpace(req.PlanID)
-		var fallbackKey string
-		for _, asset := range s.configService.GetProviderKeyAssets() {
-			if asset.Provider != strings.TrimSpace(req.Provider) || asset.APIKey == "" {
-				continue
-			}
-			if planID != "" && asset.PlanID != planID {
-				continue
-			}
-			if asset.PlanID == "" {
-				fallbackKey = asset.APIKey
-				break
-			}
-			if fallbackKey == "" {
-				fallbackKey = asset.APIKey
-			}
-		}
-		req.APIKey = fallbackKey
+		req.APIKey = s.savedProviderKeyForPlan(req.Provider, req.PlanID)
 	}
 	payload, err := channelpreset.BuildPayload(req)
 	if err != nil {
@@ -418,6 +402,7 @@ func (s *DesktopService) CreateCCXChannelFromPreset(req channelpreset.CreateChan
 		APIKey:   payload.APIKeys[0],
 		BaseURL:  payload.BaseURL,
 		PlanID:   req.PlanID,
+		ProxyURL: payload.ProxyURL,
 		Usages:   []string{req.Target + "-channel"},
 	}); err != nil {
 		return channelpreset.CreateChannelResult{}, err
@@ -458,7 +443,12 @@ func (s *DesktopService) createChannel(ctx context.Context, target string, paylo
 	}
 	baseURL := s.manager.WebURL()
 	path := "/api/" + strings.TrimSpace(target) + "/channels"
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // 仅连接本机 CCX，兼容本地自签名 HTTPS。
+		},
+	}
 
 	// 查找同名渠道，存在则覆盖更新
 	if existingID, err := s.findChannelIndexByName(ctx, client, baseURL, path, payload.Name, adminKey); err == nil && existingID >= 0 {
@@ -516,6 +506,51 @@ func (s *DesktopService) findChannelIndexByName(ctx context.Context, client *htt
 		}
 	}
 	return -1, nil
+}
+
+func (s *DesktopService) savedProviderKeyForPlan(provider string, planID string) string {
+	if s.configService == nil {
+		return ""
+	}
+	provider = strings.TrimSpace(provider)
+	planID = strings.TrimSpace(planID)
+	if provider == "" {
+		return ""
+	}
+
+	var legacyKey string
+	var firstKey string
+	hasPlanScopedAsset := false
+	for _, asset := range s.configService.GetProviderKeyAssets() {
+		if asset.Provider != provider || strings.TrimSpace(asset.APIKey) == "" {
+			continue
+		}
+		key := strings.TrimSpace(asset.APIKey)
+		assetPlanID := strings.TrimSpace(asset.PlanID)
+		if firstKey == "" {
+			firstKey = key
+		}
+		if assetPlanID != "" {
+			hasPlanScopedAsset = true
+		}
+		if planID != "" && assetPlanID == planID {
+			return key
+		}
+		if assetPlanID == "" && legacyKey == "" {
+			legacyKey = key
+		}
+	}
+
+	if planID != "" {
+		if hasPlanScopedAsset {
+			return ""
+		}
+		return legacyKey
+	}
+	if legacyKey != "" {
+		return legacyKey
+	}
+	return firstKey
 }
 
 func (s *DesktopService) putChannel(ctx context.Context, client *http.Client, baseURL, path string, body []byte, adminKey string) error {

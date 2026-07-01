@@ -11,6 +11,7 @@ func generatedClaudeMessagesTargetConfigs() map[string]channelTargetConfig {
 		"unity2":        channelTargetConfig{},
 		"kimi":          channelTargetConfig{ModelMapping: map[string]string{"fable": "kimi-k2.6", "haiku": "kimi-k2.6", "opus": "kimi-k2.6", "sonnet": "kimi-k2.6"}, NormalizeSystemRoleToTopLevel: true},
 		"glm":           channelTargetConfig{ModelMapping: map[string]string{"fable": "glm-5.2", "haiku": "glm-5.2", "opus": "glm-5.2", "sonnet": "glm-5.2"}, NormalizeSystemRoleToTopLevel: true},
+		"sensenova":     channelTargetConfig{ModelMapping: map[string]string{"fable": "glm-5.2", "haiku": "deepseek-v4-flash", "opus": "glm-5.2", "sonnet": "glm-5.2"}, NormalizeSystemRoleToTopLevel: true, NoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"}, VisionFallbackModel: "sensenova-6.7-flash-lite"},
 		"minimax":       channelTargetConfig{ModelMapping: map[string]string{"fable": "MiniMax-M3", "haiku": "MiniMax-M2.7", "opus": "MiniMax-M3", "sonnet": "MiniMax-M3"}, PassbackReasoningContent: true, NormalizeSystemRoleToTopLevel: true, NoVision: true},
 		"dashscope":     channelTargetConfig{ModelMapping: map[string]string{"fable": "glm-5.2", "haiku": "glm-5.2", "opus": "glm-5.2", "sonnet": "glm-5.2"}, NormalizeSystemRoleToTopLevel: true},
 		"opencode-zen":  channelTargetConfig{ModelMapping: map[string]string{"fable": "glm-5.2", "haiku": "deepseek-v4-flash", "opus": "glm-5.2", "sonnet": "glm-5.2"}, ReasoningMapping: map[string]string{"fable": "max", "haiku": "high", "opus": "max", "sonnet": "max"}, NormalizeSystemRoleToTopLevel: true},
@@ -18,7 +19,7 @@ func generatedClaudeMessagesTargetConfigs() map[string]channelTargetConfig {
 		"modelscope":    channelTargetConfig{ModelMapping: map[string]string{"fable": "ZhipuAI/GLM-5.2", "haiku": "deepseek-ai/DeepSeek-V4-Flash", "opus": "ZhipuAI/GLM-5.2", "sonnet": "ZhipuAI/GLM-5.2"}, NormalizeSystemRoleToTopLevel: true, NoVisionModels: []string{"deepseek-ai/DeepSeek-V4-Flash"}, VisionFallbackModel: "MiniMax/MiniMax-M2.7"},
 		"volc-ark":      channelTargetConfig{ModelMapping: map[string]string{"fable": "glm-5.2", "haiku": "deepseek-v4-flash", "opus": "glm-5.2", "sonnet": "glm-5.2"}, ReasoningMapping: map[string]string{"fable": "max", "haiku": "high", "opus": "max", "sonnet": "max", "minimax-m3": "xhigh"}, ReasoningParamStyle: "reasoning", PassbackReasoningContent: true, PassbackThinkingBlocks: true, NormalizeSystemRoleToTopLevel: true, NoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"}, VisionFallbackModel: "minimax-m3", StripEmptyTextBlocks: true},
 		"qianfan":       channelTargetConfig{ModelMapping: map[string]string{"fable": "qianfan-code-latest", "haiku": "qianfan-code-latest", "opus": "qianfan-code-latest", "sonnet": "qianfan-code-latest"}, NormalizeSystemRoleToTopLevel: true},
-		"xfyun":         channelTargetConfig{NormalizeSystemRoleToTopLevel: true},
+		"xfyun":         channelTargetConfig{ModelMapping: map[string]string{"fable": "astron-code-latest", "haiku": "astron-code-latest", "opus": "astron-code-latest", "sonnet": "astron-code-latest"}, NormalizeSystemRoleToTopLevel: true},
 		"tencent-lkeap": channelTargetConfig{NormalizeSystemRoleToTopLevel: true},
 	}
 }

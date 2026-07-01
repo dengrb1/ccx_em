@@ -31,6 +31,7 @@ const claudeProviderLabels: Record<AgentProvider | 'custom', string> = {
   originrouter: '极易云',
   kimi: 'Kimi',
   glm: 'GLM',
+  sensenova: 'SenseNova',
   minimax: 'MiniMax',
   dashscope: 'DashScope',
   openrouter: 'OpenRouter',
@@ -64,6 +65,7 @@ function getCodexProviderLabels(): ComputedRef<Record<AgentProvider | 'custom', 
       originrouter: '极易云',
       kimi: 'Kimi',
       glm: 'GLM',
+      sensenova: 'SenseNova',
       minimax: 'MiniMax',
       dashscope: 'DashScope',
       openrouter: 'OpenRouter',
@@ -111,6 +113,7 @@ const claudeProviderKeys = ref<Record<AgentProvider, string>>({
   originrouter: '',
   kimi: '',
   glm: '',
+  sensenova: '',
   minimax: '',
   dashscope: '',
   openrouter: '',
@@ -127,6 +130,8 @@ const codexOpenAIUseOwnKey = ref(false)
 const openCodeOpenAIKey = ref('')
 const claudeMimoBaseUrl = ref('https://api.xiaomimimo.com/anthropic')
 const selectedMimoPlan = ref('https://api.xiaomimimo.com/anthropic')
+const selectedMimoCodexPlan = ref('https://api.xiaomimimo.com/v1')
+const selectedMimoOpenCodePlan = ref('https://api.xiaomimimo.com/v1')
 const selectedDashScopePlan = ref('https://dashscope.aliyuncs.com/apps/anthropic')
 const selectedCodexProvider = ref<AgentProvider>('ccx')
 const codexMode = ref<'quick' | 'plugin'>('quick')
@@ -145,7 +150,7 @@ const migrateResult = ref<MigrateCodexSessionsResult | null>(null)
 const migrateError = ref('')
 
 const isClaudeProvider = (value?: string): value is AgentProvider => {
-  return value === 'ccx' || value === 'deepseek' || value === 'mimo' || value === 'compshare' || value === 'runapi' || value === 'unity2' || value === 'tencent-lkeap' || value === 'kimi' || value === 'glm' || value === 'minimax' || value === 'dashscope' || value === 'openrouter' || value === 'modelscope' || value === 'opencode-zen' || value === 'opencode-go' || value === 'xfyun' || value === 'volc-ark' || value === 'qianfan'
+  return value === 'ccx' || value === 'deepseek' || value === 'mimo' || value === 'compshare' || value === 'runapi' || value === 'unity2' || value === 'tencent-lkeap' || value === 'kimi' || value === 'glm' || value === 'sensenova' || value === 'minimax' || value === 'dashscope' || value === 'openrouter' || value === 'modelscope' || value === 'opencode-zen' || value === 'opencode-go' || value === 'xfyun' || value === 'volc-ark' || value === 'qianfan'
 }
 
 // Codex 支持快捷模式/插件模式切换的第三方 provider
@@ -186,6 +191,8 @@ const claudeTargetBaseUrl = () => {
       return 'https://api.moonshot.cn/anthropic'
     case 'glm':
       return 'https://open.bigmodel.cn/api/anthropic'
+    case 'sensenova':
+      return 'https://token.sensenova.cn'
     case 'minimax':
       return 'https://api.minimaxi.com/anthropic'
     case 'dashscope':
@@ -199,7 +206,7 @@ const claudeTargetBaseUrl = () => {
     case 'opencode-go':
       return 'https://opencode.ai/zen/go'
     case 'xfyun':
-      return 'https://maas-api.cn-huabei-1.xf-yun.com/anthropic'
+      return 'https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic'
     case 'tencent-lkeap':
       return 'https://api.lkeap.cloud.tencent.com/plan/anthropic'
     case 'volc-ark':
@@ -220,7 +227,7 @@ const codexTargetBaseUrl = () => {
     case 'deepseek':
       return 'https://api.deepseek.com/v1'
     case 'mimo':
-      return 'https://api.xiaomimimo.com/v1'
+      return selectedMimoCodexPlan.value || 'https://api.xiaomimimo.com/v1'
     case 'compshare':
       return 'https://cp.compshare.cn/v1'
     case 'kimi':
@@ -244,7 +251,7 @@ const codexTargetBaseUrl = () => {
     case 'opencode-go':
       return 'https://opencode.ai/zen/go/v1'
     case 'xfyun':
-      return 'https://maas-api.cn-huabei-1.xf-yun.com/v2'
+      return 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2'
     case 'tencent-lkeap':
       return 'https://api.lkeap.cloud.tencent.com/plan/v3'
     case 'volc-ark':
@@ -263,13 +270,15 @@ const openCodeTargetBaseUrl = () => {
     case 'deepseek':
       return 'https://api.deepseek.com/v1'
     case 'mimo':
-      return 'https://api.xiaomimimo.com/v1'
+      return selectedMimoOpenCodePlan.value || 'https://api.xiaomimimo.com/v1'
     case 'compshare':
       return 'https://cp.compshare.cn/v1'
     case 'kimi':
       return 'https://api.moonshot.cn/v1'
     case 'glm':
       return 'https://open.bigmodel.cn/api/paas/v4'
+    case 'sensenova':
+      return 'https://token.sensenova.cn/v1'
     case 'minimax':
       return 'https://api.minimax.chat/v1'
     case 'runapi':
@@ -279,7 +288,7 @@ const openCodeTargetBaseUrl = () => {
     case 'dashscope':
       return 'https://dashscope.aliyuncs.com/compatible-mode/v1'
     case 'xfyun':
-      return 'https://maas-api.cn-huabei-1.xf-yun.com/v2'
+      return 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2'
     case 'openrouter':
       return 'https://openrouter.ai/api/v1'
     case 'modelscope':
@@ -324,6 +333,16 @@ const resolveMiMoPlan = (url: string): string => {
   return known.includes(url) ? url : ''
 }
 
+const resolveMiMoCodexPlan = (url: string): string => {
+  const known = [
+    'https://api.xiaomimimo.com/v1',
+    'https://token-plan-cn.xiaomimimo.com/v1',
+    'https://token-plan-sgp.xiaomimimo.com/v1',
+    'https://token-plan-ams.xiaomimimo.com/v1',
+  ]
+  return known.includes(url) ? url : ''
+}
+
 const resolveDashScopePlan = (url: string): string => {
   const known = [
     'https://dashscope.aliyuncs.com/apps/anthropic',
@@ -360,6 +379,9 @@ const loadAgentStatuses = async () => {
     } else {
       selectedCodexProvider.value = 'ccx'
     }
+    if (codex.provider === 'mimo' && codex.currentBaseUrl) {
+      selectedMimoCodexPlan.value = resolveMiMoCodexPlan(codex.currentBaseUrl) || 'https://api.xiaomimimo.com/v1'
+    }
     // 恢复所有支持 mode 切换的 provider 的 mode 状态
     if (codex.provider === 'ccx' || codex.provider === 'dashscope' || codex.provider === 'runapi' || codex.provider === 'opencode-zen' || codex.provider === 'opencode-go') {
       codexMode.value = codex.mode === 'plugin' ? 'plugin' : 'quick'
@@ -368,6 +390,9 @@ const loadAgentStatuses = async () => {
       selectedOpenCodeProvider.value = opencode.provider as AgentProvider
     } else {
       selectedOpenCodeProvider.value = 'ccx'
+    }
+    if (opencode.provider === 'mimo' && opencode.currentBaseUrl) {
+      selectedMimoOpenCodePlan.value = resolveMiMoCodexPlan(opencode.currentBaseUrl) || 'https://api.xiaomimimo.com/v1'
     }
   } catch (error) {
     // error is handled by caller
@@ -451,12 +476,18 @@ const applyAgent = async (platform: AgentPlatform) => {
         const inputKey = codexOpenAIKey.value.trim()
         request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedCodexProvider.value}`] || ''
       }
+      if (selectedCodexProvider.value === 'mimo') {
+        request.baseUrl = selectedMimoCodexPlan.value.trim()
+      }
     }
     if (platform === 'opencode') {
       request.provider = selectedOpenCodeProvider.value
       if (selectedOpenCodeProvider.value !== 'ccx') {
         const inputKey = openCodeOpenAIKey.value.trim()
         request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedOpenCodeProvider.value}`] || ''
+      }
+      if (selectedOpenCodeProvider.value === 'mimo') {
+        request.baseUrl = selectedMimoOpenCodePlan.value.trim()
       }
     }
     await ApplyAgentConfig(request)
@@ -493,12 +524,18 @@ const showApplyPreview = async (platform: AgentPlatform) => {
       const inputKey = codexOpenAIKey.value.trim()
       request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedCodexProvider.value}`] || ''
     }
+    if (selectedCodexProvider.value === 'mimo') {
+      request.baseUrl = selectedMimoCodexPlan.value.trim()
+    }
   }
   if (platform === 'opencode') {
     request.provider = selectedOpenCodeProvider.value
     if (selectedOpenCodeProvider.value !== 'ccx') {
       const inputKey = openCodeOpenAIKey.value.trim()
       request.apiKey = inputKey || savedProviderKeys.value[`codex:${selectedOpenCodeProvider.value}`] || ''
+    }
+    if (selectedOpenCodeProvider.value === 'mimo') {
+      request.baseUrl = selectedMimoOpenCodePlan.value.trim()
     }
   }
   // 检测模式切换，显示会话迁移警告
@@ -611,6 +648,8 @@ export function useAgentConfig() {
     openCodeOpenAIKey,
     claudeMimoBaseUrl,
     selectedMimoPlan,
+    selectedMimoCodexPlan,
+    selectedMimoOpenCodePlan,
     selectedDashScopePlan,
     agentLabels,
     claudeProviderLabels,

@@ -79,6 +79,17 @@
       },
       "normalizeSystemRoleToTopLevel": true
     },
+    "sensenova": {
+      "modelMapping": {
+        "fable": "glm-5.2",
+        "haiku": "deepseek-v4-flash",
+        "opus": "glm-5.2",
+        "sonnet": "glm-5.2"
+      },
+      "normalizeSystemRoleToTopLevel": true,
+      "noVisionModels": ["glm-5.2", "deepseek-v4-flash"],
+      "visionFallbackModel": "sensenova-6.7-flash-lite"
+    },
     "minimax": {
       "modelMapping": {
         "fable": "MiniMax-M3",
@@ -172,6 +183,12 @@
       "normalizeSystemRoleToTopLevel": true
     },
     "xfyun": {
+      "modelMapping": {
+        "fable": "astron-code-latest",
+        "haiku": "astron-code-latest",
+        "opus": "astron-code-latest",
+        "sonnet": "astron-code-latest"
+      },
       "normalizeSystemRoleToTopLevel": true
     },
     "tencent-lkeap": {

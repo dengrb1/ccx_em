@@ -6,14 +6,50 @@
         {{ t('channelEditor.compat.title') }}
       </div>
       <v-btn
-        v-if="channelType !== 'vectors'"
+        v-if="channelType !== 'images' && channelType !== 'vectors' && !diagnoseResult"
         size="x-small"
         variant="tonal"
         :loading="diagnosing"
         prepend-icon="mdi-stethoscope"
         @click="$emit('diagnose')"
       >{{ t('channelEditor.compat.diagnose') }}</v-btn>
+      <v-btn
+        v-else-if="channelType !== 'images' && channelType !== 'vectors' && diagnoseResult?.type === 'error'"
+        size="x-small"
+        variant="tonal"
+        color="error"
+        prepend-icon="mdi-alert-circle"
+        @click="$emit('diagnose')"
+      >{{ t('channelEditor.compat.diagnoseFailedShort') }}</v-btn>
+      <v-btn
+        v-else-if="channelType !== 'images' && channelType !== 'vectors' && diagnoseResult && diagnoseResult.appliedCount > 0"
+        size="x-small"
+        variant="tonal"
+        color="success"
+        prepend-icon="mdi-check-circle"
+        @click="$emit('diagnose')"
+      >{{ t('channelEditor.compat.diagnoseAppliedShort', { count: diagnoseResult.appliedCount }) }}</v-btn>
+      <v-btn
+        v-else-if="channelType !== 'images' && channelType !== 'vectors' && diagnoseResult"
+        size="x-small"
+        variant="tonal"
+        prepend-icon="mdi-check"
+        @click="$emit('diagnose')"
+      >{{ t('channelEditor.compat.diagnoseNoChangeShort') }}</v-btn>
     </div>
+
+    <v-expand-transition>
+      <v-alert
+        v-if="diagnoseResult"
+        :type="diagnoseResult.type === 'error' ? 'error' : 'success'"
+        variant="tonal"
+        density="compact"
+        class="mb-3 text-caption"
+        :icon="diagnoseResult.type === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'"
+      >
+        {{ diagnoseResult.message }}
+      </v-alert>
+    </v-expand-transition>
 
     <div class="d-flex flex-column ga-3 compat-options">
       <!-- Codex Native Tool Passthrough -->
@@ -77,7 +113,7 @@
       </div>
 
       <!-- Normalize Metadata UserId -->
-      <div v-if="channelType === 'messages' || channelType === 'responses'" class="d-flex align-center justify-space-between">
+      <div v-if="channelType === 'messages'" class="d-flex align-center justify-space-between">
         <div class="d-flex align-center ga-2">
           <v-icon color="primary">mdi-identifier</v-icon>
           <div>
@@ -287,6 +323,7 @@ interface Props {
   reasoningParamStyleOptions: Array<{ title: string; value: string }>
   textVerbosityOptions: Array<{ title: string; value: string }>
   diagnosing?: boolean
+  diagnoseResult?: { type: 'success' | 'error'; message: string; appliedCount: number } | null
 }
 
 defineProps<Props>()

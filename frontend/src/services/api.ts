@@ -113,21 +113,24 @@ export class ApiService {
     return this.parseResponseBody(response)
   }
 
-  async requestCopilotDeviceCode(): Promise<CopilotDeviceCodeResponse> {
-    return this.request('/copilot/oauth/device/code', { method: 'POST' })
-  }
-
-  async pollCopilotAccessToken(deviceCode: string): Promise<CopilotTokenResponse> {
-    return this.request('/copilot/oauth/token', {
+  async requestCopilotDeviceCode(proxyUrl?: string): Promise<CopilotDeviceCodeResponse> {
+    return this.request('/copilot/oauth/device/code', {
       method: 'POST',
-      body: JSON.stringify({ deviceCode })
+      body: JSON.stringify({ proxyUrl: proxyUrl?.trim() || undefined })
     })
   }
 
-  async verifyCopilotAccessToken(accessToken: string): Promise<CopilotUserResponse> {
+  async pollCopilotAccessToken(deviceCode: string, proxyUrl?: string): Promise<CopilotTokenResponse> {
+    return this.request('/copilot/oauth/token', {
+      method: 'POST',
+      body: JSON.stringify({ deviceCode, proxyUrl: proxyUrl?.trim() || undefined })
+    })
+  }
+
+  async verifyCopilotAccessToken(accessToken: string, proxyUrl?: string): Promise<CopilotUserResponse> {
     return this.request('/copilot/oauth/verify', {
       method: 'POST',
-      body: JSON.stringify({ accessToken })
+      body: JSON.stringify({ accessToken, proxyUrl: proxyUrl?.trim() || undefined })
     })
   }
 

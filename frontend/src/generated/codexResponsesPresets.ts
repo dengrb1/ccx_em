@@ -7,6 +7,7 @@ export interface CodexResponsesPreset {
   modelMapping: Record<string, string>
   reasoningMapping: Partial<Record<string, CodexResponsesReasoningEffort>>
   reasoningParamStyle: CodexResponsesReasoningParamStyle
+  serviceType?: 'openai' | 'gemini' | 'claude' | 'responses' | 'copilot'
   codexNativeToolPassthrough: boolean
   codexToolCompat: boolean
   stripCodexClientTools: boolean
@@ -46,8 +47,8 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
     },
     "reasoningMapping": {
       "codex": "high",
-      "gpt": "max",
-      "mimo-v2.5": "max",
+      "gpt": "high",
+      "mimo-v2.5": "high",
       "mini": "high"
     },
     "reasoningParamStyle": "reasoning",
@@ -61,6 +62,7 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
       "mimo-v2.5-pro"
     ],
     "visionFallbackModel": "mimo-v2.5",
+    "serviceType": "responses",
     "rateLimitRpm": 80
   },
   "compshare": {
@@ -223,6 +225,26 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
     "noVisionModels": [],
     "visionFallbackModel": ""
   },
+  "sensenova": {
+    "modelMapping": {
+      "codex": "deepseek-v4-flash",
+      "gpt": "glm-5.2",
+      "mini": "deepseek-v4-flash"
+    },
+    "reasoningMapping": {},
+    "reasoningParamStyle": "",
+    "codexNativeToolPassthrough": false,
+    "codexToolCompat": true,
+    "stripCodexClientTools": true,
+    "stripImageGenerationTool": false,
+    "normalizeNonstandardChatRoles": true,
+    "noVision": false,
+    "noVisionModels": [
+      "glm-5.2",
+      "deepseek-v4-flash"
+    ],
+    "visionFallbackModel": "sensenova-6.7-flash-lite"
+  },
   "openrouter": {
     "modelMapping": {},
     "reasoningMapping": {},
@@ -296,7 +318,11 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
     "visionFallbackModel": ""
   },
   "xfyun": {
-    "modelMapping": {},
+    "modelMapping": {
+      "codex": "astron-code-latest",
+      "gpt": "astron-code-latest",
+      "mini": "astron-code-latest"
+    },
     "reasoningMapping": {},
     "reasoningParamStyle": "",
     "codexNativeToolPassthrough": false,
@@ -306,7 +332,8 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
     "normalizeNonstandardChatRoles": true,
     "noVision": false,
     "noVisionModels": [],
-    "visionFallbackModel": ""
+    "visionFallbackModel": "",
+    "serviceType": "responses"
   },
   "github-copilot": {
     "modelMapping": {},
@@ -319,6 +346,7 @@ export const codexResponsesPresets: Record<string, CodexResponsesPreset> = {
     "normalizeNonstandardChatRoles": false,
     "noVision": false,
     "noVisionModels": [],
-    "visionFallbackModel": ""
+    "visionFallbackModel": "",
+    "serviceType": "copilot"
   }
 }

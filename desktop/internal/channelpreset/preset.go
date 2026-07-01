@@ -8,29 +8,32 @@ import (
 )
 
 const (
-	ProviderDeepSeek     = "deepseek"
-	ProviderMiMo         = "mimo"
-	ProviderCompshare    = "compshare"
-	ProviderRunAPI       = "runapi"
-	ProviderUnity2       = "unity2"
-	ProviderKimi         = "kimi"
-	ProviderGLM          = "glm"
-	ProviderMiniMax      = "minimax"
-	ProviderDashScope    = "dashscope"
-	ProviderTencentLkeap = "tencent-lkeap"
-	ProviderKimiCode     = "kimi-code"
-	ProviderVolcArk      = "volc-ark"
-	ProviderQianfan      = "qianfan"
-	ProviderXFyun        = "xfyun"
-	ProviderOriginRouter = "originrouter"
-	ProviderOpenRouter   = "openrouter"
-	ProviderModelScope   = "modelscope"
-	ProviderOpenCodeZen  = "opencode-zen"
-	ProviderOpenCodeGo   = "opencode-go"
+	ProviderDeepSeek      = "deepseek"
+	ProviderMiMo          = "mimo"
+	ProviderCompshare     = "compshare"
+	ProviderRunAPI        = "runapi"
+	ProviderUnity2        = "unity2"
+	ProviderKimi          = "kimi"
+	ProviderGLM           = "glm"
+	ProviderSenseNova     = "sensenova"
+	ProviderMiniMax       = "minimax"
+	ProviderDashScope     = "dashscope"
+	ProviderTencentLkeap  = "tencent-lkeap"
+	ProviderKimiCode      = "kimi-code"
+	ProviderVolcArk       = "volc-ark"
+	ProviderQianfan       = "qianfan"
+	ProviderXFyun         = "xfyun"
+	ProviderOriginRouter  = "originrouter"
+	ProviderOpenRouter    = "openrouter"
+	ProviderModelScope    = "modelscope"
+	ProviderOpenCodeZen   = "opencode-zen"
+	ProviderOpenCodeGo    = "opencode-go"
+	ProviderGitHubCopilot = "github-copilot"
 
 	TargetMessages  = "messages"
 	TargetChat      = "chat"
 	TargetResponses = "responses"
+	TargetGemini    = "gemini"
 )
 
 type ProviderPreset struct {
@@ -61,6 +64,9 @@ func (p ProviderPlan) Protocol() string {
 	id := strings.ToLower(p.ID)
 	label := strings.ToLower(p.Label)
 	baseURL := strings.TrimRight(strings.ToLower(p.BaseURL), "/")
+	if strings.Contains(id, "responses") || strings.Contains(label, "responses") || strings.HasSuffix(baseURL, "/responses") {
+		return "responses"
+	}
 	if strings.Contains(id, "anthropic") || strings.Contains(label, "anthropic") || strings.Contains(baseURL, "anthropic") || strings.HasSuffix(baseURL, "/messages") {
 		return "anthropic"
 	}
@@ -82,6 +88,7 @@ type CreateChannelRequest struct {
 	APIKey      string `json:"apiKey"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	ProxyURL    string `json:"proxyUrl"`
 }
 
 type CreateChannelResult struct {
@@ -100,6 +107,7 @@ type ChannelPayload struct {
 	AuthHeader                    string            `json:"authHeader,omitempty"`
 	BaseURL                       string            `json:"baseUrl"`
 	APIKeys                       []string          `json:"apiKeys"`
+	ProxyURL                      string            `json:"proxyUrl,omitempty"`
 	ModelMapping                  map[string]string `json:"modelMapping,omitempty"`
 	ReasoningMapping              map[string]string `json:"reasoningMapping,omitempty"`
 	ReasoningParamStyle           string            `json:"reasoningParamStyle,omitempty"`
@@ -135,6 +143,7 @@ var providerConsoleURLs = map[string]string{
 	ProviderUnity2:       "https://unity2.ai/dashboard",
 	ProviderKimi:         "https://platform.moonshot.cn/console/account",
 	ProviderGLM:          "https://open.bigmodel.cn/coding-plan/personal/overview",
+	ProviderSenseNova:    "https://platform.sensenova.cn/console",
 	ProviderMiniMax:      "https://platform.minimaxi.com/user-center/payment/balance",
 	ProviderDashScope:    "https://bailian.console.aliyun.com/cn-beijing?tab=model#/api-key",
 	ProviderTencentLkeap: "https://console.cloud.tencent.com/lkeap/token-plan",
@@ -213,9 +222,9 @@ func Presets() []ProviderPreset {
 			Plans: []ProviderPlan{
 				{ID: "anthropic", Label: "按量 (Anthropic)", BaseURL: "https://api.xiaomimimo.com/anthropic", Description: "Claude Messages 原生入口", Recommended: true},
 				{ID: "openai-chat", Label: "按量 (OpenAI)", BaseURL: "https://api.xiaomimimo.com/v1", Description: "Chat / Responses 通用入口"},
-				{ID: "token-cn", Label: "Token Plan - 中国 (OpenAI)", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Description: "中国区 Token Plan Chat 入口"},
-				{ID: "token-sgp", Label: "Token Plan - 新加坡 (OpenAI)", BaseURL: "https://token-plan-sgp.xiaomimimo.com/v1", Description: "新加坡区 Token Plan Chat 入口"},
-				{ID: "token-ams", Label: "Token Plan - 欧洲 (OpenAI)", BaseURL: "https://token-plan-ams.xiaomimimo.com/v1", Description: "欧洲区 Token Plan Chat 入口"},
+				{ID: "token-cn", Label: "Token Plan - 中国 (OpenAI)", BaseURL: "https://token-plan-cn.xiaomimimo.com/v1", Description: "中国区 Token Plan Chat / Responses 通用入口"},
+				{ID: "token-sgp", Label: "Token Plan - 新加坡 (OpenAI)", BaseURL: "https://token-plan-sgp.xiaomimimo.com/v1", Description: "新加坡区 Token Plan Chat / Responses 通用入口"},
+				{ID: "token-ams", Label: "Token Plan - 欧洲 (OpenAI)", BaseURL: "https://token-plan-ams.xiaomimimo.com/v1", Description: "欧洲区 Token Plan Chat / Responses 通用入口"},
 				{ID: "token-cn-anthropic", Label: "Token Plan - 中国 (Anthropic)", BaseURL: "https://token-plan-cn.xiaomimimo.com/anthropic", Description: "中国区 Token Plan Claude Messages 原生入口"},
 				{ID: "token-sgp-anthropic", Label: "Token Plan - 新加坡 (Anthropic)", BaseURL: "https://token-plan-sgp.xiaomimimo.com/anthropic", Description: "新加坡区 Token Plan Claude Messages 原生入口"},
 				{ID: "token-ams-anthropic", Label: "Token Plan - 欧洲 (Anthropic)", BaseURL: "https://token-plan-ams.xiaomimimo.com/anthropic", Description: "欧洲区 Token Plan Claude Messages 原生入口"},
@@ -275,6 +284,22 @@ func Presets() []ProviderPreset {
 				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://open.bigmodel.cn/api/anthropic", Description: "Claude Messages 原生入口", Recommended: true},
 				{ID: "coding", Label: "Coding Plan (OpenAI)", BaseURL: "https://open.bigmodel.cn/api/coding/paas/v4#", Description: "Coding Plan Chat / Responses 通用入口"},
 				{ID: "openai-chat", Label: "通用 (OpenAI)", BaseURL: "https://open.bigmodel.cn/api/paas/v4#", Description: "通用 Chat / Responses 入口"},
+			},
+			Targets:       defaultTargets(),
+			DefaultTarget: TargetMessages,
+		},
+		{
+			ID:                  ProviderSenseNova,
+			Order:               65,
+			Label:               "SenseNova",
+			Description:         "商汤日日新 SenseNova LLM API 平台，兼容 OpenAI 与 Anthropic 协议，支持轻量多模态模型和主流编程模型接入。",
+			DirectAgent:         true,
+			NativeMessages:      true,
+			ChatCompatible:      true,
+			ResponsesCompatible: true,
+			Plans: []ProviderPlan{
+				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://token.sensenova.cn", Description: "Claude Messages 兼容入口", Recommended: true},
+				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://token.sensenova.cn/v1", Description: "Chat 入口，Responses 由 CCX 转换"},
 			},
 			Targets:       defaultTargets(),
 			DefaultTarget: TargetMessages,
@@ -399,14 +424,15 @@ func Presets() []ProviderPreset {
 			ID:                  ProviderXFyun,
 			Order:               88,
 			Label:               "讯飞星辰",
-			Description:         "科大讯飞星辰 MaaS 平台，面向 Agent 和企业应用提供大模型推理服务，支持 Claude Messages 与 OpenAI 兼容入口。",
+			Description:         "科大讯飞星辰 MaaS Astron Coding Plan，提供 OpenAI、Anthropic 与 Responses 三个独立 Coding Plan 入口。",
 			DirectAgent:         true,
 			NativeMessages:      true,
 			ChatCompatible:      true,
 			ResponsesCompatible: true,
 			Plans: []ProviderPlan{
-				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://maas-api.cn-huabei-1.xf-yun.com/anthropic", Description: "Claude Messages 原生入口", Recommended: true},
-				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://maas-api.cn-huabei-1.xf-yun.com/v2", Description: "Chat / Responses 通用入口"},
+				{ID: "anthropic", Label: "Anthropic-compatible", BaseURL: "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic", Description: "Claude Messages Coding Plan 入口", Recommended: true},
+				{ID: "openai-chat", Label: "OpenAI-compatible", BaseURL: "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2", Description: "OpenAI Chat Coding Plan 入口"},
+				{ID: "responses", Label: "Responses-compatible", BaseURL: "https://maas-coding-api.cn-huabei-1.xf-yun.com/v1/responses", Description: "OpenAI Responses Coding Plan 入口"},
 			},
 			Targets:       defaultTargets(),
 			DefaultTarget: TargetMessages,
@@ -465,6 +491,10 @@ func Presets() []ProviderPreset {
 }
 
 func BuildPayload(req CreateChannelRequest) (ChannelPayload, error) {
+	if strings.EqualFold(strings.TrimSpace(req.Provider), ProviderGitHubCopilot) {
+		return buildGitHubCopilotPayload(req)
+	}
+
 	preset, ok := FindPreset(req.Provider)
 	if !ok {
 		return ChannelPayload{}, fmt.Errorf("不支持的 provider: %s", req.Provider)
@@ -513,6 +543,51 @@ func BuildPayload(req CreateChannelRequest) (ChannelPayload, error) {
 	return payload, nil
 }
 
+func buildGitHubCopilotPayload(req CreateChannelRequest) (ChannelPayload, error) {
+	target := strings.TrimSpace(req.Target)
+	if target == "" {
+		target = TargetResponses
+	}
+	if !isGitHubCopilotTarget(target) {
+		return ChannelPayload{}, fmt.Errorf("GitHub Copilot 不支持添加到 %s 渠道", target)
+	}
+
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey == "" {
+		return ChannelPayload{}, fmt.Errorf("API Key 不能为空")
+	}
+
+	baseURL := strings.TrimSpace(req.BaseURL)
+	if baseURL == "" {
+		baseURL = "https://api.githubcopilot.com"
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = defaultChannelName(ProviderGitHubCopilot, target)
+	}
+
+	return ChannelPayload{
+		Name:        name,
+		Description: strings.TrimSpace(req.Description),
+		Website:     "https://github.com/settings/copilot",
+		ServiceType: "copilot",
+		BaseURL:     baseURL,
+		APIKeys:     []string{apiKey},
+		ProxyURL:    strings.TrimSpace(req.ProxyURL),
+		Priority:    1,
+		Status:      "active",
+	}, nil
+}
+
+func isGitHubCopilotTarget(target string) bool {
+	switch target {
+	case TargetMessages, TargetChat, TargetResponses, TargetGemini:
+		return true
+	default:
+		return false
+	}
+}
+
 // targetMatchesURL 判断 URL 是否与 target 协议兼容。
 // messages target 使用 Anthropic 协议，需要 anthropic 路径；
 // chat/responses target 使用 OpenAI 协议，不应使用 anthropic 路径。
@@ -527,8 +602,15 @@ func bestPlanForTarget(preset ProviderPreset, target string) string {
 	if len(preset.Plans) == 1 {
 		return preset.Plans[0].ID
 	}
+	if target == TargetResponses {
+		for _, plan := range preset.Plans {
+			if !plan.Custom && plan.Protocol() == "responses" {
+				return plan.ID
+			}
+		}
+	}
 	for _, plan := range preset.Plans {
-		if !plan.Custom && planCompatibleWithTarget(preset.ID, plan, target) {
+		if !plan.Custom && planCompatibleWithTarget(plan, target) {
 			return plan.ID
 		}
 	}
@@ -560,7 +642,7 @@ func FilterPlansForTarget(preset ProviderPreset, target string) []ProviderPlan {
 	}
 	var filtered []ProviderPlan
 	for _, plan := range plans {
-		if planCompatibleWithTarget(preset.ID, plan, target) {
+		if planCompatibleWithTarget(plan, target) {
 			filtered = append(filtered, plan)
 		}
 	}
@@ -570,29 +652,22 @@ func FilterPlansForTarget(preset ProviderPreset, target string) []ProviderPlan {
 	return filtered
 }
 
-func planCompatibleWithTarget(providerID string, plan ProviderPlan, target string) bool {
+func planCompatibleWithTarget(plan ProviderPlan, target string) bool {
 	if plan.Custom {
 		return true
 	}
 
-	isAnthropic := plan.Protocol() == "anthropic"
+	protocol := plan.Protocol()
 	switch target {
 	case TargetMessages:
-		return isAnthropic
+		return protocol == "anthropic"
 	case TargetChat:
-		return !isAnthropic
+		return protocol == "openai"
 	case TargetResponses:
-		if providerID == ProviderMiMo && isMiMoTokenOpenAIPlan(plan) {
-			return false
-		}
-		return !isAnthropic
+		return protocol == "responses" || protocol == "openai"
 	default:
 		return true
 	}
-}
-
-func isMiMoTokenOpenAIPlan(plan ProviderPlan) bool {
-	return strings.HasPrefix(strings.ToLower(plan.ID), "token-") && plan.Protocol() == "openai"
 }
 
 func ResolveBaseURL(preset ProviderPreset, planID string, customBaseURL string) (string, error) {
@@ -647,6 +722,7 @@ func defaultChannelName(provider string, target string) string {
 }
 
 type channelTargetConfig struct {
+	ServiceType                   string
 	ModelMapping                  map[string]string
 	ReasoningMapping              map[string]string
 	ReasoningParamStyle           string
@@ -718,6 +794,9 @@ func applyKimiPlanOverrides(config channelTargetConfig, target string, planID st
 }
 
 func applyChannelTargetConfig(payload *ChannelPayload, config channelTargetConfig) {
+	if config.ServiceType != "" {
+		payload.ServiceType = config.ServiceType
+	}
 	payload.ModelMapping = maps.Clone(config.ModelMapping)
 	payload.ReasoningMapping = maps.Clone(config.ReasoningMapping)
 	payload.NoVisionModels = slices.Clone(config.NoVisionModels)
@@ -765,6 +844,9 @@ func applyTargetDefaults(payload *ChannelPayload, provider string, target string
 			payload.ServiceType = "responses"
 			payload.CodexToolCompat = false
 			payload.StripCodexClientTools = false
+		}
+		if provider == ProviderXFyun && planID == "responses" {
+			payload.ServiceType = "responses"
 		}
 	}
 

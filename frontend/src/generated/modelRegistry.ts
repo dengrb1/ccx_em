@@ -82,6 +82,20 @@ export const builtinUpstreamModelCapabilities: Record<string, UpstreamModelCapab
       "max"
     ]
   },
+  "(?:^|[-/])claude-sonnet-5(?:-\\d{4}-\\d{2}-\\d{2}|-\\d{6,8})?(?=$|@)": {
+    "provider": "anthropic",
+    "displayName": "Claude Sonnet 5",
+    "contextWindowTokens": 1000000,
+    "maxOutputTokens": 128000,
+    "thinkingMode": "adaptive_only",
+    "reasoningEfforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ]
+  },
   "(?:^|[-/])claude-fable-5(?:-\\d{4}-\\d{2}-\\d{2}|-\\d{6,8})?(?=$|@)": {
     "provider": "anthropic",
     "displayName": "Claude Fable 5",
@@ -319,6 +333,27 @@ export const builtinUpstreamModelCapabilities: Record<string, UpstreamModelCapab
     },
     "sources": [
       "https://docs.z.ai/guides/overview/pricing"
+    ]
+  },
+  "(?:^|[-/])sensenova-6\\.7-flash-lite(?=$|@)": {
+    "provider": "sensenova",
+    "displayName": "SenseNova 6.7 Flash-Lite",
+    "description": "Lightweight multimodal agent model for text chat, image understanding, tool calling, and streaming responses.",
+    "contextWindowTokens": 256000,
+    "maxOutputTokens": 65536,
+    "thinkingMode": "thinking",
+    "reasoningEfforts": [
+      "none",
+      "low",
+      "medium",
+      "high"
+    ],
+    "capabilities": {
+      "vision": true,
+      "toolCalls": true
+    },
+    "sources": [
+      "https://platform.sensenova.cn/docs"
     ]
   },
   "(?:^|[-/])qwen3\\.7-max(?:-\\d{4}-\\d{2}-\\d{2}|-\\d{6,8})?(?=$|@)": {

@@ -27,7 +27,7 @@ export function canonicalBaseUrl(rawUrl: string, serviceType: ServiceType): stri
   if (hasHash) return normalized + '#'
 
   const versionPrefix = getDefaultVersionPrefix(serviceType)
-  if (normalized.endsWith(versionPrefix)) {
+  if (versionPrefix && normalized.endsWith(versionPrefix)) {
     return normalized.slice(0, -versionPrefix.length)
   }
   return normalized
@@ -37,8 +37,10 @@ export function metricsIdentityBaseUrl(rawUrl: string, serviceType: ServiceType)
   const { normalized, hasHash } = normalizeBaseUrl(rawUrl)
   if (!normalized) return ''
   if (hasHash) return normalized + '#'
+  const versionPrefix = getDefaultVersionPrefix(serviceType)
+  if (!versionPrefix) return normalized
   if (versionSuffixPattern.test(normalized)) return normalized
-  return normalized + getDefaultVersionPrefix(serviceType)
+  return normalized + versionPrefix
 }
 
 export function deduplicateEquivalentBaseUrls(urls: string[], serviceType: ServiceType): string[] {

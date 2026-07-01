@@ -68,7 +68,7 @@ func (p *ResponsesProvider) ConvertBodyToProviderRequest(
 
 	requestAPIKey := apiKey
 	if upstream.ServiceType == "copilot" {
-		copilotToken, copilotBaseURL, err := copilot.ResolveToken(c.Request.Context(), apiKey)
+		copilotToken, copilotBaseURL, err := copilot.ResolveTokenWithProxy(c.Request.Context(), apiKey, upstream.ProxyURL)
 		if err != nil {
 			return nil, bodyBytes, fmt.Errorf("获取 GitHub Copilot token 失败: %w", err)
 		}
@@ -158,6 +158,7 @@ func (p *ResponsesProvider) buildProviderRequestBody(c *gin.Context, requestPath
 				// 默认样式保持原样透传（原始 reasoning 对象直接转发）
 			}
 		}
+		config.NormalizeReasoningObjectForUpstream(reqMap, upstream)
 		if upstream.TextVerbosity != "" {
 			reqMap["text"] = map[string]interface{}{"verbosity": upstream.TextVerbosity}
 		}
@@ -226,6 +227,7 @@ func (p *ResponsesProvider) buildProviderRequestBody(c *gin.Context, requestPath
 					}
 				}
 			}
+			config.NormalizeReasoningObjectForUpstream(reqMap, upstream)
 			if upstream.TextVerbosity != "" {
 				reqMap["text"] = map[string]interface{}{"verbosity": upstream.TextVerbosity}
 			}
@@ -506,6 +508,9 @@ func (p *ResponsesProvider) buildTargetURL(upstream *config.UpstreamConfig) stri
 			baseURL = copilot.DefaultAPIBaseURL
 		}
 		return baseURL + endpoint
+	}
+	if endpoint != "" && strings.HasSuffix(strings.ToLower(baseURL), endpoint) {
+		return baseURL
 	}
 	if hasVersionSuffix || skipVersionPrefix {
 		return baseURL + endpoint
@@ -1048,7 +1053,7 @@ func stripCodexClientOnlyToolsFromBody(bodyBytes []byte) []byte {
 
 // stripCodexClientOnlyTools 在 /v1/responses 中剥离仅对官方 Codex 有效的工具条目。
 // Codex CLI 0.130+ 会在 tools 数组里混入字符串简写（如 "exec_command"、"mcp__chrome_devtools__"）
-// 以及 type=namespace/custom/web_search 等客户端侧约定对象，第三方 Responses 镜像通常不认识，
+// 以及 type=namespace/custom/tool_search 等客户端侧约定对象，第三方 Responses 镜像通常不认识，
 // 会直接 400（例如 anyrouter 报 "Missing required parameter: 'tools[15].tools'"）。
 // 这里只保留第三方上游普遍支持的对象型工具（function/tool 等），其它条目连同 tool_choice 一起剥掉。
 func stripCodexClientOnlyTools(reqMap map[string]interface{}) {
@@ -1204,7 +1209,7 @@ func hasToolName(tools []interface{}, name string) bool {
 func shouldDropResponsesToolObject(tool map[string]interface{}) bool {
 	toolType := strings.ToLower(toString(tool["type"]))
 	switch toolType {
-	case "namespace", "custom", "local_shell", "computer_use":
+	case "namespace", "custom", "local_shell", "computer_use", "tool_search":
 		return true
 	}
 	return false

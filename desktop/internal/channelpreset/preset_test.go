@@ -120,7 +120,7 @@ func TestBuildPayload(t *testing.T) {
 			name:           "mimo responses",
 			req:            CreateChannelRequest{Provider: ProviderMiMo, Target: TargetResponses, APIKey: "tp-test"},
 			wantBaseURL:    "https://api.xiaomimimo.com/v1",
-			wantService:    "openai",
+			wantService:    "responses",
 			wantCodex:      true,
 			wantStripCodex: true,
 			wantModelMap: map[string]string{
@@ -130,8 +130,8 @@ func TestBuildPayload(t *testing.T) {
 			},
 			wantReasoning: map[string]string{
 				"codex":     "high",
-				"gpt":       "max",
-				"mimo-v2.5": "max",
+				"gpt":       "high",
+				"mimo-v2.5": "high",
 				"mini":      "high",
 			},
 			wantReasoningStyle: "reasoning",
@@ -452,6 +452,46 @@ func TestBuildPayload(t *testing.T) {
 			wantModelMap:   map[string]string{"codex": "glm-5.2", "gpt": "glm-5.2"},
 		},
 		{
+			name:                "sensenova messages",
+			req:                 CreateChannelRequest{Provider: ProviderSenseNova, Target: TargetMessages, APIKey: "sk-test"},
+			wantBaseURL:         "https://token.sensenova.cn",
+			wantService:         "claude",
+			wantNormalizeSystem: true,
+			wantModelMap: map[string]string{
+				"fable":  "glm-5.2",
+				"haiku":  "deepseek-v4-flash",
+				"opus":   "glm-5.2",
+				"sonnet": "glm-5.2",
+			},
+			wantNoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"},
+			wantFallback:       "sensenova-6.7-flash-lite",
+		},
+		{
+			name:               "sensenova chat",
+			req:                CreateChannelRequest{Provider: ProviderSenseNova, Target: TargetChat, APIKey: "sk-test"},
+			wantBaseURL:        "https://token.sensenova.cn/v1",
+			wantService:        "openai",
+			wantNormalize:      true,
+			wantNoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"},
+			wantFallback:       "sensenova-6.7-flash-lite",
+		},
+		{
+			name:           "sensenova responses",
+			req:            CreateChannelRequest{Provider: ProviderSenseNova, Target: TargetResponses, APIKey: "sk-test"},
+			wantBaseURL:    "https://token.sensenova.cn/v1",
+			wantService:    "openai",
+			wantCodex:      true,
+			wantStripCodex: true,
+			wantNormalize:  true,
+			wantModelMap: map[string]string{
+				"codex": "deepseek-v4-flash",
+				"gpt":   "glm-5.2",
+				"mini":  "deepseek-v4-flash",
+			},
+			wantNoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"},
+			wantFallback:       "sensenova-6.7-flash-lite",
+		},
+		{
 			name:                "volc-ark messages (anthropic endpoint)",
 			req:                 CreateChannelRequest{Provider: ProviderVolcArk, Target: TargetMessages, APIKey: "ark-test"},
 			wantBaseURL:         "https://ark.cn-beijing.volces.com/api/coding",
@@ -539,28 +579,33 @@ func TestBuildPayload(t *testing.T) {
 		{
 			name:                "xfyun messages (anthropic endpoint)",
 			req:                 CreateChannelRequest{Provider: ProviderXFyun, Target: TargetMessages, APIKey: "xf-test"},
-			wantBaseURL:         "https://maas-api.cn-huabei-1.xf-yun.com/anthropic",
+			wantBaseURL:         "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic",
 			wantService:         "claude",
-			wantNoModelMap:      true,
 			wantNormalizeSystem: true,
+			wantModelMap: map[string]string{
+				"fable":  "astron-code-latest",
+				"haiku":  "astron-code-latest",
+				"opus":   "astron-code-latest",
+				"sonnet": "astron-code-latest",
+			},
 		},
 		{
-			name:           "xfyun chat",
-			req:            CreateChannelRequest{Provider: ProviderXFyun, Target: TargetChat, APIKey: "xf-test"},
-			wantBaseURL:    "https://maas-api.cn-huabei-1.xf-yun.com/v2",
-			wantService:    "openai",
-			wantNormalize:  true,
-			wantNoModelMap: true,
+			name:          "xfyun chat",
+			req:           CreateChannelRequest{Provider: ProviderXFyun, Target: TargetChat, APIKey: "xf-test"},
+			wantBaseURL:   "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2",
+			wantService:   "openai",
+			wantNormalize: true,
+			wantModelMap:  map[string]string{"codex": "astron-code-latest", "gpt": "astron-code-latest", "mini": "astron-code-latest"},
 		},
 		{
 			name:           "xfyun responses",
 			req:            CreateChannelRequest{Provider: ProviderXFyun, Target: TargetResponses, APIKey: "xf-test"},
-			wantBaseURL:    "https://maas-api.cn-huabei-1.xf-yun.com/v2",
-			wantService:    "openai",
+			wantBaseURL:    "https://maas-coding-api.cn-huabei-1.xf-yun.com/v1/responses",
+			wantService:    "responses",
 			wantNormalize:  true,
 			wantCodex:      true,
 			wantStripCodex: true,
-			wantNoModelMap: true,
+			wantModelMap:   map[string]string{"codex": "astron-code-latest", "gpt": "astron-code-latest", "mini": "astron-code-latest"},
 		},
 	}
 	for _, tt := range tests {
@@ -698,12 +743,15 @@ func TestBestPlanForTarget(t *testing.T) {
 		{ProviderCompshare, TargetMessages, "anthropic"},
 		{ProviderCompshare, TargetChat, "openai-chat"},
 		{ProviderCompshare, TargetResponses, "openai-chat"},
+		{ProviderSenseNova, TargetMessages, "anthropic"},
+		{ProviderSenseNova, TargetChat, "openai-chat"},
+		{ProviderSenseNova, TargetResponses, "openai-chat"},
 		{ProviderRunAPI, TargetMessages, "anthropic"},
 		{ProviderRunAPI, TargetChat, "openai-chat"},
 		{ProviderRunAPI, TargetResponses, "openai-chat"},
 		{ProviderXFyun, TargetMessages, "anthropic"},
 		{ProviderXFyun, TargetChat, "openai-chat"},
-		{ProviderXFyun, TargetResponses, "openai-chat"},
+		{ProviderXFyun, TargetResponses, "responses"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.provider+"/"+tt.target, func(t *testing.T) {
@@ -752,9 +800,40 @@ func TestFilterPlansForTarget_MiMoTokenPlans(t *testing.T) {
 		t.Fatalf("responses plans should include pay-as-you-go OpenAI plan: %#v", responsesPlans)
 	}
 	for _, id := range []string{"token-cn", "token-sgp", "token-ams"} {
-		if hasPlan(responsesPlans, id) {
-			t.Fatalf("responses plans should not include MiMo OpenAI token plan %q: %#v", id, responsesPlans)
+		if !hasPlan(responsesPlans, id) {
+			t.Fatalf("responses plans should include MiMo OpenAI token plan %q: %#v", id, responsesPlans)
 		}
+	}
+	if hasPlan(responsesPlans, "token-cn-anthropic") {
+		t.Fatalf("responses plans should not include Anthropic token plan: %#v", responsesPlans)
+	}
+}
+
+func TestFilterPlansForTarget_XFyunCodingPlan(t *testing.T) {
+	preset, ok := FindPreset(ProviderXFyun)
+	if !ok {
+		t.Fatal("FindPreset(xfyun) failed")
+	}
+
+	hasPlan := func(plans []ProviderPlan, id string) bool {
+		return slices.ContainsFunc(plans, func(plan ProviderPlan) bool {
+			return plan.ID == id
+		})
+	}
+
+	messagesPlans := FilterPlansForTarget(preset, TargetMessages)
+	if !hasPlan(messagesPlans, "anthropic") || hasPlan(messagesPlans, "openai-chat") || hasPlan(messagesPlans, "responses") {
+		t.Fatalf("messages plans should only include Anthropic plan: %#v", messagesPlans)
+	}
+
+	chatPlans := FilterPlansForTarget(preset, TargetChat)
+	if !hasPlan(chatPlans, "openai-chat") || hasPlan(chatPlans, "responses") || hasPlan(chatPlans, "anthropic") {
+		t.Fatalf("chat plans should only include OpenAI Chat plan: %#v", chatPlans)
+	}
+
+	responsesPlans := FilterPlansForTarget(preset, TargetResponses)
+	if !hasPlan(responsesPlans, "responses") || !hasPlan(responsesPlans, "openai-chat") || hasPlan(responsesPlans, "anthropic") {
+		t.Fatalf("responses plans should include Responses/OpenAI plans only: %#v", responsesPlans)
 	}
 }
 
@@ -824,5 +903,51 @@ func TestBuildPayloadSetsRunAPIWebsite(t *testing.T) {
 	want := "https://runapi.co/console"
 	if got.Website != want {
 		t.Fatalf("Website = %q, want %q", got.Website, want)
+	}
+}
+
+func TestBuildPayloadGitHubCopilotSetsProxyURL(t *testing.T) {
+	got, err := BuildPayload(CreateChannelRequest{
+		Provider: ProviderGitHubCopilot,
+		Target:   TargetResponses,
+		APIKey:   "gho_test",
+		ProxyURL: " socks5://127.0.0.1:1080 ",
+	})
+	if err != nil {
+		t.Fatalf("BuildPayload() error = %v", err)
+	}
+	if got.ServiceType != "copilot" {
+		t.Fatalf("ServiceType = %q, want copilot", got.ServiceType)
+	}
+	if got.BaseURL != "https://api.githubcopilot.com" {
+		t.Fatalf("BaseURL = %q, want https://api.githubcopilot.com", got.BaseURL)
+	}
+	if got.ProxyURL != "socks5://127.0.0.1:1080" {
+		t.Fatalf("ProxyURL = %q, want socks5://127.0.0.1:1080", got.ProxyURL)
+	}
+}
+
+func TestBuildPayloadGitHubCopilotSupportsGeminiTarget(t *testing.T) {
+	got, err := BuildPayload(CreateChannelRequest{
+		Provider: ProviderGitHubCopilot,
+		Target:   TargetGemini,
+		APIKey:   "gho_test",
+	})
+	if err != nil {
+		t.Fatalf("BuildPayload() error = %v", err)
+	}
+	if got.ServiceType != "copilot" {
+		t.Fatalf("ServiceType = %q, want copilot", got.ServiceType)
+	}
+}
+
+func TestBuildPayloadGitHubCopilotRejectsUnsupportedTarget(t *testing.T) {
+	_, err := BuildPayload(CreateChannelRequest{
+		Provider: ProviderGitHubCopilot,
+		Target:   "images",
+		APIKey:   "gho_test",
+	})
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }

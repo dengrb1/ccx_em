@@ -10,6 +10,7 @@ func generatedOpenAIChatTargetConfigs() map[string]channelTargetConfig {
 		"runapi":       channelTargetConfig{},
 		"unity2":       channelTargetConfig{},
 		"openrouter":   channelTargetConfig{},
+		"sensenova":    channelTargetConfig{NoVisionModels: []string{"glm-5.2", "deepseek-v4-flash"}, VisionFallbackModel: "sensenova-6.7-flash-lite", NormalizeNonstandardChatRoles: true},
 		"modelscope":   channelTargetConfig{NormalizeNonstandardChatRoles: true},
 		"minimax":      channelTargetConfig{},
 		"dashscope":    channelTargetConfig{},
@@ -17,6 +18,6 @@ func generatedOpenAIChatTargetConfigs() map[string]channelTargetConfig {
 		"opencode-go":  channelTargetConfig{},
 		"volc-ark":     channelTargetConfig{NormalizeNonstandardChatRoles: true},
 		"qianfan":      channelTargetConfig{NormalizeNonstandardChatRoles: true},
-		"xfyun":        channelTargetConfig{NormalizeNonstandardChatRoles: true},
+		"xfyun":        channelTargetConfig{ModelMapping: map[string]string{"codex": "astron-code-latest", "gpt": "astron-code-latest", "mini": "astron-code-latest"}, NormalizeNonstandardChatRoles: true},
 	}
 }

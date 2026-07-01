@@ -154,6 +154,14 @@ const KEY_COLORS = [
 // View and duration mode
 type ViewMode = 'traffic' | 'tokens' | 'cache'
 type Duration = '1h' | '6h' | '24h' | 'today' | '7d' | '30d' | '90d' | '180d' | '365d' | 'thisyear'
+type SeriesDirection = 'in' | 'out'
+type ChartSeriesPoint = { x: number; y: number }
+type ChartSeriesMeta = {
+  name: string
+  color: string
+  direction?: SeriesDirection
+  data: ChartSeriesPoint[]
+}
 const isDuration = (value?: string): value is Duration => !!value && ['1h', '6h', '24h', 'today', '7d', '30d', '90d', '180d', '365d', 'thisyear'].includes(value)
 const selectedView = ref<ViewMode>('traffic')
 const selectedDuration = ref<Duration>(isDuration(props.duration) ? props.duration : '1h')
@@ -353,32 +361,82 @@ function getDisplayName(keyData: KeyHistoryData): string {
   return keyData.model ? `${keyData.keyMask}/${keyData.model}` : keyData.keyMask
 }
 
+function getSeriesColor(keyData: KeyHistoryData, index: number): string {
+  return keyData.color || KEY_COLORS[index % KEY_COLORS.length]
+}
+
+function buildChartSeries(): ChartSeriesMeta[] {
+  if (!props.data?.length) return []
+  const mode = selectedView.value
+
+  if (mode === 'traffic') {
+    return props.data
+      .filter(keyData => keyData.dataPoints.reduce((sum, dp) => sum + dp.requestCount, 0) > 0)
+      .map((keyData, index) => {
+        const keyName = getDisplayName(keyData)
+        return {
+          name: keyName,
+          color: getSeriesColor(keyData, index),
+          data: keyData.dataPoints.map(dp => ({
+            x: new Date(dp.timestamp).getTime(),
+            y: dp.requestCount,
+          })),
+        }
+      })
+  }
+
+  const result: ChartSeriesMeta[] = []
+  const inLabel = mode === 'tokens' ? t('chart.input') : t('chart.cacheRead')
+  const outLabel = mode === 'tokens' ? t('chart.output') : t('chart.cacheWrite')
+
+  props.data.forEach((keyData, index) => {
+    const keyName = getDisplayName(keyData)
+    const color = getSeriesColor(keyData, index)
+    const inTotal = keyData.dataPoints.reduce((sum, dp) => sum + (mode === 'tokens' ? dp.inputTokens : dp.cacheReadTokens), 0)
+    const outTotal = keyData.dataPoints.reduce((sum, dp) => sum + (mode === 'tokens' ? dp.outputTokens : dp.cacheCreationTokens), 0)
+
+    if (inTotal > 0) {
+      result.push({
+        name: `${keyName} ${inLabel}`,
+        color,
+        direction: 'in',
+        data: keyData.dataPoints.map(dp => ({
+          x: new Date(dp.timestamp).getTime(),
+          y: mode === 'tokens' ? dp.inputTokens : dp.cacheReadTokens,
+        })),
+      })
+    }
+
+    if (outTotal > 0) {
+      result.push({
+        name: `${keyName} ${outLabel}`,
+        color,
+        direction: 'out',
+        data: keyData.dataPoints.map(dp => ({
+          x: new Date(dp.timestamp).getTime(),
+          y: mode === 'tokens' ? dp.outputTokens : dp.cacheCreationTokens,
+        })),
+      })
+    }
+  })
+
+  return result
+}
+
+const chartSeriesData = computed(() => buildChartSeries())
+const chartSeries = computed(() => chartSeriesData.value.map(({ name, data }) => ({ name, data })))
+
 // Helper: get dash array (solid for forward, dashed for reverse)
 function getDashArray(): number | number[] {
   if (selectedView.value === 'traffic') return 0
-  const keyCount = props.data?.length || 0
-  const dashArray: number[] = []
-  for (let i = 0; i < keyCount; i++) {
-    dashArray.push(0)  // Forward (Input/Read) - solid
-    dashArray.push(5)  // Reverse (Output/Write) - dashed
-  }
+  const dashArray = chartSeriesData.value.map(series => series.direction === 'out' ? 5 : 0)
   return dashArray.length > 0 ? dashArray : 0
 }
 
 // Helper: get chart colors (duplicate for bidirectional mode)
 function getChartColors(): string[] {
-  const keyCount = props.data?.length || 0
-  if (keyCount === 0) return KEY_COLORS
-  if (selectedView.value === 'traffic') {
-    return props.data.map((_, i) => KEY_COLORS[i % KEY_COLORS.length])
-  }
-  const colors: string[] = []
-  for (let i = 0; i < keyCount; i++) {
-    const color = KEY_COLORS[i % KEY_COLORS.length]
-    colors.push(color)  // Forward
-    colors.push(color)  // Reverse (same color)
-  }
-  return colors
+  const series = chartSeriesData.value
+  return series.length > 0 ? series.map(item => item.color) : KEY_COLORS
 }
 
 // Token/cache mode: determine Y-axis anchor series names
@@ -394,27 +452,36 @@ function getYaxisConfig() {
     }
   }
 
-  const keyCount = props.data?.length || 1
-  const inLabel = mode === 'tokens' ? t('chart.input') : t('chart.cacheRead')
-  const outLabel = mode === 'tokens' ? t('chart.output') : t('chart.cacheWrite')
-
-  const firstKey = props.data?.[0]
-  const firstName = firstKey ? getDisplayName(firstKey) : undefined
-  const anchorInName = firstName ? `${firstName} ${inLabel}` : undefined
-  const anchorOutName = firstName ? `${firstName} ${outLabel}` : undefined
+  const inNames = chartSeriesData.value.filter(item => item.direction === 'in').map(item => item.name)
+  const outNames = chartSeriesData.value.filter(item => item.direction === 'out').map(item => item.name)
+  const primaryInName = inNames[0] || outNames[0]
+  if (!primaryInName) {
+    return {
+      labels: {
+        formatter: (val: number) => formatAxisValue(val, mode),
+        style: { fontSize: '11px', colors: textColor.value },
+      },
+      min: 0,
+      forceNiceScale: true,
+    }
+  }
 
   const axes: any[] = [
     {
-      seriesName: anchorInName,
+      seriesName: primaryInName,
       show: true,
       labels: {
         formatter: (val: number) => formatAxisValue(val, mode),
         style: { fontSize: '11px', colors: textColor.value },
       },
       min: 0,
+      forceNiceScale: true,
     },
-    {
-      seriesName: anchorOutName,
+  ]
+
+  if (inNames[0] && outNames[0]) {
+    axes.push({
+      seriesName: outNames[0],
       opposite: true,
       show: true,
       labels: {
@@ -422,14 +489,12 @@ function getYaxisConfig() {
         style: { fontSize: '11px', colors: textColor.value },
       },
       min: 0,
-    },
-  ]
-
-  // Bind later key series to the same Y-axis pair
-  for (let i = 1; i < keyCount; i++) {
-    axes.push({ seriesName: anchorInName, show: false, min: 0 })
-    axes.push({ seriesName: anchorOutName, show: false, min: 0 })
+      forceNiceScale: true,
+    })
   }
+
+  inNames.slice(1).forEach(name => axes.push({ seriesName: name, show: false, min: 0, forceNiceScale: true }))
+  outNames.slice(inNames[0] ? 1 : 0).forEach(name => axes.push({ seriesName: name, show: false, min: 0, forceNiceScale: true }))
 
   return axes
 }
@@ -536,7 +601,7 @@ const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string =>
           displayName: escapeHtml(getDisplayName(keyData)),
           total: aggregated.total,
           failure: aggregated.failure,
-          color: KEY_COLORS[keyIndex % KEY_COLORS.length],
+          color: getSeriesColor(keyData, keyIndex),
         })
         grandTotal += aggregated.total
         grandFailure += aggregated.failure
@@ -575,56 +640,6 @@ const buildTrafficTooltip = ({ seriesIndex, dataPointIndex, w }: any): string =>
   html += `</div>`
   return html
 }
-
-const chartSeries = computed(() => {
-  if (!props.data?.length) return []
-  const mode = selectedView.value
-
-  if (mode === 'traffic') {
-    return props.data
-      .filter(keyData => keyData.dataPoints.reduce((sum, dp) => sum + dp.requestCount, 0) > 0)
-      .map(keyData => ({
-        name: getDisplayName(keyData),
-        data: keyData.dataPoints.map(dp => ({
-          x: new Date(dp.timestamp).getTime(),
-          y: dp.requestCount,
-        })),
-      }))
-  }
-
-  // Bidirectional mode: two series per key (Input/Output or Read/Write)
-  const result: { name: string; data: { x: number; y: number }[] }[] = []
-  const inLabel = mode === 'tokens' ? t('chart.input') : t('chart.cacheRead')
-  const outLabel = mode === 'tokens' ? t('chart.output') : t('chart.cacheWrite')
-
-  props.data.forEach(keyData => {
-    const displayName = getDisplayName(keyData)
-    const inTotal = keyData.dataPoints.reduce((sum, dp) => sum + (mode === 'tokens' ? dp.inputTokens : dp.cacheReadTokens), 0)
-    const outTotal = keyData.dataPoints.reduce((sum, dp) => sum + (mode === 'tokens' ? dp.outputTokens : dp.cacheCreationTokens), 0)
-
-    if (inTotal > 0) {
-      result.push({
-        name: `${displayName} ${inLabel}`,
-        data: keyData.dataPoints.map(dp => ({
-          x: new Date(dp.timestamp).getTime(),
-          y: mode === 'tokens' ? dp.inputTokens : dp.cacheReadTokens,
-        })),
-      })
-    }
-
-    if (outTotal > 0) {
-      result.push({
-        name: `${displayName} ${outLabel}`,
-        data: keyData.dataPoints.map(dp => ({
-          x: new Date(dp.timestamp).getTime(),
-          y: mode === 'tokens' ? dp.outputTokens : dp.cacheCreationTokens,
-        })),
-      })
-    }
-  })
-
-  return result
-})
 
 defineExpose({ chartRef })
 </script>

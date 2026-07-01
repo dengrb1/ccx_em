@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { KeyRound, Loader2, ShieldCheck, Stethoscope, Zap } from 'lucide-vue-next'
+import { Check, CheckCircle, KeyRound, Loader2, ShieldCheck, Stethoscope, XCircle, Zap } from 'lucide-vue-next'
 import { useLanguage } from '@/composables/useLanguage'
 
 interface FormData {
@@ -40,6 +40,7 @@ defineProps<{
   reasoningParamStyleOptions: Array<{ label: string; value: string }>
   textVerbosityOptions: Array<{ label: string; value: string }>
   diagnosing?: boolean
+  diagnoseResult?: { type: 'success' | 'error'; message: string; appliedCount: number } | null
 }>()
 
 const emit = defineEmits<{
@@ -152,7 +153,7 @@ function updateTextVerbosity(value: string) {
             {{ t('channelEditor.compat.title') }}
           </div>
           <Button
-            v-if="channelType !== 'images' && channelType !== 'vectors'"
+            v-if="channelType !== 'images' && channelType !== 'vectors' && !diagnoseResult"
             type="button"
             variant="secondary"
             size="sm"
@@ -164,7 +165,44 @@ function updateTextVerbosity(value: string) {
             <Stethoscope v-else class="h-3 w-3" />
             {{ t('channelEditor.compat.diagnose') }}
           </Button>
+          <Button
+            v-else-if="channelType !== 'images' && channelType !== 'vectors' && diagnoseResult?.type === 'error'"
+            type="button" variant="error" size="sm" class="h-6 gap-1 px-2 text-[10px]"
+            @click="$emit('diagnose')"
+          >
+            <XCircle class="h-3 w-3" />
+            {{ t('channelEditor.compat.diagnoseFailedShort') }}
+          </Button>
+          <Button
+            v-else-if="channelType !== 'images' && channelType !== 'vectors' && diagnoseResult && diagnoseResult.appliedCount > 0"
+            type="button" variant="success" size="sm" class="h-6 gap-1 px-2 text-[10px]"
+            @click="$emit('diagnose')"
+          >
+            <CheckCircle class="h-3 w-3" />
+            {{ t('channelEditor.compat.diagnoseAppliedShort', { count: String(diagnoseResult.appliedCount) }) }}
+          </Button>
+          <Button
+            v-else-if="channelType !== 'images' && channelType !== 'vectors' && diagnoseResult"
+            type="button" variant="secondary" size="sm" class="h-6 gap-1 px-2 text-[10px]"
+            @click="$emit('diagnose')"
+          >
+            <Check class="h-3 w-3" />
+            {{ t('channelEditor.compat.diagnoseNoChangeShort') }}
+          </Button>
         </div>
+        <Transition name="diagnose-fade">
+          <p
+            v-if="diagnoseResult"
+            :class="[
+              'rounded-md px-2.5 py-1.5 text-[11px] leading-4',
+              diagnoseResult.type === 'error'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+            ]"
+          >
+            {{ diagnoseResult.message }}
+          </p>
+        </Transition>
         <div class="compat-option-list space-y-2">
           <div v-if="channelType === 'responses'" class="flex items-center justify-between gap-3">
             <div class="min-w-0 space-y-0.5">
@@ -194,7 +232,7 @@ function updateTextVerbosity(value: string) {
             </div>
             <Switch :model-value="form.normalizeSystemRoleToTopLevel" @update:model-value="updateField('normalizeSystemRoleToTopLevel', $event)" />
           </div>
-          <div v-if="['messages','responses'].includes(channelType)" class="flex items-center justify-between gap-3">
+          <div v-if="channelType === 'messages'" class="flex items-center justify-between gap-3">
             <div class="min-w-0 space-y-0.5">
               <Label class="text-xs font-medium">{{ t('channelEditor.compat.normalizeUserId.label') }}</Label>
               <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.normalizeUserId.hint') }}</p>
@@ -363,4 +401,9 @@ function updateTextVerbosity(value: string) {
     max-width: 100%;
   }
 }
+
+.diagnose-fade-enter-active { transition: opacity 0.2s ease-out, transform 0.2s ease-out; }
+.diagnose-fade-leave-active { transition: opacity 0.3s ease-in, transform 0.3s ease-in; }
+.diagnose-fade-enter-from { opacity: 0; transform: translateY(-4px); }
+.diagnose-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

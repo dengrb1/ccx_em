@@ -17,6 +17,7 @@ import (
 
 	"github.com/BenedictKing/ccx/internal/config"
 	"github.com/BenedictKing/ccx/internal/httpclient"
+	"github.com/BenedictKing/ccx/internal/keypool"
 	"github.com/BenedictKing/ccx/internal/middleware"
 	"github.com/BenedictKing/ccx/internal/scheduler"
 	"github.com/BenedictKing/ccx/internal/utils"
@@ -24,32 +25,48 @@ import (
 )
 
 const (
-	modelsRequestTimeout = 30 * time.Second
-	modelsCollectTimeout = 1 * time.Second
-	modelsBatchSize      = 3
-	modelsMaxChannels    = 5
-	modelsMaxAttempts    = 10
+	modelsRequestTimeout      = 5 * time.Second
+	modelsCollectTimeout      = 1 * time.Second
+	modelsBatchSize           = 2
+	modelsMaxChannels         = 2
+	modelsMaxAttempts         = 3
+	modelsFallbackMaxAttempts = 1
+	modelsMaxKeysPerChannel   = 5
+	modelsDiscoveryCacheTTL   = 10 * time.Second
 )
 
 var errNoChannelWithDisabledKeys = errors.New("no channel with disabled keys")
 
 // ModelsResponse OpenAI 兼容的 models 响应格式
 type ModelsResponse struct {
-	Object string       `json:"object"`
-	Data   []ModelEntry `json:"data"`
+	Object  string       `json:"object"`
+	Data    []ModelEntry `json:"data"`
+	HasMore bool         `json:"has_more"`
+	FirstID string       `json:"first_id,omitempty"`
+	LastID  string       `json:"last_id,omitempty"`
 }
 
 // ModelEntry 单个模型条目
 type ModelEntry struct {
-	ID              string   `json:"id"`
-	Object          string   `json:"object"`
-	Created         int64    `json:"created"`
-	OwnedBy         string   `json:"owned_by"`
-	InputModalities []string `json:"input_modalities,omitempty"`
+	ID                  string   `json:"id"`
+	Name                string   `json:"name,omitempty"`
+	Object              string   `json:"object"`
+	Type                string   `json:"type,omitempty"`
+	Created             int64    `json:"created"`
+	CreatedAt           string   `json:"created_at,omitempty"`
+	OwnedBy             string   `json:"owned_by"`
+	DisplayName         string   `json:"display_name,omitempty"`
+	LabelOverride       string   `json:"labelOverride,omitempty"`
+	Supports1M          bool     `json:"supports1m,omitempty"`
+	AnthropicFamilyTier string   `json:"anthropicFamilyTier,omitempty"`
+	IsFamilyDefault     bool     `json:"isFamilyDefault,omitempty"`
+	InputModalities     []string `json:"input_modalities,omitempty"`
 }
 
 // ModelsHandler 处理 /v1/models 请求，从 Messages、Responses、Chat、Gemini、Images 和 Vectors 渠道获取并合并模型列表
 func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, channelScheduler *scheduler.ChannelScheduler) gin.HandlerFunc {
+	cache := newModelsDiscoveryCache()
+
 	return func(c *gin.Context) {
 		middleware.ProxyAuthMiddleware(envCfg)(c)
 		if c.IsAborted() {
@@ -63,6 +80,10 @@ func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, c
 			routePrefix:      c.Param("routePrefix"),
 			channelName:      c.GetHeader("X-Channel"),
 		}
+		cacheKey := modelsDiscoveryCacheKey{
+			routePrefix: req.routePrefix,
+			channelName: req.channelName,
+		}
 
 		results := collectModelsFromAllKinds(req)
 		messagesModels := results[scheduler.ChannelKindMessages]
@@ -75,6 +96,12 @@ func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, c
 		mergedModels := mergeModels(messagesModels, responsesModels, chatModels, geminiModels, imagesModels, vectorsModels)
 
 		if len(mergedModels) == 0 {
+			if cached, ok := cache.Get(cacheKey); ok {
+				log.Printf("[Models] 实时发现失败，返回缓存: routePrefix=%q, channel=%q, merged=%d",
+					req.routePrefix, req.channelName, len(cached.Data))
+				c.JSON(http.StatusOK, cached)
+				return
+			}
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": gin.H{
 					"message": "models endpoint not available from any upstream",
@@ -84,16 +111,82 @@ func ModelsHandler(envCfg *config.EnvConfig, cfgManager *config.ConfigManager, c
 			return
 		}
 
-		response := ModelsResponse{
-			Object: "list",
-			Data:   mergedModels,
-		}
+		response := buildModelsResponse(mergedModels)
+		cache.Set(cacheKey, response)
 
 		log.Printf("[Models] 合并完成: messages=%d, responses=%d, chat=%d, gemini=%d, images=%d, vectors=%d, merged=%d",
 			len(messagesModels), len(responsesModels), len(chatModels), len(geminiModels), len(imagesModels), len(vectorsModels), len(mergedModels))
 
 		c.JSON(http.StatusOK, response)
 	}
+}
+
+type modelsDiscoveryCacheKey struct {
+	routePrefix string
+	channelName string
+}
+
+type modelsDiscoveryCacheEntry struct {
+	response  ModelsResponse
+	expiresAt time.Time
+}
+
+type modelsDiscoveryCache struct {
+	mu      sync.RWMutex
+	entries map[modelsDiscoveryCacheKey]modelsDiscoveryCacheEntry
+}
+
+func newModelsDiscoveryCache() *modelsDiscoveryCache {
+	return &modelsDiscoveryCache{
+		entries: make(map[modelsDiscoveryCacheKey]modelsDiscoveryCacheEntry),
+	}
+}
+
+func (cache *modelsDiscoveryCache) Get(key modelsDiscoveryCacheKey) (ModelsResponse, bool) {
+	now := time.Now()
+
+	cache.mu.RLock()
+	entry, ok := cache.entries[key]
+	if !ok || now.After(entry.expiresAt) {
+		cache.mu.RUnlock()
+		return ModelsResponse{}, false
+	}
+	response := cloneModelsResponse(entry.response)
+	cache.mu.RUnlock()
+
+	return response, true
+}
+
+func (cache *modelsDiscoveryCache) Set(key modelsDiscoveryCacheKey, response ModelsResponse) {
+	now := time.Now()
+
+	cache.mu.Lock()
+	for cachedKey, entry := range cache.entries {
+		if now.After(entry.expiresAt) {
+			delete(cache.entries, cachedKey)
+		}
+	}
+	cache.entries[key] = modelsDiscoveryCacheEntry{
+		response:  cloneModelsResponse(response),
+		expiresAt: now.Add(modelsDiscoveryCacheTTL),
+	}
+	cache.mu.Unlock()
+}
+
+func cloneModelsResponse(response ModelsResponse) ModelsResponse {
+	clone := response
+	if response.Data == nil {
+		return clone
+	}
+
+	clone.Data = make([]ModelEntry, len(response.Data))
+	for i, model := range response.Data {
+		if model.InputModalities != nil {
+			model.InputModalities = append([]string(nil), model.InputModalities...)
+		}
+		clone.Data[i] = model
+	}
+	return clone
 }
 
 // ModelsDetailHandler 处理 /v1/models/:model 请求，转发到上游
@@ -150,6 +243,11 @@ type modelsChannelCandidate struct {
 	selection *scheduler.SelectionResult
 }
 
+type modelsAPIKeyCandidate struct {
+	apiKey           string
+	disabledFallback bool
+}
+
 func collectModelsFromAllKinds(req modelsCollectionRequest) map[scheduler.ChannelKind][]ModelEntry {
 	kinds := []scheduler.ChannelKind{
 		scheduler.ChannelKindMessages,
@@ -185,16 +283,16 @@ func collectModelsFromChannels(req modelsCollectionRequest, kind scheduler.Chann
 		return nil
 	}
 
+	ctx, cancel := context.WithTimeout(req.ctx, modelsCollectTimeout)
+	defer cancel()
+
 	candidates, failedChannels := selectModelsChannelCandidates(req, kind)
 	if len(candidates) == 0 {
 		if req.channelName == "" {
-			return fetchModelsFromDisabledKeyFallback(req, kind, failedChannels)
+			return fetchModelsFromDisabledKeyFallback(ctx, req, kind, failedChannels, modelsFallbackMaxAttempts)
 		}
 		return nil
 	}
-
-	ctx, cancel := context.WithTimeout(req.ctx, modelsCollectTimeout)
-	defer cancel()
 
 	resultsByIndex := make(map[int][]ModelEntry, len(candidates))
 	successCount := 0
@@ -240,8 +338,8 @@ func collectModelsFromChannels(req modelsCollectionRequest, kind scheduler.Chann
 	}
 
 	if len(resultsByIndex) == 0 {
-		if req.channelName == "" {
-			if fallback := fetchModelsFromDisabledKeyFallback(req, kind, failedChannels); len(fallback) > 0 {
+		if req.channelName == "" && ctx.Err() == nil {
+			if fallback := fetchModelsFromDisabledKeyFallback(ctx, req, kind, failedChannels, modelsFallbackMaxAttempts); len(fallback) > 0 {
 				return mergeModels(fallback)
 			}
 		}
@@ -287,19 +385,28 @@ func fetchModelsFromCandidate(ctx context.Context, cfgManager *config.ConfigMana
 	if !ok {
 		return nil
 	}
-	return parseModelsResponseForKind(body, upstream, kind)
+	return parseModelsResponseForKind(body, upstream, cfgManager.GetConfig().UpstreamModelCapabilities, kind)
 }
 
-func fetchModelsFromDisabledKeyFallback(req modelsCollectionRequest, kind scheduler.ChannelKind, failedChannels map[int]bool) []ModelEntry {
-	for attempt := 0; attempt < modelsMaxAttempts; attempt++ {
+func fetchModelsFromDisabledKeyFallback(ctx context.Context, req modelsCollectionRequest, kind scheduler.ChannelKind, failedChannels map[int]bool, maxAttempts int) []ModelEntry {
+	if maxAttempts <= 0 || ctx.Err() != nil {
+		return nil
+	}
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return nil
+		}
 		selection, err := selectChannelWithDisabledKeys(req.cfgManager, failedChannels, kind, req.routePrefix)
 		if err != nil {
 			break
 		}
 		log.Printf("[%s-Models] 活跃渠道不可用，回退到挂起渠道查询模型: channel=%s, reason=%s", channelKindLabel(kind), selection.Upstream.Name, selection.Reason)
-		body, upstream, ok := requestModelsFromSelection(req.ctx, req.cfgManager, selection, "GET", "", kind)
+		body, upstream, ok := requestModelsFromSelection(ctx, req.cfgManager, selection, "GET", "", kind)
 		if ok {
-			return parseModelsResponseForKind(body, upstream, kind)
+			return parseModelsResponseForKind(body, upstream, req.cfgManager.GetConfig().UpstreamModelCapabilities, kind)
+		}
+		if ctx.Err() != nil {
+			return nil
 		}
 		failedChannels[selection.ChannelIndex] = true
 	}
@@ -312,13 +419,13 @@ func fetchModelsFromChannels(c *gin.Context, cfgManager *config.ConfigManager, c
 	if !ok {
 		return nil
 	}
-	return parseModelsResponseForKind(body, upstream, kind)
+	return parseModelsResponseForKind(body, upstream, cfgManager.GetConfig().UpstreamModelCapabilities, kind)
 }
 
-func parseModelsResponseForKind(body []byte, upstream *config.UpstreamConfig, kind scheduler.ChannelKind) []ModelEntry {
+func parseModelsResponseForKind(body []byte, upstream *config.UpstreamConfig, globalCapabilities map[string]config.UpstreamModelCapability, kind scheduler.ChannelKind) []ModelEntry {
 	// Gemini 渠道或 serviceType=gemini 的渠道返回 {"models": [...]} 格式
 	if kind == scheduler.ChannelKindGemini {
-		return enrichModelModalitiesForUpstream(parseGeminiModelsResponse(body), upstream)
+		return enrichModelsForUpstream(parseGeminiModelsResponse(body), upstream, globalCapabilities)
 	}
 
 	// 尝试 OpenAI 格式解析
@@ -331,26 +438,31 @@ func parseModelsResponseForKind(body []byte, upstream *config.UpstreamConfig, ki
 	// 如果 data 为空，尝试 Gemini 格式（Responses 渠道中 serviceType=gemini 的情况）
 	if len(resp.Data) == 0 {
 		if geminiModels := parseGeminiModelsResponse(body); len(geminiModels) > 0 {
-			return enrichModelModalitiesForUpstream(geminiModels, upstream)
+			return enrichModelsForUpstream(geminiModels, upstream, globalCapabilities)
 		}
 	}
 
-	return enrichModelModalitiesForUpstream(resp.Data, upstream)
+	return enrichModelsForUpstream(resp.Data, upstream, globalCapabilities)
 }
 
 func enrichModelModalitiesForUpstream(models []ModelEntry, upstream *config.UpstreamConfig) []ModelEntry {
+	return enrichModelsForUpstream(models, upstream, nil)
+}
+
+func enrichModelsForUpstream(models []ModelEntry, upstream *config.UpstreamConfig, globalCapabilities map[string]config.UpstreamModelCapability) []ModelEntry {
 	if upstream == nil {
-		return models
+		return normalizeModelEntries(models, nil, globalCapabilities)
 	}
 
 	enriched := make([]ModelEntry, 0, len(models)+1)
 	seen := make(map[string]int, len(models)+1)
 	addOrUpdate := func(model ModelEntry) {
+		model = normalizeModelEntry(model, upstream, globalCapabilities)
 		if model.ID == "" {
 			return
 		}
 		if idx, exists := seen[model.ID]; exists {
-			enriched[idx].InputModalities = mergeInputModalities(enriched[idx].InputModalities, model.InputModalities)
+			enriched[idx] = mergeModelEntryMetadata(enriched[idx], model)
 			return
 		}
 		seen[model.ID] = len(enriched)
@@ -358,10 +470,14 @@ func enrichModelModalitiesForUpstream(models []ModelEntry, upstream *config.Upst
 	}
 
 	for _, model := range models {
-		if _, isRequestModel := upstream.ModelMapping[model.ID]; isRequestModel {
-			model.InputModalities = inputModalitiesForRequestModel(upstream, model.ID)
+		modelID := strings.TrimSpace(model.ID)
+		if modelID == "" {
+			modelID = strings.TrimSpace(model.Name)
+		}
+		if _, isRequestModel := upstream.ModelMapping[modelID]; isRequestModel {
+			model.InputModalities = inputModalitiesForRequestModel(upstream, modelID)
 		} else {
-			model.InputModalities = inputModalitiesForActualModel(upstream, model.ID)
+			model.InputModalities = inputModalitiesForActualModel(upstream, modelID)
 		}
 		addOrUpdate(model)
 	}
@@ -387,6 +503,136 @@ func enrichModelModalitiesForUpstream(models []ModelEntry, upstream *config.Upst
 	}
 
 	return enriched
+}
+
+func normalizeModelEntries(models []ModelEntry, upstream *config.UpstreamConfig, globalCapabilities map[string]config.UpstreamModelCapability) []ModelEntry {
+	normalized := make([]ModelEntry, 0, len(models))
+	for _, model := range models {
+		model = normalizeModelEntry(model, upstream, globalCapabilities)
+		if model.ID != "" {
+			normalized = append(normalized, model)
+		}
+	}
+	return normalized
+}
+
+func normalizeModelEntry(model ModelEntry, upstream *config.UpstreamConfig, globalCapabilities map[string]config.UpstreamModelCapability) ModelEntry {
+	model.ID = strings.TrimSpace(model.ID)
+	model.Name = strings.TrimSpace(model.Name)
+	if model.ID == "" {
+		model.ID = model.Name
+	}
+	if model.Name == "" {
+		model.Name = model.ID
+	}
+	if model.Object == "" {
+		model.Object = "model"
+	}
+	if model.Type == "" {
+		model.Type = "model"
+	}
+	if model.CreatedAt == "" && model.Created > 0 {
+		model.CreatedAt = time.Unix(model.Created, 0).UTC().Format(time.RFC3339)
+	}
+
+	resolved := config.ResolveUpstreamCapability(model.ID, upstream, globalCapabilities)
+	if model.DisplayName == "" {
+		model.DisplayName = resolved.Capability.DisplayName
+	}
+	if model.LabelOverride == "" {
+		model.LabelOverride = model.DisplayName
+	}
+	if !model.Supports1M && resolved.Capability.ContextWindowTokens >= 1000000 {
+		model.Supports1M = true
+	}
+	if model.AnthropicFamilyTier == "" {
+		model.AnthropicFamilyTier = anthropicFamilyTierForModel(model.ID, resolved.ActualModel, resolved.Capability.DisplayName)
+	}
+
+	return model
+}
+
+func mergeModelEntryMetadata(existing, incoming ModelEntry) ModelEntry {
+	existing.InputModalities = mergeInputModalities(existing.InputModalities, incoming.InputModalities)
+	if existing.Name == "" {
+		existing.Name = incoming.Name
+	}
+	if existing.Object == "" {
+		existing.Object = incoming.Object
+	}
+	if existing.Type == "" {
+		existing.Type = incoming.Type
+	}
+	if existing.Created == 0 {
+		existing.Created = incoming.Created
+	}
+	if existing.CreatedAt == "" {
+		existing.CreatedAt = incoming.CreatedAt
+	}
+	if existing.OwnedBy == "" {
+		existing.OwnedBy = incoming.OwnedBy
+	}
+	if existing.DisplayName == "" {
+		existing.DisplayName = incoming.DisplayName
+	}
+	if existing.LabelOverride == "" {
+		existing.LabelOverride = incoming.LabelOverride
+	}
+	existing.Supports1M = existing.Supports1M || incoming.Supports1M
+	if existing.AnthropicFamilyTier == "" {
+		existing.AnthropicFamilyTier = incoming.AnthropicFamilyTier
+	}
+	existing.IsFamilyDefault = existing.IsFamilyDefault || incoming.IsFamilyDefault
+	return existing
+}
+
+func buildModelsResponse(models []ModelEntry) ModelsResponse {
+	markAnthropicFamilyDefaults(models)
+	resp := ModelsResponse{
+		Object:  "list",
+		Data:    models,
+		HasMore: false,
+	}
+	if len(models) > 0 {
+		resp.FirstID = models[0].ID
+		resp.LastID = models[len(models)-1].ID
+	}
+	return resp
+}
+
+func markAnthropicFamilyDefaults(models []ModelEntry) {
+	seen := make(map[string]bool)
+	for i := range models {
+		tier := models[i].AnthropicFamilyTier
+		if tier == "" {
+			continue
+		}
+		if seen[tier] {
+			models[i].IsFamilyDefault = false
+			continue
+		}
+		models[i].IsFamilyDefault = true
+		seen[tier] = true
+	}
+}
+
+func anthropicFamilyTierForModel(requestModel, actualModel, displayName string) string {
+	for _, value := range []string{requestModel, actualModel, displayName} {
+		lower := strings.ToLower(value)
+		switch {
+		case strings.Contains(lower, "fable"):
+			return "fable"
+		case strings.Contains(lower, "mythos"):
+			return "mythos"
+		case strings.Contains(lower, "opus"):
+			return "opus"
+		case strings.Contains(lower, "sonnet"):
+			return "sonnet"
+		case strings.Contains(lower, "haiku"):
+			return "haiku"
+		}
+	}
+	return ""
 }
 
 func inputModalitiesForActualModel(upstream *config.UpstreamConfig, modelID string) []string {
@@ -574,7 +820,7 @@ func mergeModels(modelLists ...[]ModelEntry) []ModelEntry {
 	for _, models := range modelLists {
 		for _, m := range models {
 			if idx, exists := seen[m.ID]; exists {
-				result[idx].InputModalities = mergeInputModalities(result[idx].InputModalities, m.InputModalities)
+				result[idx] = mergeModelEntryMetadata(result[idx], m)
 			} else {
 				seen[m.ID] = len(result)
 				result = append(result, m)
@@ -637,12 +883,92 @@ func requestModelsFromSelection(ctx context.Context, cfgManager *config.ConfigMa
 
 	client := httpclient.GetManager().GetStandardClient(modelsRequestTimeout, upstream.InsecureSkipVerify, upstream.ProxyURL)
 
-	apiKey, usedDisabledFallback, err := cfgManager.GetAdminAPIKey(upstream, nil, channelType)
-	if err != nil {
-		log.Printf("[%s-Models] 获取 API Key 失败: channel=%s, error=%v", channelType, upstream.Name, err)
+	keyCandidates := selectModelsAPIKeyCandidates(cfgManager, upstream, channelType)
+	if len(keyCandidates) == 0 {
+		log.Printf("[%s-Models] 获取 API Key 失败: channel=%s, error=没有可用于模型探测的密钥", channelType, upstream.Name)
 		return nil, upstream, false
 	}
-	if usedDisabledFallback {
+
+	type requestResult struct {
+		body []byte
+		ok   bool
+	}
+
+	keyCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	resultCh := make(chan requestResult, len(keyCandidates))
+	for _, candidate := range keyCandidates {
+		candidate := candidate
+		go func() {
+			body, ok := requestModelsWithKey(keyCtx, client, candidateURLs, upstream, method, kind, selection.Reason, candidate)
+			resultCh <- requestResult{body: body, ok: ok}
+		}()
+	}
+
+	for range keyCandidates {
+		select {
+		case result := <-resultCh:
+			if result.ok {
+				cancel()
+				return result.body, upstream, true
+			}
+		case <-ctx.Done():
+			return nil, upstream, false
+		}
+	}
+
+	return nil, upstream, false
+}
+
+func selectModelsAPIKeyCandidates(cfgManager *config.ConfigManager, upstream *config.UpstreamConfig, apiType string) []modelsAPIKeyCandidate {
+	if upstream == nil {
+		return nil
+	}
+
+	seen := make(map[string]bool, modelsMaxKeysPerChannel)
+	active := make([]modelsAPIKeyCandidate, 0, min(modelsMaxKeysPerChannel, len(upstream.APIKeys)))
+	for _, candidate := range keypool.CandidatesForModel(upstream, nil, "") {
+		key := strings.TrimSpace(candidate.APIKey)
+		if key == "" || seen[key] || cfgManager.IsKeyFailed(key, apiType) {
+			continue
+		}
+		seen[key] = true
+		active = append(active, modelsAPIKeyCandidate{apiKey: key})
+		if len(active) >= modelsMaxKeysPerChannel {
+			return active
+		}
+	}
+	if len(active) > 0 {
+		return active
+	}
+
+	// 只要渠道仍配置了正常 APIKeys，就不借用已拉黑 key。
+	for _, key := range upstream.APIKeys {
+		if strings.TrimSpace(key) != "" {
+			return nil
+		}
+	}
+
+	disabled := make([]modelsAPIKeyCandidate, 0, min(modelsMaxKeysPerChannel, len(upstream.DisabledAPIKeys)))
+	for _, disabledKey := range upstream.DisabledAPIKeys {
+		key := strings.TrimSpace(disabledKey.Key)
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		disabled = append(disabled, modelsAPIKeyCandidate{apiKey: key, disabledFallback: true})
+		if len(disabled) >= modelsMaxKeysPerChannel {
+			break
+		}
+	}
+	return disabled
+}
+
+func requestModelsWithKey(ctx context.Context, client *http.Client, candidateURLs []string, upstream *config.UpstreamConfig, method string, kind scheduler.ChannelKind, reason string, candidate modelsAPIKeyCandidate) ([]byte, bool) {
+	channelType := channelKindLabel(kind)
+	apiKey := candidate.apiKey
+	if candidate.disabledFallback {
 		log.Printf("[%s-Models] 使用已拉黑密钥查询模型列表: channel=%s, key=%s", channelType, upstream.Name, utils.MaskAPIKey(apiKey))
 	}
 
@@ -675,8 +1001,8 @@ func requestModelsFromSelection(ctx context.Context, cfgManager *config.ConfigMa
 				continue
 			}
 			log.Printf("[%s-Models] 请求成功: method=%s, channel=%s, key=%s, url=%s, reason=%s",
-				channelType, method, upstream.Name, utils.MaskAPIKey(apiKey), candidateURL, selection.Reason)
-			return body, upstream, true
+				channelType, method, upstream.Name, utils.MaskAPIKey(apiKey), candidateURL, reason)
+			return body, true
 		}
 
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
@@ -691,7 +1017,7 @@ func requestModelsFromSelection(ctx context.Context, cfgManager *config.ConfigMa
 		resp.Body.Close()
 	}
 
-	return nil, upstream, false
+	return nil, false
 }
 
 func channelKindLabel(kind scheduler.ChannelKind) string {

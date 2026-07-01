@@ -25,11 +25,12 @@
       },
       "reasoningMapping": {
         "codex": "high",
-        "gpt": "max",
-        "mimo-v2.5": "max",
+        "gpt": "high",
+        "mimo-v2.5": "high",
         "mini": "high"
       },
       "reasoningParamStyle": "reasoning",
+      "serviceType": "responses",
       "codexToolCompat": true,
       "stripCodexClientTools": true,
       "noVisionModels": ["mimo-v2.5-pro"],
@@ -122,6 +123,16 @@
         "gpt": "glm-5.2"
       }
     },
+    "sensenova": {
+      "modelMapping": {
+        "codex": "deepseek-v4-flash",
+        "gpt": "glm-5.2",
+        "mini": "deepseek-v4-flash"
+      },
+      "normalizeNonstandardChatRoles": true,
+      "noVisionModels": ["glm-5.2", "deepseek-v4-flash"],
+      "visionFallbackModel": "sensenova-6.7-flash-lite"
+    },
     "openrouter": {
       "codexToolCompat": false,
       "stripCodexClientTools": false
@@ -165,6 +176,12 @@
       "normalizeNonstandardChatRoles": true
     },
     "xfyun": {
+      "modelMapping": {
+        "codex": "astron-code-latest",
+        "gpt": "astron-code-latest",
+        "mini": "astron-code-latest"
+      },
+      "serviceType": "responses",
       "normalizeNonstandardChatRoles": true
     },
     "github-copilot": {

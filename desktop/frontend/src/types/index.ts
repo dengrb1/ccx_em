@@ -28,7 +28,7 @@ export type DesktopStatus = {
 }
 
 export type AgentPlatform = 'claude' | 'codex' | 'opencode'
-export type AgentProvider = 'ccx' | 'deepseek' | 'mimo' | 'compshare' | 'runapi' | 'unity2' | 'tencent-lkeap' | 'kimi' | 'kimi-code' | 'volc-ark' | 'qianfan' | 'originrouter' | 'glm' | 'minimax' | 'dashscope' | 'openrouter' | 'modelscope' | 'opencode-zen' | 'opencode-go' | 'openai' | 'xfyun'
+export type AgentProvider = 'ccx' | 'deepseek' | 'mimo' | 'compshare' | 'runapi' | 'unity2' | 'tencent-lkeap' | 'kimi' | 'kimi-code' | 'volc-ark' | 'qianfan' | 'originrouter' | 'glm' | 'sensenova' | 'minimax' | 'dashscope' | 'openrouter' | 'modelscope' | 'opencode-zen' | 'opencode-go' | 'openai' | 'xfyun'
 
 export type AgentConfigStatus = {
   platform: AgentPlatform
@@ -74,7 +74,7 @@ export type MigrateCodexSessionsResult = {
   sqliteError?: string
 }
 
-export type TabValue = 'status' | 'agent' | 'env' | 'channels' | 'cockpit' | 'dashboard'
+export type TabValue = 'status' | 'agent' | 'env' | 'channels' | 'subscriptions' | 'cockpit' | 'dashboard'
 
 export type ProviderPlan = {
   id: string
@@ -111,6 +111,7 @@ export type ProviderKeyAsset = {
   apiKey: string
   baseUrl?: string
   planId?: string
+  proxyUrl?: string
   usages?: string[]
 }
 
@@ -122,6 +123,7 @@ export type CreateChannelRequest = {
   apiKey?: string
   name?: string
   description?: string
+  proxyUrl?: string
 }
 
 export type CreateChannelResult = {

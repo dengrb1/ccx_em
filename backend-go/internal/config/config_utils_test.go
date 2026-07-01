@@ -198,6 +198,37 @@ func TestResolveReasoningEffort(t *testing.T) {
 	}
 }
 
+func TestNormalizeMiMoResponsesReasoningEffort(t *testing.T) {
+	upstream := &UpstreamConfig{
+		ServiceType: "responses",
+		BaseURL:     "https://token-plan-sgp.xiaomimimo.com",
+		ReasoningMapping: map[string]string{
+			"gpt":  "max",
+			"mini": "xhigh",
+			"off":  "off",
+		},
+	}
+
+	if got := ResolveReasoningEffort("gpt-5.5", upstream); got != "high" {
+		t.Fatalf("ResolveReasoningEffort gpt = %q, want high", got)
+	}
+	if got := ResolveReasoningEffort("mini", upstream); got != "high" {
+		t.Fatalf("ResolveReasoningEffort mini = %q, want high", got)
+	}
+	if got := ResolveReasoningEffort("off", upstream); got != "none" {
+		t.Fatalf("ResolveReasoningEffort off = %q, want none", got)
+	}
+
+	req := map[string]interface{}{
+		"reasoning": map[string]interface{}{"effort": "max"},
+	}
+	NormalizeReasoningObjectForUpstream(req, upstream)
+	reasoning := req["reasoning"].(map[string]interface{})
+	if reasoning["effort"] != "high" {
+		t.Fatalf("reasoning.effort = %q, want high", reasoning["effort"])
+	}
+}
+
 func TestIsValidReasoningEffort(t *testing.T) {
 	valid := []string{"", "off", "none", "low", "medium", "high", "xhigh", "max"}
 	for _, effort := range valid {
