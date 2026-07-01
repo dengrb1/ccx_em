@@ -57,6 +57,46 @@ describe('buildChannelPayload', () => {
     expect(result.historicalImageTurnLimit).toBe(3)
   })
 
+  it('Copilot 渠道省略 Base URL 时应写入默认上游地址', () => {
+    const result = buildChannelPayload({
+      name: 'copilot-channel',
+      serviceType: 'copilot',
+      baseUrl: '',
+      baseUrls: [],
+      website: '',
+      insecureSkipVerify: false,
+      lowQuality: false,
+      injectDummyThoughtSignature: false,
+      stripThoughtSignature: false,
+      passbackReasoningContent: false,
+      passbackThinkingBlocks: false,
+      description: '',
+      apiKeys: [],
+      modelMapping: {},
+      reasoningMapping: {},
+      reasoningParamStyle: 'reasoning',
+      textVerbosity: '',
+      fastMode: false,
+      customHeaders: {},
+      proxyUrl: '',
+      routePrefix: '',
+      supportedModels: [],
+      autoBlacklistBalance: true,
+      normalizeMetadataUserId: true,
+      stripEmptyTextBlocks: false,
+      normalizeSystemRoleToTopLevel: false,
+      codexNativeToolPassthrough: false,
+      codexToolCompat: false,
+      stripImageGenerationTool: false,
+      noVision: false,
+      noVisionModels: [],
+      visionFallbackModel: ''
+    })
+
+    expect(result.baseUrl).toBe('https://api.githubcopilot.com')
+    expect(result.baseUrls).toBeUndefined()
+  })
+
   it('应将模型映射中的 combobox 对象规整为字符串', () => {
     const result = buildChannelPayload({
       name: 'mapping-object',
@@ -305,8 +345,8 @@ describe('buildChannelPayload', () => {
     expect(result.autoBlacklistBalance).toBe(false)
   })
 
-  it('应携带 normalizeMetadataUserId 开关', () => {
-    const result = buildChannelPayload({
+  it('应仅在 Claude 协议保留 normalizeMetadataUserId 开关', () => {
+    const form = {
       name: 'metadata-guard',
       serviceType: 'responses',
       baseUrl: 'https://api.example.com/v1',
@@ -330,7 +370,7 @@ describe('buildChannelPayload', () => {
       routePrefix: '',
       supportedModels: [],
       autoBlacklistBalance: true,
-      normalizeMetadataUserId: false,
+      normalizeMetadataUserId: true,
       stripEmptyTextBlocks: false,
       normalizeSystemRoleToTopLevel: false,
       codexNativeToolPassthrough: false,
@@ -339,9 +379,16 @@ describe('buildChannelPayload', () => {
       noVision: false,
       noVisionModels: [],
       visionFallbackModel: ''
-    })
+    } satisfies Parameters<typeof buildChannelPayload>[0]
 
-    expect(result.normalizeMetadataUserId).toBe(false)
+    const responsesResult = buildChannelPayload(form, { channelType: 'responses' })
+    const messagesResult = buildChannelPayload(
+      { ...form, serviceType: 'claude' },
+      { channelType: 'messages' }
+    )
+
+    expect(responsesResult.normalizeMetadataUserId).toBe(false)
+    expect(messagesResult.normalizeMetadataUserId).toBe(true)
   })
 
   it('应携带 stripBillingHeader 开关', () => {

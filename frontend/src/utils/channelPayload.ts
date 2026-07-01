@@ -3,6 +3,8 @@ import { normalizeAdvancedChannelOptions } from './channelAdvancedOptions'
 import { deduplicateEquivalentBaseUrls } from './baseUrlSemantics'
 import { builtinUpstreamModelCapabilities } from '../generated/modelRegistry'
 
+const DEFAULT_COPILOT_BASE_URL = 'https://api.githubcopilot.com'
+
 export interface ModelCapabilityRow {
   id: number
   model: string
@@ -82,6 +84,12 @@ export interface ChannelFormLike {
   visionFallbackModel: SelectableString
   historicalImageTurnLimit?: string | number | null
 
+}
+
+export type ChannelProtocol = 'messages' | 'chat' | 'responses' | 'gemini' | 'images'
+
+export interface BuildChannelPayloadOptions {
+  channelType?: ChannelProtocol
 }
 
 function normalizePricingValue(value: unknown): number | null | false {
@@ -363,7 +371,10 @@ export function normalizeSelectableString(value: SelectableString): string {
   return ''
 }
 
-export function buildChannelPayload(form: ChannelFormLike): Omit<Channel, 'index' | 'latency' | 'status'> {
+export function buildChannelPayload(
+  form: ChannelFormLike,
+  options: BuildChannelPayloadOptions = {}
+): Omit<Channel, 'index' | 'latency' | 'status'> {
   const processedApiKeys = form.apiKeys.map(key => key.trim()).filter(Boolean)
   const processedApiKeySet = new Set(processedApiKeys)
   const processedApiKeyConfigs = (form.apiKeyConfigs || [])
@@ -382,7 +393,10 @@ export function buildChannelPayload(form: ChannelFormLike): Omit<Channel, 'index
     fastMode: form.fastMode
   })
 
-  const sourceUrls = form.baseUrls.length > 0 ? form.baseUrls : [form.baseUrl]
+  let sourceUrls = form.baseUrls.length > 0 ? form.baseUrls : [form.baseUrl]
+  if (form.serviceType === 'copilot' && sourceUrls.every(url => !url.trim())) {
+    sourceUrls = [DEFAULT_COPILOT_BASE_URL]
+  }
   const deduplicatedUrls = deduplicateEquivalentBaseUrls(sourceUrls, form.serviceType)
 
   // 清洗 modelMapping：v-combobox 选中下拉后 key/value 都可能是 { title, value } 对象。
@@ -398,6 +412,10 @@ export function buildChannelPayload(form: ChannelFormLike): Omit<Channel, 'index
   const modelCapabilities = form.modelCapabilityRows
     ? modelCapabilityRowsToRecord(form.modelCapabilityRows)
     : parseModelCapabilitiesText(form.modelCapabilitiesText)
+
+  const normalizeMetadataUserId = options.channelType === undefined
+    ? form.normalizeMetadataUserId
+    : options.channelType === 'messages' && form.normalizeMetadataUserId
 
   const channelData: Omit<Channel, 'index' | 'latency' | 'status'> = {
     name: form.name.trim(),
@@ -425,7 +443,7 @@ export function buildChannelPayload(form: ChannelFormLike): Omit<Channel, 'index
     routePrefix: form.routePrefix.trim(),
     supportedModels: form.supportedModels,
     autoBlacklistBalance: form.autoBlacklistBalance,
-    normalizeMetadataUserId: form.normalizeMetadataUserId,
+    normalizeMetadataUserId,
     stripBillingHeader: !!form.stripBillingHeader,
     stripEmptyTextBlocks: form.stripEmptyTextBlocks,
     normalizeSystemRoleToTopLevel: form.normalizeSystemRoleToTopLevel,
