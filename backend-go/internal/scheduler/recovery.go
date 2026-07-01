@@ -134,13 +134,15 @@ func kindAPIType(kind ChannelKind) string {
 		return "Chat"
 	case ChannelKindImages:
 		return "Images"
+	case ChannelKindVectors:
+		return "Vectors"
 	default:
 		return "Messages"
 	}
 }
 
 func (s *ChannelScheduler) scheduledRecoveryKinds() []ChannelKind {
-	return []ChannelKind{ChannelKindMessages, ChannelKindResponses, ChannelKindGemini, ChannelKindChat, ChannelKindImages}
+	return []ChannelKind{ChannelKindMessages, ChannelKindResponses, ChannelKindGemini, ChannelKindChat, ChannelKindImages, ChannelKindVectors}
 }
 
 func (s *ChannelScheduler) restoreScheduledKeysForKind(kind ChannelKind, now time.Time) ([]ScheduledRecoveryResult, error) {
@@ -155,6 +157,8 @@ func (s *ChannelScheduler) restoreScheduledKeysForKind(kind ChannelKind, now tim
 		upstreams = cfg.ChatUpstream
 	case ChannelKindImages:
 		upstreams = cfg.ImagesUpstream
+	case ChannelKindVectors:
+		upstreams = cfg.VectorsUpstream
 	default:
 		upstreams = cfg.Upstream
 	}

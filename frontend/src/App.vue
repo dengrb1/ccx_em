@@ -110,6 +110,10 @@
             {{ t('app.tabs.images') }}
           </router-link>
           <span class="api-type-text separator">/</span>
+          <router-link to="/channels/vectors" class="api-type-text" :class="{ active: channelStore.activeTab === 'vectors' && route.path !== '/conversations' }">
+            {{ t('app.tabs.vectors') }}
+          </router-link>
+          <span class="api-type-text separator">/</span>
           <router-link to="/channels/responses" class="api-type-text" :class="{ active: channelStore.activeTab === 'responses' && route.path !== '/conversations' }">
             {{ t('app.tabs.responses') }}
           </router-link>
@@ -765,6 +769,7 @@ const apiTabOptions = [
   { value: 'messages', labelKey: 'app.tabs.messages', route: '/channels/messages', icon: 'mdi-code-braces' },
   { value: 'chat', labelKey: 'app.tabs.chat', route: '/channels/chat', icon: 'mdi-chat-processing-outline' },
   { value: 'images', labelKey: 'app.tabs.images', route: '/channels/images', icon: 'mdi-image-outline' },
+  { value: 'vectors', labelKey: 'app.tabs.vectors', route: '/channels/vectors', icon: 'mdi-vector-point' },
   { value: 'responses', labelKey: 'app.tabs.responses', route: '/channels/responses', icon: 'mdi-console' },
   { value: 'gemini', labelKey: 'app.tabs.gemini', route: '/channels/gemini', icon: 'mdi-google' },
   { value: 'conversations', labelKey: 'app.tabs.conversations', route: '/conversations', icon: 'mdi-view-dashboard-outline' },
@@ -937,6 +942,8 @@ const addApiKey = async () => {
   try {
     if (channelStore.activeTab === 'chat') {
       await api.addChatApiKey(dialogStore.selectedChannelForKey, dialogStore.newApiKey.trim())
+    } else if (channelStore.activeTab === 'vectors') {
+      await api.addVectorsApiKey(dialogStore.selectedChannelForKey, dialogStore.newApiKey.trim())
     } else if (channelStore.activeTab === 'images') {
       await api.addImagesApiKey(dialogStore.selectedChannelForKey, dialogStore.newApiKey.trim())
     } else if (channelStore.activeTab === 'gemini') {
@@ -964,6 +971,8 @@ const _removeApiKey = async (channelId: number, apiKey: string) => {
   try {
     if (channelStore.activeTab === 'chat') {
       await api.removeChatApiKey(channelId, apiKey)
+    } else if (channelStore.activeTab === 'vectors') {
+      await api.removeVectorsApiKey(channelId, apiKey)
     } else if (channelStore.activeTab === 'images') {
       await api.removeImagesApiKey(channelId, apiKey)
     } else if (channelStore.activeTab === 'gemini') {

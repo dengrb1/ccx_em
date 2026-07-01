@@ -94,6 +94,17 @@ CORS_ORIGIN=*                          # CORS 允许的源
 | `requestTimeoutMs` | `0` | `0` 或 `1000-300000` | 非流式上游请求总超时；`0` 或留空继承调校台/环境变量的全局值。 |
 | `responseHeaderTimeoutMs` | `0` | `0` 或 `1000-300000` | 连接建立后等待上游 HTTP 响应头的时间；`0` 或留空继承调校台/环境变量的全局值。 |
 
+运行时配置按渠道类型分组维护：
+
+| 字段 | 说明 |
+| --- | --- |
+| `messagesUpstream` | Claude Messages 语义渠道 |
+| `responsesUpstream` | Codex/OpenAI Responses 渠道 |
+| `chatUpstream` | OpenAI Chat Completions 渠道 |
+| `geminiUpstream` | Gemini 原生协议渠道 |
+| `imagesUpstream` | OpenAI Images 渠道 |
+| `vectorsUpstream` | OpenAI 兼容 Embeddings 渠道，`serviceType` 固定为 `openai` |
+
 运行时配置文件中的 `circuitBreaker` 还支持流式健康检测字段：
 
 | 字段 | 默认值 | 范围 | 说明 |

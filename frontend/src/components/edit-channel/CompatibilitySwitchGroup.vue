@@ -6,6 +6,7 @@
         {{ t('channelEditor.compat.title') }}
       </div>
       <v-btn
+        v-if="channelType !== 'vectors'"
         size="x-small"
         variant="tonal"
         :loading="diagnosing"
@@ -229,7 +230,7 @@
       </div>
 
       <!-- Historical Image Turn Limit -->
-      <div v-if="channelType !== 'images'" class="d-flex align-center justify-space-between">
+      <div v-if="channelType !== 'images' && channelType !== 'vectors'" class="d-flex align-center justify-space-between">
         <div class="d-flex align-center ga-2">
           <v-icon color="primary">mdi-image-multiple</v-icon>
           <div>

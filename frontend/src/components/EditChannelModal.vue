@@ -143,7 +143,7 @@
                 />
               </div>
 
-              <div v-if="props.channelType !== 'images'" class="mt-6">
+              <div v-if="props.channelType !== 'images' && props.channelType !== 'vectors'" class="mt-6">
                 <ModelCapabilitySection
                   v-model:rows="form.modelCapabilityRows"
                   :target-model-options="targetModelOptions"
@@ -278,7 +278,7 @@ import RateLimitGroup from './edit-channel/RateLimitGroup.vue'
 interface Props {
   show: boolean
   channel?: Channel | null
-  channelType?: 'messages' | 'chat' | 'responses' | 'gemini' | 'images'
+  channelType?: 'messages' | 'chat' | 'responses' | 'gemini' | 'images' | 'vectors'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -303,6 +303,7 @@ const formRef = ref()
 
 const defaultServiceTypeValueFallback = (): 'openai' | 'gemini' | 'claude' | 'responses' | 'copilot' => {
   if (props.channelType === 'chat') return 'openai'
+  if (props.channelType === 'vectors') return 'openai'
   if (props.channelType === 'gemini') return 'gemini'
   if (props.channelType === 'responses') return 'responses'
   return 'claude'
@@ -422,6 +423,8 @@ const serviceTypeOptions = computed(() => {
       return reorder(allOptions, 'responses')
     case 'images':
       return [{ title: 'OpenAI Images', value: 'openai' }]
+    case 'vectors':
+      return [{ title: 'OpenAI Embeddings', value: 'openai' }]
     case 'gemini':
       // Gemini API 入口，Gemini 原生排第一
       return reorder(allOptions, 'gemini')
@@ -453,6 +456,13 @@ const allSourceModelOptions = computed(() => {
       { title: 'gpt-image-1', value: 'gpt-image-1' },
       { title: 'dall-e-3', value: 'dall-e-3' },
       { title: 'dall-e-2', value: 'dall-e-2' }
+    ]
+  }
+  if (props.channelType === 'vectors') {
+    return [
+      { title: 'text-embedding-3-small', value: 'text-embedding-3-small' },
+      { title: 'text-embedding-3-large', value: 'text-embedding-3-large' },
+      { title: 'text-embedding-ada-002', value: 'text-embedding-ada-002' }
     ]
   }
   if (props.channelType === 'gemini') {
@@ -509,6 +519,9 @@ const modelMappingHint = computed(() => {
   if (props.channelType === 'images') {
     return t('addChannel.modelMappingHintChat')
   }
+  if (props.channelType === 'vectors') {
+    return t('addChannel.modelMappingHintChat')
+  }
   if (props.channelType === 'gemini') {
     return t('addChannel.modelMappingHintGemini')
   }
@@ -525,6 +538,9 @@ const targetModelPlaceholder = computed(() => {
   }
   if (props.channelType === 'images') {
     return t('addChannel.targetModelPlaceholderChat')
+  }
+  if (props.channelType === 'vectors') {
+    return 'e.g. text-embedding-3-small'
   }
   if (props.channelType === 'responses') {
     return t('addChannel.targetModelPlaceholderResponses')
@@ -557,8 +573,8 @@ const textVerbosityOptions = [
   { title: 'High', value: 'high' }
 ]
 
-const supportsOpenAIAdvancedOptions = computed(() => supportsAdvancedChannelOptions(form.serviceType))
-const supportsReasoningMappingOptions = computed(() => supportsReasoningMapping(form.serviceType))
+const supportsOpenAIAdvancedOptions = computed(() => props.channelType !== 'vectors' && supportsAdvancedChannelOptions(form.serviceType))
+const supportsReasoningMappingOptions = computed(() => props.channelType !== 'vectors' && supportsReasoningMapping(form.serviceType))
 const supportsChatRoleNormalization = computed(() => {
   return props.channelType === 'chat' || (props.channelType === 'responses' && form.serviceType === 'openai')
 })
@@ -916,7 +932,7 @@ const applyStreamTimeoutStrategy = (strategy: string | null) => {
   form.streamToolCallIdleTimeoutMs = preset.toolCallIdleMs
 }
 
-const commonSupportedModelFilters = ['claude-*', 'gpt-5*', 'gpt-image-2', 'grok-4*', 'gemini-3*', '!*image*']
+const commonSupportedModelFilters = ['claude-*', 'gpt-5*', 'gpt-image-2', 'text-embedding-3*', 'grok-4*', 'gemini-3*', '!*image*']
 
 const selectedSupportedModelSet = computed(() => new Set(form.supportedModels))
 const supportedModelsError = ref('')
@@ -1079,7 +1095,7 @@ const applyVisionFallbackReasoning = (payload: Partial<Channel>) => {
 const resetForm = () => {
   resetTransientUiState()
   form.name = ''
-  form.serviceType = props.channelType === 'images' ? 'openai' : ''
+  form.serviceType = props.channelType === 'images' || props.channelType === 'vectors' ? 'openai' : ''
   form.authHeader = 'auto'
   form.baseUrl = ''
   form.baseUrls = []
@@ -1155,7 +1171,7 @@ const resetForm = () => {
 const loadChannelData = (channel: Channel) => {
   resetTransientUiState()
   form.name = channel.name
-  form.serviceType = props.channelType === 'images' ? 'openai' : channel.serviceType
+  form.serviceType = props.channelType === 'images' || props.channelType === 'vectors' ? 'openai' : channel.serviceType
   form.authHeader = channel.authHeader || 'auto'
   form.baseUrl = channel.baseUrl
   form.baseUrls = channel.baseUrls || []
@@ -1299,6 +1315,8 @@ const restoreDisabledKey = async (apiKey: string) => {
     const channelId = props.channel.index
     if (props.channelType === 'chat') {
       await apiService.restoreChatApiKey(channelId, apiKey)
+    } else if (props.channelType === 'vectors') {
+      await apiService.restoreVectorsApiKey(channelId, apiKey)
     } else if (props.channelType === 'images') {
       await apiService.restoreImagesApiKey(channelId, apiKey)
     } else if (props.channelType === 'gemini') {
@@ -1409,11 +1427,13 @@ const fetchTargetModels = async () => {
 
   // modelsApiType 决定请求协议（Bearer/x-goog-api-key、/v1/models vs /v1beta/models）
   // 对于 gemini 渠道组内配置为 openai/claude serviceType 的渠道，应走对应协议而非 Gemini 协议
-  const effectiveServiceType = props.channelType === 'images'
+  const effectiveServiceType = props.channelType === 'images' || props.channelType === 'vectors'
     ? 'openai'
     : (form.serviceType || defaultServiceTypeValueFallback())
-  let modelsApiType: 'messages' | 'responses' | 'chat' | 'gemini' | 'images'
-  if (props.channelType === 'images') {
+  let modelsApiType: 'messages' | 'responses' | 'chat' | 'gemini' | 'images' | 'vectors'
+  if (props.channelType === 'vectors') {
+    modelsApiType = 'vectors'
+  } else if (props.channelType === 'images') {
     modelsApiType = 'images'
   } else if (effectiveServiceType === 'gemini') {
     modelsApiType = 'gemini'
@@ -1454,6 +1474,9 @@ const fetchTargetModels = async () => {
           break
         case 'images':
           response = await apiService.getImagesChannelModels(id, request)
+          break
+        case 'vectors':
+          response = await apiService.getVectorsChannelModels(id, request)
           break
         case 'gemini':
           response = await apiService.getGeminiChannelModels(id, request)
@@ -1599,7 +1622,7 @@ const diagnosingCompat = ref(false)
 
 const handleDiagnoseCompat = async () => {
   if (props.channel?.index === undefined || props.channel?.index === null) return
-  if (props.channelType === 'images') return
+  if (props.channelType === 'images' || props.channelType === 'vectors') return
 
   diagnosingCompat.value = true
   try {

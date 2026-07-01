@@ -429,6 +429,13 @@ func TryUpstreamWithAllKeys(
 
 				// 非 failover 错误，记录失败指标后返回（请求已处理）
 				clientStatusCode := normalizeUpstreamErrorStatus(resp.StatusCode, respBodyBytes)
+				if strings.EqualFold(apiType, "Vectors") {
+					errorSummary := truncateErrorSummary(strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(string(respBodyBytes)), "\n", " "), "\r", " "))
+					if errorSummary != "" {
+						RequestLogf(c, "[Vectors-UpstreamError] channel=[%d] %s status=%d original_model=%q mapped_model=%q summary=%s",
+							channelIndex, upstream.Name, resp.StatusCode, model, redirectedModel, errorSummary)
+					}
+				}
 				metricsManager.RecordRequestFinalizeFailureWithClass(currentBaseURL, apiKey, metricsServiceType, requestID, metrics.FailureClassNonRetryable)
 				channelScheduler.RecordRequestEnd(currentBaseURL, apiKey, metricsServiceType, kind)
 				// 记录渠道日志

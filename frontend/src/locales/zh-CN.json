@@ -15,6 +15,7 @@
   "app.tabs.responses": "Codex",
   "app.tabs.gemini": "Gemini",
   "app.tabs.images": "Images",
+  "app.tabs.vectors": "Vectors",
   "app.tabs.conversations": "驾驶舱",
   "app.sidebar.channels": "渠道",
   "cockpit.overrideActive": "正在使用自定义渠道顺序，{time} 后自动恢复默认调度",

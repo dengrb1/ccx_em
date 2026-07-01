@@ -89,6 +89,17 @@ Channel config entries (`*Upstream[]` items in `config.json`) can override these
 | `requestTimeoutMs` | `0` | `0` or `1000-300000` | Total timeout for non-streaming upstream requests. `0` or empty inherits the tuning-bench/env global value. |
 | `responseHeaderTimeoutMs` | `0` | `0` or `1000-300000` | Time to wait for upstream HTTP response headers after the connection is established. `0` or empty inherits the tuning-bench/env global value. |
 
+Runtime channel configuration is grouped by channel type:
+
+| Field | Description |
+| --- | --- |
+| `messagesUpstream` | Claude Messages semantic channels |
+| `responsesUpstream` | Codex/OpenAI Responses channels |
+| `chatUpstream` | OpenAI Chat Completions channels |
+| `geminiUpstream` | Gemini native protocol channels |
+| `imagesUpstream` | OpenAI Images channels |
+| `vectorsUpstream` | OpenAI-compatible Embeddings channels; `serviceType` is fixed to `openai` |
+
 The runtime config file also supports stream health fields under `circuitBreaker`:
 
 | Field | Default | Range | Description |
