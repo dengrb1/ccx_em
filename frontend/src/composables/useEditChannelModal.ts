@@ -740,12 +740,16 @@ const { t } = useI18n()
   })
 
   const diagnosingCompat = ref(false)
-  
+  const diagnoseResult = ref<{ type: 'success' | 'error'; message: string; appliedCount: number } | null>(null)
+  let diagnoseTimer: ReturnType<typeof setTimeout> | null = null
+
   const handleDiagnoseCompat = async () => {
     if (props.channel?.index === undefined || props.channel?.index === null) return
     if (props.channelType === 'images') return
-  
+
     diagnosingCompat.value = true
+    if (diagnoseTimer) { clearTimeout(diagnoseTimer); diagnoseTimer = null }
+    diagnoseResult.value = null
     try {
       const type = props.channelType as 'messages' | 'chat' | 'responses' | 'gemini'
       const result = await apiService.diagnoseChannelCompat(type, props.channel.index)
@@ -766,13 +770,15 @@ const { t } = useI18n()
         baseUrlsText.value = Array.from(new Set(nextLines)).join('\n')
         applied.push('baseUrl')
       }
-      emit('success', applied.length
+      const message = applied.length
         ? t('channelEditor.compat.diagnoseApplied', { count: applied.length })
-        : t('channelEditor.compat.diagnoseNoChange'))
+        : t('channelEditor.compat.diagnoseNoChange')
+      diagnoseResult.value = { type: 'success', message, appliedCount: applied.length }
     } catch (e) {
-      emit('error', e instanceof Error ? e.message : t('channelEditor.compat.diagnoseFailed'))
+      diagnoseResult.value = { type: 'error', message: e instanceof Error ? e.message : t('channelEditor.compat.diagnoseFailed'), appliedCount: 0 }
     } finally {
       diagnosingCompat.value = false
+      diagnoseTimer = setTimeout(() => { diagnoseResult.value = null }, 5000)
     }
   }
   
@@ -783,6 +789,8 @@ const { t } = useI18n()
       if (newShow) {
         dialogMode.value = props.channel ? 'edit' : 'create'
         resetRestoredKeys()
+        if (diagnoseTimer) { clearTimeout(diagnoseTimer); diagnoseTimer = null }
+        diagnoseResult.value = null
   
         if (dialogMode.value === 'edit' && props.channel) {
           // 编辑模式：使用完整表单
@@ -894,6 +902,9 @@ const { t } = useI18n()
     if (formBaseUrlPreviewTimer !== null) {
       window.clearTimeout(formBaseUrlPreviewTimer)
     }
+    if (diagnoseTimer !== null) {
+      window.clearTimeout(diagnoseTimer)
+    }
   })
 
   return {
@@ -960,6 +971,7 @@ const { t } = useI18n()
     handleCancel,
     handleTestCapability,
     diagnosingCompat,
+    diagnoseResult,
     handleDiagnoseCompat,
     scrollToSection,
     setSectionRef,

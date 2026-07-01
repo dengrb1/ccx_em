@@ -169,6 +169,7 @@
                 :reasoning-param-style-options="reasoningParamStyleOptions"
                 :text-verbosity-options="textVerbosityOptions"
                 :diagnosing="diagnosingCompat"
+                :diagnose-result="diagnoseResult"
                 @update:form="updateForm"
                 @menu-update="onMenuUpdate"
                 @diagnose="handleDiagnoseCompat"
@@ -320,6 +321,7 @@ const {
   handleCancel,
   handleTestCapability,
   diagnosingCompat,
+  diagnoseResult,
   handleDiagnoseCompat,
   scrollToSection,
   setSectionRef,

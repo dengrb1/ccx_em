@@ -111,6 +111,7 @@ export type ProviderKeyAsset = {
   apiKey: string
   baseUrl?: string
   planId?: string
+  proxyUrl?: string
   usages?: string[]
 }
 

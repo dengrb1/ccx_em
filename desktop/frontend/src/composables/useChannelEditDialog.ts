@@ -47,6 +47,8 @@ const { t } = useLanguage()
   const error = ref('')
   const success = ref('')
   const diagnosingCompat = ref(false)
+  const diagnoseResult = ref<{ type: 'success' | 'error'; message: string; appliedCount: number } | null>(null)
+  let diagnoseTimer: ReturnType<typeof setTimeout> | null = null
   const quickInput = ref('')
   const quickServiceTypeTouched = ref(false)
   const copilotDefaultBaseUrl = 'https://api.githubcopilot.com'
@@ -704,6 +706,7 @@ const { t } = useLanguage()
     clearDuplicateKeyHighlight()
     clearCopilotPollTimer()
     clearCopilotCopyTimer()
+    if (diagnoseTimer) clearTimeout(diagnoseTimer)
   })
   
   const {
@@ -780,8 +783,8 @@ const { t } = useLanguage()
   async function handleDiagnoseCompat() {
     if (!props.channel || props.channelType === 'images') return
     diagnosingCompat.value = true
-    error.value = ''
-    success.value = ''
+    if (diagnoseTimer) { clearTimeout(diagnoseTimer); diagnoseTimer = null }
+    diagnoseResult.value = null
     try {
       const result = await adminApi.post<CompatDiagnoseResult>(`/api/${props.channelType}/channels/${props.channel.index}/compat-diagnose`, {})
       const applied: string[] = []
@@ -801,13 +804,15 @@ const { t } = useLanguage()
         form.baseUrlsText = Array.from(new Set(nextLines)).join('\n')
         applied.push('baseUrl')
       }
-      success.value = applied.length
+      const message = applied.length
         ? t('channelEditor.compat.diagnoseApplied', { count: String(applied.length) })
         : t('channelEditor.compat.diagnoseNoChange')
+      diagnoseResult.value = { type: 'success', message, appliedCount: applied.length }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : t('channelEditor.compat.diagnoseFailed')
+      diagnoseResult.value = { type: 'error', message: e instanceof Error ? e.message : t('channelEditor.compat.diagnoseFailed'), appliedCount: 0 }
     } finally {
       diagnosingCompat.value = false
+      diagnoseTimer = setTimeout(() => { diagnoseResult.value = null }, 5000)
     }
   }
   
@@ -874,6 +879,7 @@ const { t } = useLanguage()
     error,
     success,
     diagnosingCompat,
+    diagnoseResult,
     quickInput,
     existingApiKeys,
     newApiKeysText,

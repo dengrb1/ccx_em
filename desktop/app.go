@@ -402,6 +402,7 @@ func (s *DesktopService) CreateCCXChannelFromPreset(req channelpreset.CreateChan
 		APIKey:   payload.APIKeys[0],
 		BaseURL:  payload.BaseURL,
 		PlanID:   req.PlanID,
+		ProxyURL: payload.ProxyURL,
 		Usages:   []string{req.Target + "-channel"},
 	}); err != nil {
 		return channelpreset.CreateChannelResult{}, err

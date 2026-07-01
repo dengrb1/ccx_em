@@ -30,6 +30,7 @@ const {
   error,
   success,
   diagnosingCompat,
+  diagnoseResult,
   quickInput,
   existingApiKeys,
   newApiKeysText,
@@ -365,6 +366,7 @@ const {
                         :reasoning-param-style-options="reasoningParamStyleOptions"
                         :text-verbosity-options="textVerbosityOptions"
                         :diagnosing="diagnosingCompat"
+                        :diagnose-result="diagnoseResult"
                         @update:form="(updates) => Object.assign(form, updates)"
                         @diagnose="handleDiagnoseCompat"
                       />

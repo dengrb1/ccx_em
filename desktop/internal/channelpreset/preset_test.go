@@ -926,3 +926,28 @@ func TestBuildPayloadGitHubCopilotSetsProxyURL(t *testing.T) {
 		t.Fatalf("ProxyURL = %q, want socks5://127.0.0.1:1080", got.ProxyURL)
 	}
 }
+
+func TestBuildPayloadGitHubCopilotSupportsGeminiTarget(t *testing.T) {
+	got, err := BuildPayload(CreateChannelRequest{
+		Provider: ProviderGitHubCopilot,
+		Target:   TargetGemini,
+		APIKey:   "gho_test",
+	})
+	if err != nil {
+		t.Fatalf("BuildPayload() error = %v", err)
+	}
+	if got.ServiceType != "copilot" {
+		t.Fatalf("ServiceType = %q, want copilot", got.ServiceType)
+	}
+}
+
+func TestBuildPayloadGitHubCopilotRejectsUnsupportedTarget(t *testing.T) {
+	_, err := BuildPayload(CreateChannelRequest{
+		Provider: ProviderGitHubCopilot,
+		Target:   "images",
+		APIKey:   "gho_test",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}

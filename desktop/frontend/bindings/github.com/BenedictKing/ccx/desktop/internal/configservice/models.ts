@@ -281,6 +281,7 @@ export class ProviderKeyAsset {
     "apiKey": string;
     "baseUrl"?: string;
     "planId"?: string;
+    "proxyUrl"?: string;
     "usages"?: string[];
 
     /** Creates a new ProviderKeyAsset instance. */
@@ -299,10 +300,10 @@ export class ProviderKeyAsset {
      * Creates a new ProviderKeyAsset instance from a string or object.
      */
     static createFrom($$source: any = {}): ProviderKeyAsset {
-        const $$createField4_0 = $$createType4;
+        const $$createField5_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("usages" in $$parsedSource) {
-            $$parsedSource["usages"] = $$createField4_0($$parsedSource["usages"]);
+            $$parsedSource["usages"] = $$createField5_0($$parsedSource["usages"]);
         }
         return new ProviderKeyAsset($$parsedSource as Partial<ProviderKeyAsset>);
     }

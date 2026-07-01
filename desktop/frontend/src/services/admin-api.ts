@@ -25,6 +25,7 @@ export type ChannelAuthHeader = 'auto' | 'bearer' | 'x-api-key'
 
 export const COPILOT_OAUTH_DEVICE_CODE_PATH = '/api/copilot/oauth/device/code'
 export const COPILOT_OAUTH_TOKEN_PATH = '/api/copilot/oauth/token'
+export const COPILOT_OAUTH_VERIFY_PATH = '/api/copilot/oauth/verify'
 
 export interface CopilotDeviceCodeResponse {
   deviceCode: string

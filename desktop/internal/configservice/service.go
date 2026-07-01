@@ -183,6 +183,7 @@ type ProviderKeyAsset struct {
 	APIKey   string   `json:"apiKey"`
 	BaseURL  string   `json:"baseUrl,omitempty"`
 	PlanID   string   `json:"planId,omitempty"`
+	ProxyURL string   `json:"proxyUrl,omitempty"`
 	Usages   []string `json:"usages,omitempty"`
 }
 

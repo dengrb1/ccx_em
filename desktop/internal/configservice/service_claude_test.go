@@ -471,4 +471,29 @@ func TestProviderKeyAssetsKeepPlanScopedKeys(t *testing.T) {
 	}
 }
 
+func TestProviderKeyAssetPersistsProxyURL(t *testing.T) {
+	svc := newTestService(t)
+
+	if err := svc.SaveProviderKeyAsset(ProviderKeyAsset{
+		Provider: "github-copilot",
+		APIKey:   "gho_test",
+		BaseURL:  "https://api.githubcopilot.com",
+		ProxyURL: " socks5://127.0.0.1:1080 ",
+		Usages:   []string{"responses-channel"},
+	}); err != nil {
+		t.Fatalf("SaveProviderKeyAsset failed: %v", err)
+	}
+
+	assets := svc.GetProviderKeyAssets()
+	if len(assets) != 1 {
+		t.Fatalf("assets len = %d", len(assets))
+	}
+	if assets[0].ProxyURL != "socks5://127.0.0.1:1080" {
+		t.Fatalf("ProxyURL = %q, want socks5://127.0.0.1:1080", assets[0].ProxyURL)
+	}
+	if assets[0].APIKey != "gho_test" {
+		t.Fatalf("APIKey = %q, want gho_test", assets[0].APIKey)
+	}
+}
+
 // ── P1 回归: Codex 第三方 provider 状态识别 ──

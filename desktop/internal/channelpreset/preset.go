@@ -33,6 +33,7 @@ const (
 	TargetMessages  = "messages"
 	TargetChat      = "chat"
 	TargetResponses = "responses"
+	TargetGemini    = "gemini"
 )
 
 type ProviderPreset struct {
@@ -547,8 +548,8 @@ func buildGitHubCopilotPayload(req CreateChannelRequest) (ChannelPayload, error)
 	if target == "" {
 		target = TargetResponses
 	}
-	if target != TargetResponses {
-		return ChannelPayload{}, fmt.Errorf("GitHub Copilot 仅支持添加到 %s 渠道", TargetResponses)
+	if !isGitHubCopilotTarget(target) {
+		return ChannelPayload{}, fmt.Errorf("GitHub Copilot 不支持添加到 %s 渠道", target)
 	}
 
 	apiKey := strings.TrimSpace(req.APIKey)
@@ -576,6 +577,15 @@ func buildGitHubCopilotPayload(req CreateChannelRequest) (ChannelPayload, error)
 		Priority:    1,
 		Status:      "active",
 	}, nil
+}
+
+func isGitHubCopilotTarget(target string) bool {
+	switch target {
+	case TargetMessages, TargetChat, TargetResponses, TargetGemini:
+		return true
+	default:
+		return false
+	}
 }
 
 // targetMatchesURL 判断 URL 是否与 target 协议兼容。

@@ -1,19 +1,36 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { CheckCircle2, Copy, Github, Loader2, ShieldCheck } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAdminApi } from '@/composables/useAdminApi'
 import { useChannelPresets } from '@/composables/useChannelPresets'
 import { useCopilotOAuth } from '@/composables/useCopilotOAuth'
 import { useLanguage } from '@/composables/useLanguage'
+import { GetProviderKeyAssets } from '@bindings/github.com/BenedictKing/ccx/desktop/desktopservice'
+import type { Channel, ChannelsResponse } from '@/services/admin-api'
+import type { ProviderKeyAsset } from '@/types'
+
+type CopilotTarget = 'messages' | 'chat' | 'responses' | 'gemini'
 
 const { t } = useLanguage()
+const adminApi = useAdminApi()
 const { creating, error, result, createChannel } = useChannelPresets()
 
 const copilotApiKeys = ref<string[]>([])
 const copilotProxyUrl = ref('')
+const selectedCopilotTarget = ref<CopilotTarget>('responses')
 const copilotCreateError = ref('')
+const existingCopilotChannels = ref<Record<CopilotTarget, Channel | null>>({
+  messages: null,
+  chat: null,
+  responses: null,
+  gemini: null,
+})
+const savedCopilotAsset = ref<ProviderKeyAsset | null>(null)
+const checkingCopilotChannel = ref(false)
+const addingCopilotChannel = ref(false)
 
 const {
   copilotOAuthLoading,
@@ -28,12 +45,89 @@ const {
   openCopilotAuthorization,
 } = useCopilotOAuth(copilotApiKeys, t, () => copilotProxyUrl.value)
 
-const latestCopilotToken = computed(() => copilotApiKeys.value[copilotApiKeys.value.length - 1] || '')
+const latestAuthorizedCopilotToken = computed(() => copilotApiKeys.value[copilotApiKeys.value.length - 1] || '')
+const savedCopilotToken = computed(() => savedCopilotAsset.value?.apiKey || '')
+const availableCopilotToken = computed(() => latestAuthorizedCopilotToken.value || savedCopilotToken.value)
+const selectedCopilotChannel = computed(() => existingCopilotChannels.value[selectedCopilotTarget.value])
+const hasCopilotChannel = computed(() => Boolean(selectedCopilotChannel.value))
+const hasSavedCopilotAuthorization = computed(() => Boolean(savedCopilotToken.value))
+const copilotTargetOptions = computed<Array<{ value: CopilotTarget; label: string; description: string }>>(() => [
+  { value: 'messages', label: t('subscription.targetClaude'), description: t('subscription.targetClaudeDesc') },
+  { value: 'chat', label: t('subscription.targetChat'), description: t('subscription.targetChatDesc') },
+  { value: 'responses', label: t('subscription.targetCodex'), description: t('subscription.targetCodexDesc') },
+  { value: 'gemini', label: t('subscription.targetGemini'), description: t('subscription.targetGeminiDesc') },
+])
+const selectedCopilotTargetOption = computed(() =>
+  copilotTargetOptions.value.find(item => item.value === selectedCopilotTarget.value) || copilotTargetOptions.value[2],
+)
+const copilotPrimaryActionLabel = computed(() => {
+  const params = { target: selectedCopilotTargetOption.value.label }
+  if (!availableCopilotToken.value) {
+    return t('subscription.authorizeCopilot')
+  }
+  if (hasCopilotChannel.value) {
+    return t('subscription.updateCopilotChannel', params)
+  }
+  if (copilotCreateError.value) {
+    return t('subscription.retryAddCopilotChannel', params)
+  }
+  return t('subscription.addCopilotChannel', params)
+})
+
+async function refreshSavedCopilotAsset() {
+  try {
+    const assets = await GetProviderKeyAssets() as ProviderKeyAsset[]
+    const asset = assets.find(item => item.provider === 'github-copilot' && item.apiKey) || null
+    savedCopilotAsset.value = asset
+    if (asset?.proxyUrl && !copilotProxyUrl.value.trim()) {
+      copilotProxyUrl.value = asset.proxyUrl
+    }
+  } catch {
+    savedCopilotAsset.value = null
+  }
+}
+
+async function refreshCopilotChannelStatus() {
+  checkingCopilotChannel.value = true
+  try {
+    const entries = await Promise.all(
+      copilotTargetOptions.value.map(async ({ value }) => {
+        const data = await adminApi.get<ChannelsResponse>(`/api/${value}/channels`)
+        const channel = data.channels.find(item => item.name === 'desktop-github-copilot')
+          || data.channels.find(item => item.serviceType === 'copilot')
+          || null
+        return [value, channel] as const
+      }),
+    )
+    existingCopilotChannels.value = Object.fromEntries(entries) as Record<CopilotTarget, Channel | null>
+    const channelWithProxy = entries.map(([, channel]) => channel).find(channel => channel?.proxyUrl)
+    if (channelWithProxy?.proxyUrl && !copilotProxyUrl.value.trim()) {
+      copilotProxyUrl.value = channelWithProxy.proxyUrl
+    }
+  } catch {
+    existingCopilotChannels.value = {
+      messages: null,
+      chat: null,
+      responses: null,
+      gemini: null,
+    }
+  } finally {
+    checkingCopilotChannel.value = false
+  }
+}
 
 async function startCopilotAuthorization() {
   copilotApiKeys.value = []
   copilotCreateError.value = ''
   await startCopilotOAuth()
+}
+
+async function handleCopilotPrimaryAction() {
+  if (availableCopilotToken.value) {
+    await addCopilotChannel()
+    return
+  }
+  await startCopilotAuthorization()
 }
 
 function cancelCopilotAuthorization() {
@@ -43,22 +137,32 @@ function cancelCopilotAuthorization() {
 }
 
 async function addCopilotChannel() {
-  const token = latestCopilotToken.value
-  if (!token) return
+  const token = availableCopilotToken.value
+  if (!token || addingCopilotChannel.value) return
   copilotCreateError.value = ''
+  addingCopilotChannel.value = true
   try {
     await createChannel({
       provider: 'github-copilot',
-      target: 'responses',
+      target: selectedCopilotTarget.value,
       baseUrl: 'https://api.githubcopilot.com',
       apiKey: token,
       name: 'desktop-github-copilot',
       proxyUrl: copilotProxyUrl.value.trim(),
     }, { reloadPresets: false })
+    await refreshSavedCopilotAsset()
+    await refreshCopilotChannelStatus()
   } catch (err) {
     copilotCreateError.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    addingCopilotChannel.value = false
   }
 }
+
+onMounted(() => {
+  void refreshSavedCopilotAsset()
+  void refreshCopilotChannelStatus()
+})
 </script>
 
 <template>
@@ -88,13 +192,13 @@ async function addCopilotChannel() {
             <div class="flex flex-wrap items-center gap-2">
               <h4 class="text-base font-semibold text-foreground">GitHub Copilot</h4>
               <span
-                v-if="copilotOAuthSuccess || latestCopilotToken"
+                v-if="copilotOAuthSuccess || hasSavedCopilotAuthorization"
                 class="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400"
               >
                 {{ t('subscription.authorized') }}
               </span>
             </div>
-            <p class="mt-1 text-sm text-muted-foreground">{{ t('copilotOAuth.description') }}</p>
+            <p class="mt-1 text-sm text-muted-foreground">{{ t('subscription.copilotDescription') }}</p>
           </div>
         </div>
 
@@ -106,6 +210,35 @@ async function addCopilotChannel() {
             :placeholder="t('channelEditor.transport.proxyUrl.placeholder')"
           />
           <p class="text-xs text-muted-foreground">{{ t('channelEditor.transport.proxyUrl.hint') }}</p>
+        </div>
+
+        <div class="space-y-2">
+          <Label class="text-xs text-muted-foreground">{{ t('subscription.targetLabel') }}</Label>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              v-for="target in copilotTargetOptions"
+              :key="target.value"
+              type="button"
+              :class="[
+                'rounded-lg border px-3 py-2 text-left transition-colors',
+                selectedCopilotTarget === target.value
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border bg-background/70 text-foreground hover:bg-secondary/60',
+              ]"
+              @click="selectedCopilotTarget = target.value"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-semibold">{{ target.label }}</span>
+                <span
+                  v-if="existingCopilotChannels[target.value]"
+                  class="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400"
+                >
+                  {{ t('subscription.channelExists') }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-muted-foreground">{{ target.description }}</p>
+            </button>
+          </div>
         </div>
 
         <div v-if="copilotUserCode" class="flex flex-wrap items-center gap-2 text-sm">
@@ -126,15 +259,36 @@ async function addCopilotChannel() {
           </button>
         </div>
 
-        <p v-if="copilotOAuthSuccess" class="text-xs text-emerald-600">{{ t('copilotOAuth.success') }}</p>
-        <p v-if="copilotOAuthError" class="text-xs text-destructive">{{ copilotOAuthError }}</p>
-        <p v-if="copilotCreateError || error" class="text-xs text-destructive">{{ copilotCreateError || error }}</p>
-        <p v-if="result?.provider === 'github-copilot'" class="text-xs text-emerald-600">{{ result.message }}</p>
+        <template v-if="copilotOAuthError">
+          <p class="text-xs text-destructive">{{ copilotOAuthError }}</p>
+        </template>
+        <template v-else-if="copilotCreateError || error">
+          <p class="text-xs text-destructive">{{ copilotCreateError || error }}</p>
+        </template>
+        <template v-else-if="checkingCopilotChannel">
+          <p class="text-xs text-muted-foreground">{{ t('subscription.checkingChannel') }}</p>
+        </template>
+        <template v-else-if="addingCopilotChannel">
+          <p class="text-xs text-muted-foreground">{{ t('subscription.addingCopilotChannel') }}</p>
+        </template>
+        <template v-else-if="result?.provider === 'github-copilot'">
+          <p class="text-xs text-emerald-600">{{ result.message }}</p>
+        </template>
+        <template v-else-if="hasCopilotChannel">
+          <p class="text-xs text-emerald-600">
+            {{ t('subscription.copilotChannelReady', { target: selectedCopilotTargetOption.label, name: selectedCopilotChannel!.name }) }}
+          </p>
+        </template>
+        <template v-else-if="availableCopilotToken">
+          <p class="text-xs text-emerald-600">
+            {{ t('subscription.copilotAuthorizationSavedOnly', { target: selectedCopilotTargetOption.label }) }}
+          </p>
+        </template>
 
         <div class="flex flex-wrap items-center gap-2">
-          <Button :disabled="copilotOAuthLoading || copilotPolling" @click="startCopilotAuthorization">
-            <Loader2 v-if="copilotOAuthLoading || copilotPolling" class="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            {{ t('copilotOAuth.button') }}
+          <Button :disabled="copilotOAuthLoading || copilotPolling || creating || addingCopilotChannel" @click="handleCopilotPrimaryAction">
+            <Loader2 v-if="copilotOAuthLoading || copilotPolling || creating || addingCopilotChannel" class="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            {{ copilotPrimaryActionLabel }}
           </Button>
           <button
             v-if="copilotPolling || copilotOAuthLoading"
@@ -146,12 +300,6 @@ async function addCopilotChannel() {
           </button>
         </div>
 
-        <div class="border-t border-border/70 pt-4">
-          <Button :disabled="creating || !latestCopilotToken" @click="addCopilotChannel">
-            <Loader2 v-if="creating" class="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            {{ t('subscription.addCopilotChannel') }}
-          </Button>
-        </div>
       </section>
     </div>
   </div>

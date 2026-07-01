@@ -87,6 +87,7 @@ func (s *Service) SaveProviderKeyAsset(asset ProviderKeyAsset) error {
 	asset.APIKey = key
 	asset.BaseURL = strings.TrimSpace(asset.BaseURL)
 	asset.PlanID = strings.TrimSpace(asset.PlanID)
+	asset.ProxyURL = strings.TrimSpace(asset.ProxyURL)
 	assetKey := provider
 	if asset.PlanID != "" {
 		assetKey = provider + ":" + asset.PlanID
