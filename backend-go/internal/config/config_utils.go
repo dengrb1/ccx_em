@@ -375,6 +375,12 @@ func (u *UpstreamConfig) Clone() *UpstreamConfig {
 			cloned.ModelCapabilities[k] = cloneUpstreamModelCapability(v)
 		}
 	}
+	if u.EmbeddingCapabilities != nil {
+		cloned.EmbeddingCapabilities = make(map[string]EmbeddingCapability, len(u.EmbeddingCapabilities))
+		for k, v := range u.EmbeddingCapabilities {
+			cloned.EmbeddingCapabilities[k] = cloneEmbeddingCapability(v)
+		}
+	}
 	cloned.DefaultCapability = cloneUpstreamModelCapability(u.DefaultCapability)
 	if u.CustomHeaders != nil {
 		cloned.CustomHeaders = make(map[string]string, len(u.CustomHeaders))
@@ -435,6 +441,9 @@ func applyModelCapabilityUpdates(upstream *UpstreamConfig, updates UpstreamUpdat
 	if updates.ModelCapabilities != nil {
 		upstream.ModelCapabilities = updates.ModelCapabilities
 	}
+	if updates.EmbeddingCapabilities != nil {
+		upstream.EmbeddingCapabilities = updates.EmbeddingCapabilities
+	}
 	if updates.DefaultCapability != nil {
 		upstream.DefaultCapability = *updates.DefaultCapability
 	}
@@ -455,6 +464,17 @@ func applyAPIKeyConfigUpdate(upstream *UpstreamConfig, updates UpstreamUpdate) {
 	} else if updates.APIKeys != nil {
 		upstream.APIKeyConfigs = normalizeAPIKeyConfigs(upstream.APIKeys, upstream.APIKeyConfigs)
 	}
+}
+
+func cloneEmbeddingCapability(capability EmbeddingCapability) EmbeddingCapability {
+	if capability.SupportedDimensions != nil {
+		capability.SupportedDimensions = append([]int(nil), capability.SupportedDimensions...)
+	}
+	if capability.Normalized != nil {
+		normalized := *capability.Normalized
+		capability.Normalized = &normalized
+	}
+	return capability
 }
 
 func cloneAPIKeyConfig(cfg APIKeyConfig) APIKeyConfig {

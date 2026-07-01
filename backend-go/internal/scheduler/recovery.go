@@ -44,6 +44,12 @@ func (r *ContextRequirement) needsOutputValidation() bool {
 	return r != nil && r.ExplicitOutputMax && r.OutputTokens > 0
 }
 
+type CandidateFilterFunc func(
+	channels []ChannelInfo,
+	upstreamFor func(ChannelInfo) *config.UpstreamConfig,
+	candidateAvailable func(ChannelInfo, *config.UpstreamConfig) bool,
+) ([]ChannelInfo, error)
+
 // SelectionOptions 描述一次渠道选择所需的上下文。
 type SelectionOptions struct {
 	UserID             string
@@ -55,6 +61,7 @@ type SelectionOptions struct {
 	ContextRequirement *ContextRequirement
 	HasImageContent    bool
 	AgentRole          string // "main" | "subagent" — 角色感知 override 查找与亲和隔离
+	CandidateFilter    CandidateFilterFunc
 }
 
 func (s *ChannelScheduler) selectionResult(kind ChannelKind, upstream *config.UpstreamConfig, channelIndex int, reason string) *SelectionResult {

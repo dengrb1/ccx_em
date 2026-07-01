@@ -5,11 +5,15 @@ import { ApiService } from '../services/api'
 import { supportsAdvancedChannelOptions, supportsReasoningMapping } from '../utils/channelAdvancedOptions'
 import {
   buildChannelPayload,
+  createEmbeddingCapabilityRow,
   createModelCapabilityRow,
+  embeddingCapabilitiesToRows,
+  embeddingCapabilityRowsToRecord,
   modelCapabilitiesToRows,
   modelCapabilityRowsToRecord,
   normalizeSelectableString,
   resolveBuiltinUpstreamModelCapability,
+  type EmbeddingCapabilityRow,
   type ModelCapabilityRow,
 } from '../utils/channelPayload'
 import {
@@ -116,6 +120,7 @@ const { t } = useI18n()
     modelMapping: {} as Record<string, string>,
     modelCapabilitiesText: '',
     modelCapabilityRows: [] as ModelCapabilityRow[],
+    embeddingCapabilityRows: [] as EmbeddingCapabilityRow[],
     defaultContextWindowTokens: null as string | number | null,
     defaultMaxOutputTokens: null as string | number | null,
     allowUnknownContext: false,
@@ -195,6 +200,8 @@ const { t } = useI18n()
   const modelMappingRows = ref<ModelMappingRow[]>([])
   let capabilityRowIdCounter = 0
   const nextCapabilityRowId = () => ++capabilityRowIdCounter
+  let embeddingCapabilityRowIdCounter = 0
+  const nextEmbeddingCapabilityRowId = () => ++embeddingCapabilityRowIdCounter
 
   const incompleteMappedTargetSuffix = /[._:/-]$/
   const isCompleteMappedTargetModel = (model: string) => !!model && !incompleteMappedTargetSuffix.test(model)
@@ -307,8 +314,14 @@ const { t } = useI18n()
       ? t('addChannel.modelCapabilitiesRowsInvalid')
       : ''
   })
+  const embeddingCapabilitiesError = computed(() => {
+    return props.channelType === 'vectors' && embeddingCapabilityRowsToRecord(form.embeddingCapabilityRows) === null
+      ? t('addChannel.embeddingCapabilitiesRowsInvalid')
+      : ''
+  })
 
   const syncModelCapabilitiesFromMapping = () => {
+    if (props.channelType === 'vectors') return
     const existingModels = new Set(
       form.modelCapabilityRows
         .map(row => normalizeSelectableString(row.model).trim().toLowerCase())
@@ -331,13 +344,32 @@ const { t } = useI18n()
     form.modelCapabilityRows = [...form.modelCapabilityRows, ...rowsToAdd]
   }
 
+  const syncEmbeddingCapabilitiesFromMapping = () => {
+    if (props.channelType !== 'vectors') return
+    const existingModels = new Set(
+      form.embeddingCapabilityRows
+        .map(row => normalizeSelectableString(row.model).trim().toLowerCase())
+        .filter(Boolean)
+    )
+    const rowsToAdd = mappedTargetModels.value
+      .filter(isCompleteMappedTargetModel)
+      .filter(model => !existingModels.has(model.toLowerCase()))
+      .map(model => createEmbeddingCapabilityRow(nextEmbeddingCapabilityRowId(), model))
+    if (!rowsToAdd.length) return
+    form.embeddingCapabilityRows = [...form.embeddingCapabilityRows, ...rowsToAdd]
+  }
+
   const syncModelCapabilitiesFromMappingWhenIdle = () => {
     if (isMappingTargetEditing.value) {
       hasPendingModelCapabilitySync.value = true
       return
     }
     hasPendingModelCapabilitySync.value = false
-    syncModelCapabilitiesFromMapping()
+    if (props.channelType === 'vectors') {
+      syncEmbeddingCapabilitiesFromMapping()
+    } else {
+      syncModelCapabilitiesFromMapping()
+    }
   }
 
   const startMappingTargetEdit = () => {
@@ -349,7 +381,13 @@ const { t } = useI18n()
     isMappingTargetEditing.value = false
     if (!hasPendingModelCapabilitySync.value) return
     hasPendingModelCapabilitySync.value = false
-    nextTick(syncModelCapabilitiesFromMapping)
+    nextTick(() => {
+      if (props.channelType === 'vectors') {
+        syncEmbeddingCapabilitiesFromMapping()
+      } else {
+        syncModelCapabilitiesFromMapping()
+      }
+    })
   }
 
   const { headerClasses, avatarColor, headerIconStyle, subtitleClasses } = useChannelEditorHeaderState(theme)
@@ -358,7 +396,7 @@ const { t } = useI18n()
     const hasValidBaseUrl = form.serviceType === 'copilot' || (!!form.baseUrl.trim() && isValidUrl(form.baseUrl))
     const hasValidApiKeys = form.serviceType === 'copilot' || hasConfigurableKeys.value
     return (
-      !!form.name.trim() && !!form.serviceType && hasValidBaseUrl && hasValidApiKeys && !modelCapabilitiesError.value
+      !!form.name.trim() && !!form.serviceType && hasValidBaseUrl && hasValidApiKeys && !modelCapabilitiesError.value && !embeddingCapabilitiesError.value
     )
   })
 
@@ -439,6 +477,7 @@ const { t } = useI18n()
     form.modelMapping = {}
     form.modelCapabilitiesText = ''
     form.modelCapabilityRows = []
+    form.embeddingCapabilityRows = []
     form.defaultContextWindowTokens = null
     form.defaultMaxOutputTokens = null
     form.allowUnknownContext = false
@@ -531,6 +570,7 @@ const { t } = useI18n()
       ? JSON.stringify(normalizeModelCapabilities(channel.modelCapabilities), null, 2)
       : ''
     form.modelCapabilityRows = modelCapabilitiesToRows(channel.modelCapabilities || {}, nextCapabilityRowId)
+    form.embeddingCapabilityRows = embeddingCapabilitiesToRows(channel.embeddingCapabilities || {}, nextEmbeddingCapabilityRowId)
     form.defaultContextWindowTokens = channel.defaultCapability?.contextWindowTokens || null
     form.defaultMaxOutputTokens = channel.defaultCapability?.maxOutputTokens || null
     form.allowUnknownContext = !!channel.allowUnknownContext
@@ -710,11 +750,16 @@ const { t } = useI18n()
   const handleSubmit = async () => {
     if (!formRef.value) return
 
-    syncModelCapabilitiesFromMapping()
+    if (props.channelType === 'vectors') {
+      syncEmbeddingCapabilitiesFromMapping()
+    } else {
+      syncModelCapabilitiesFromMapping()
+    }
 
     const { valid } = await formRef.value.validate()
     if (!valid) return
     if (modelCapabilitiesError.value) return
+    if (embeddingCapabilitiesError.value) return
 
     // 将模型映射行同步到 form 对象
     syncModelMappingToForm()
@@ -948,6 +993,7 @@ const { t } = useI18n()
     selectedSupportedModelSet,
     supportedModelsError,
     modelCapabilitiesError,
+    embeddingCapabilitiesError,
     startMappingTargetEdit,
     finishMappingTargetEdit,
     headerClasses,

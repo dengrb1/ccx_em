@@ -8,13 +8,17 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/BenedictKing/ccx/internal/config"
 	"github.com/BenedictKing/ccx/internal/metrics"
+	"github.com/BenedictKing/ccx/internal/ratelimit"
 	"github.com/BenedictKing/ccx/internal/scheduler"
 	"github.com/BenedictKing/ccx/internal/session"
 	"github.com/gin-gonic/gin"
@@ -57,15 +61,26 @@ func newVectorsTestEnvConfig() *config.EnvConfig {
 }
 
 func serveVectorsEmbeddingRequest(cfgManager *config.ConfigManager, sch *scheduler.ChannelScheduler, body string) *httptest.ResponseRecorder {
+	return serveVectorsEmbeddingRequestWithHeaders(cfgManager, sch, body, nil)
+}
+
+func serveVectorsEmbeddingRequestWithHeaders(cfgManager *config.ConfigManager, sch *scheduler.ChannelScheduler, body string, headers map[string]string) *httptest.ResponseRecorder {
 	r := gin.New()
 	r.POST("/v1/embeddings", Handler(newVectorsTestEnvConfig(), cfgManager, sch))
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-proxy-key")
 	req.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
 
 func TestBuildEmbeddingsURL(t *testing.T) {
@@ -155,7 +170,7 @@ func TestParseEmbeddingsRequestValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
-			_, _, ok := parseEmbeddingsRequest(c, []byte(tt.body))
+			_, _, _, ok := parseEmbeddingsRequest(c, []byte(tt.body))
 			if ok != tt.ok {
 				t.Fatalf("parseEmbeddingsRequest() ok = %v, want %v", ok, tt.ok)
 			}
@@ -408,6 +423,534 @@ func TestHandlerPassesThroughVectorsModelWhenMappingMisses(t *testing.T) {
 	}
 	if upstreamModel != "text-embedding-3-small" {
 		t.Fatalf("upstream model = %q, want text-embedding-3-small", upstreamModel)
+	}
+}
+
+func TestHandlerDoesNotFallbackAcrossEmbeddingSpaces(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var primaryAttempts int32
+	primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&primaryAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"primary failed"}}`))
+	}))
+	defer primaryServer.Close()
+
+	var secondaryAttempts int32
+	secondaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&secondaryAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.2],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer secondaryServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "secondary-vectors",
+		ServiceType:  "openai",
+		BaseURL:      secondaryServer.URL,
+		APIKeys:      []string{"sk-secondary"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-b": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(secondary) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "primary-vectors",
+		ServiceType:  "openai",
+		BaseURL:      primaryServer.URL,
+		APIKeys:      []string{"sk-primary"},
+		Priority:     1,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(primary) error = %v", err)
+	}
+
+	vectorsMetrics := metrics.NewMetricsManager()
+	sch := newVectorsTestScheduler(cfgManager, vectorsMetrics)
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"embed-public","input":"hello"}`)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if got := atomic.LoadInt32(&primaryAttempts); got != 1 {
+		t.Fatalf("primary attempts = %d, want 1", got)
+	}
+	if got := atomic.LoadInt32(&secondaryAttempts); got != 0 {
+		t.Fatalf("secondary attempts = %d, want 0", got)
+	}
+	if got := vectorsMetrics.GetKeyMetrics(secondaryServer.URL, "sk-secondary", "openai"); got != nil {
+		t.Fatalf("secondary metrics should not be recorded, got %+v", got)
+	}
+}
+
+func TestHandlerAllowsFallbackWithinSameEmbeddingSpace(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var primaryAttempts int32
+	primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&primaryAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"primary failed"}}`))
+	}))
+	defer primaryServer.Close()
+
+	var secondaryAttempts int32
+	secondaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&secondaryAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.3],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer secondaryServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "secondary-vectors",
+		ServiceType:  "openai",
+		BaseURL:      secondaryServer.URL,
+		APIKeys:      []string{"sk-secondary"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-b": {EmbeddingSpaceID: "shared-space", Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(secondary) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "primary-vectors",
+		ServiceType:  "openai",
+		BaseURL:      primaryServer.URL,
+		APIKeys:      []string{"sk-primary"},
+		Priority:     1,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {EmbeddingSpaceID: "shared-space", Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(primary) error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"embed-public","input":"hello"}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"embedding":[0.3]`) {
+		t.Fatalf("expected secondary embeddings response, got: %s", w.Body.String())
+	}
+	if got := atomic.LoadInt32(&primaryAttempts); got != 1 {
+		t.Fatalf("primary attempts = %d, want 1", got)
+	}
+	if got := atomic.LoadInt32(&secondaryAttempts); got != 1 {
+		t.Fatalf("secondary attempts = %d, want 1", got)
+	}
+}
+
+func TestHandlerIgnoresSuspendedChannelAsEmbeddingCompatibilityAnchor(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var suspendedAttempts int32
+	suspendedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&suspendedAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[9.9],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer suspendedServer.Close()
+
+	var activeAttempts int32
+	activeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&activeAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.6],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer activeServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "active-compatible-vectors",
+		ServiceType:  "openai",
+		BaseURL:      activeServer.URL,
+		APIKeys:      []string{"sk-active"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-b": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(active) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "suspended-incompatible-vectors",
+		ServiceType:  "openai",
+		BaseURL:      suspendedServer.URL,
+		APIKeys:      []string{"sk-suspended"},
+		Priority:     1,
+		Status:       "suspended",
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(suspended) error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"embed-public","input":"hello"}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if got := atomic.LoadInt32(&suspendedAttempts); got != 0 {
+		t.Fatalf("suspended attempts = %d, want 0", got)
+	}
+	if got := atomic.LoadInt32(&activeAttempts); got != 1 {
+		t.Fatalf("active attempts = %d, want 1", got)
+	}
+}
+
+func TestHandlerIgnoresChannelWithoutKeysAsEmbeddingCompatibilityAnchor(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var noKeyAttempts int32
+	noKeyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&noKeyAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[9.9],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer noKeyServer.Close()
+
+	var activeAttempts int32
+	activeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&activeAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.7],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer activeServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "active-keyed-vectors",
+		ServiceType:  "openai",
+		BaseURL:      activeServer.URL,
+		APIKeys:      []string{"sk-active"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-b": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(active) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "no-key-incompatible-vectors",
+		ServiceType:  "openai",
+		BaseURL:      noKeyServer.URL,
+		APIKeys:      nil,
+		Priority:     1,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(no-key) error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"embed-public","input":"hello"}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if got := atomic.LoadInt32(&noKeyAttempts); got != 0 {
+		t.Fatalf("no-key attempts = %d, want 0", got)
+	}
+	if got := atomic.LoadInt32(&activeAttempts); got != 1 {
+		t.Fatalf("active attempts = %d, want 1", got)
+	}
+}
+
+func TestHandlerIgnoresCooldownChannelAsEmbeddingCompatibilityAnchor(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var cooldownAttempts int32
+	cooldownServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&cooldownAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[9.9],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer cooldownServer.Close()
+
+	var activeAttempts int32
+	activeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&activeAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.8],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer activeServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "active-cooldown-fallback-vectors",
+		ServiceType:  "openai",
+		BaseURL:      activeServer.URL,
+		APIKeys:      []string{"sk-active"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-b": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(active) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "cooldown-incompatible-vectors",
+		ServiceType:  "openai",
+		BaseURL:      cooldownServer.URL,
+		APIKeys:      []string{"sk-cooldown"},
+		Priority:     1,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(cooldown) error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	sch.SetRateLimitManager(ratelimit.NewManager())
+	sch.MarkChannelCooldown(scheduler.ChannelKindVectors, 0, time.Minute)
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"embed-public","input":"hello"}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if got := atomic.LoadInt32(&cooldownAttempts); got != 0 {
+		t.Fatalf("cooldown attempts = %d, want 0", got)
+	}
+	if got := atomic.LoadInt32(&activeAttempts); got != 1 {
+		t.Fatalf("active attempts = %d, want 1", got)
+	}
+}
+
+func TestHandlerFiltersEmbeddingChannelsByRequestedDimensions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var unsupportedAttempts int32
+	unsupportedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&unsupportedAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer unsupportedServer.Close()
+
+	var supportedAttempts int32
+	supportedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&supportedAttempts, 1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.4],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer supportedServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "supported-dimensions",
+		ServiceType:  "openai",
+		BaseURL:      supportedServer.URL,
+		APIKeys:      []string{"sk-supported"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-b": {
+				EmbeddingSpaceID:    "shared-space",
+				Dimensions:          1536,
+				SupportedDimensions: []int{1024, 1536},
+				Normalized:          boolPtr(true),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(supported) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "unsupported-dimensions",
+		ServiceType:  "openai",
+		BaseURL:      unsupportedServer.URL,
+		APIKeys:      []string{"sk-unsupported"},
+		Priority:     1,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {
+				EmbeddingSpaceID:    "shared-space",
+				Dimensions:          1536,
+				SupportedDimensions: []int{1536},
+				Normalized:          boolPtr(true),
+			},
+		},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream(unsupported) error = %v", err)
+	}
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"embed-public","input":"hello","dimensions":1024}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if got := atomic.LoadInt32(&unsupportedAttempts); got != 0 {
+		t.Fatalf("unsupported attempts = %d, want 0", got)
+	}
+	if got := atomic.LoadInt32(&supportedAttempts); got != 1 {
+		t.Fatalf("supported attempts = %d, want 1", got)
+	}
+}
+
+func TestHandlerRejectsInvalidEmbeddingDimensions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	for _, body := range []string{
+		`{"model":"embed-public","input":"hello","dimensions":0}`,
+		`{"model":"embed-public","input":"hello","dimensions":-1}`,
+		`{"model":"embed-public","input":"hello","dimensions":1.5}`,
+		`{"model":"embed-public","input":"hello","dimensions":"1024"}`,
+	} {
+		w := serveVectorsEmbeddingRequest(cfgManager, sch, body)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("body %s: expected 400, got %d, response=%s", body, w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestHandlerEmbeddingCompatibilityCannotBeBypassedByPinPromotionOrTraceAffinity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		configure  func(*testing.T, *config.ConfigManager, *scheduler.ChannelScheduler)
+		headers    map[string]string
+		body       string
+		wantStatus int
+		wantGood   int32
+		wantBad    int32
+	}{
+		{
+			name: "x channel pin",
+			headers: map[string]string{
+				"X-Channel": "incompatible-vectors",
+			},
+			body:       `{"model":"embed-public","input":"hello"}`,
+			wantStatus: http.StatusServiceUnavailable,
+			wantGood:   0,
+			wantBad:    0,
+		},
+		{
+			name: "promotion",
+			configure: func(t *testing.T, cfgManager *config.ConfigManager, _ *scheduler.ChannelScheduler) {
+				t.Helper()
+				if err := cfgManager.SetVectorsChannelPromotion(1, 5*time.Minute); err != nil {
+					t.Fatalf("SetVectorsChannelPromotion() error = %v", err)
+				}
+			},
+			body:       `{"model":"embed-public","input":"hello"}`,
+			wantStatus: http.StatusOK,
+			wantGood:   1,
+			wantBad:    0,
+		},
+		{
+			name: "trace affinity",
+			configure: func(t *testing.T, _ *config.ConfigManager, sch *scheduler.ChannelScheduler) {
+				t.Helper()
+				sch.SetTraceAffinity("compat-user", 1, scheduler.ChannelKindVectors)
+			},
+			body:       `{"model":"embed-public","input":"hello","user":"compat-user"}`,
+			wantStatus: http.StatusOK,
+			wantGood:   1,
+			wantBad:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfgManager := newVectorsTestConfigManager(t)
+			defer cfgManager.Close()
+
+			var badAttempts int32
+			badServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&badAttempts, 1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[9.9],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+			}))
+			defer badServer.Close()
+
+			var goodAttempts int32
+			goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&goodAttempts, 1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.5],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+			}))
+			defer goodServer.Close()
+
+			if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+				Name:         "incompatible-vectors",
+				ServiceType:  "openai",
+				BaseURL:      badServer.URL,
+				APIKeys:      []string{"sk-bad-space"},
+				Priority:     2,
+				ModelMapping: map[string]string{"embed-public": "embedding-model-b"},
+				EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+					"embedding-model-b": {Dimensions: 1536, Normalized: boolPtr(true)},
+				},
+			}); err != nil {
+				t.Fatalf("AddVectorsUpstream(incompatible) error = %v", err)
+			}
+			if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+				Name:         "compatible-vectors",
+				ServiceType:  "openai",
+				BaseURL:      goodServer.URL,
+				APIKeys:      []string{"sk-good-space"},
+				Priority:     1,
+				ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+				EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+					"embedding-model-a": {Dimensions: 1536, Normalized: boolPtr(true)},
+				},
+			}); err != nil {
+				t.Fatalf("AddVectorsUpstream(compatible) error = %v", err)
+			}
+
+			sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+			if tt.configure != nil {
+				tt.configure(t, cfgManager, sch)
+			}
+
+			w := serveVectorsEmbeddingRequestWithHeaders(cfgManager, sch, tt.body, tt.headers)
+			if w.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d, body=%s", tt.wantStatus, w.Code, w.Body.String())
+			}
+			if got := atomic.LoadInt32(&goodAttempts); got != tt.wantGood {
+				t.Fatalf("compatible attempts = %d, want %d", got, tt.wantGood)
+			}
+			if got := atomic.LoadInt32(&badAttempts); got != tt.wantBad {
+				t.Fatalf("incompatible attempts = %d, want %d", got, tt.wantBad)
+			}
+		})
 	}
 }
 
@@ -717,4 +1260,217 @@ func TestGetChannelModelsFailureLogDoesNotLeakTemporaryBaseURL(t *testing.T) {
 			t.Fatalf("model probe log leaked %q: %s", leaked, logText)
 		}
 	}
+}
+
+func BenchmarkEmbeddingCompatibilityFilter(b *testing.B) {
+	b.Run("all_available_same_space_64", func(b *testing.B) {
+		benchmarkEmbeddingCompatibilityFilter(b, 64, false, false)
+	})
+
+	b.Run("all_available_same_space_256", func(b *testing.B) {
+		benchmarkEmbeddingCompatibilityFilter(b, 256, false, false)
+	})
+
+	b.Run("mixed_spaces_256", func(b *testing.B) {
+		benchmarkEmbeddingCompatibilityFilter(b, 256, true, false)
+	})
+
+	b.Run("mixed_spaces_with_unavailable_256", func(b *testing.B) {
+		benchmarkEmbeddingCompatibilityFilter(b, 256, true, true)
+	})
+}
+
+func benchmarkEmbeddingCompatibilityFilter(b *testing.B, channelCount int, mixedSpaces bool, withUnavailable bool) {
+	b.Helper()
+	channels, upstreamFor, available := makeEmbeddingCompatibilityBenchmarkInputs(channelCount, mixedSpaces, withUnavailable)
+	filter := newEmbeddingCompatibilityFilter(nil, "embed-public", 1536)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		candidates, err := filter(channels, upstreamFor, available)
+		if err != nil {
+			b.Fatalf("newEmbeddingCompatibilityFilter() unexpected err = %v", err)
+		}
+		if len(candidates) == 0 {
+			b.Fatalf("expected at least one candidate")
+		}
+	}
+}
+
+func makeEmbeddingCompatibilityBenchmarkInputs(
+	channelCount int,
+	mixedSpaces bool,
+	withUnavailable bool,
+) ([]scheduler.ChannelInfo, func(scheduler.ChannelInfo) *config.UpstreamConfig, func(scheduler.ChannelInfo, *config.UpstreamConfig) bool) {
+	channels := make([]scheduler.ChannelInfo, 0, channelCount)
+	upstreamByIndex := make(map[int]*config.UpstreamConfig, channelCount)
+	for i := 0; i < channelCount; i++ {
+		status := "active"
+		if withUnavailable && i%7 == 0 {
+			status = "suspended"
+		}
+
+		actualModel := "embedding-model-shared"
+		spaceID := "shared-space"
+		if mixedSpaces {
+			actualModel = "embedding-model-" + strconv.Itoa(i%16)
+			spaceID = "space-" + strconv.Itoa(i%32)
+			if i%3 == 0 {
+				spaceID = "shared-space"
+			}
+		}
+
+		upstream := &config.UpstreamConfig{
+			Name:         "vectors-benchmark-" + strconv.Itoa(i),
+			ServiceType:  "openai",
+			BaseURL:      "https://example.com/v" + strconv.Itoa(i),
+			APIKeys:      []string{"sk-bench-" + strconv.Itoa(i)},
+			Priority:     i + 1,
+			Status:       status,
+			ModelMapping: map[string]string{"embed-public": actualModel},
+			EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+				actualModel: {
+					EmbeddingSpaceID: spaceID,
+					Dimensions:      1536,
+					Normalized:      boolPtr(true),
+				},
+			},
+		}
+		upstreamByIndex[i] = upstream
+		channels = append(channels, scheduler.ChannelInfo{
+			Index:    i,
+			Name:     upstream.Name,
+			Status:   status,
+			Priority: i,
+		})
+	}
+
+	return channels,
+		func(ch scheduler.ChannelInfo) *config.UpstreamConfig {
+			return upstreamByIndex[ch.Index]
+		},
+		func(ch scheduler.ChannelInfo, upstream *config.UpstreamConfig) bool {
+			return ch.Status == "active" && upstream != nil && len(upstream.APIKeys) > 0
+		}
+}
+
+func BenchmarkHandlerVectorsEmbeddingPipeline(b *testing.B) {
+	b.Run("single_channel_success", func(b *testing.B) {
+		benchmarkHandlerVectorsEmbeddingPipeline(b, false)
+	})
+
+	b.Run("four_channel_strict_compatibility", func(b *testing.B) {
+		benchmarkHandlerVectorsEmbeddingPipeline(b, true)
+	})
+}
+
+func benchmarkHandlerVectorsEmbeddingPipeline(b *testing.B, withFallback bool) {
+	b.Helper()
+	gin.SetMode(gin.TestMode)
+
+	cfgManager := newVectorsTestConfigManagerFromBench(b)
+	defer cfgManager.Close()
+
+	activeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if withFallback {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":{"message":"primary temporary failure"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.4],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer activeServer.Close()
+
+	fallbackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"object":"embedding","embedding":[0.4],"index":0}],"usage":{"prompt_tokens":1,"total_tokens":1}}`))
+	}))
+	defer fallbackServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "primary",
+		ServiceType:  "openai",
+		BaseURL:      activeServer.URL,
+		APIKeys:      []string{"sk-bench-primary"},
+		Priority:     1,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {EmbeddingSpaceID: "shared-space", Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		b.Fatalf("AddVectorsUpstream(primary) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "secondary",
+		ServiceType:  "openai",
+		BaseURL:      fallbackServer.URL,
+		APIKeys:      []string{"sk-bench-secondary"},
+		Priority:     2,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {EmbeddingSpaceID: "shared-space", Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		b.Fatalf("AddVectorsUpstream(secondary) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "tertiary",
+		ServiceType:  "openai",
+		BaseURL:      fallbackServer.URL,
+		APIKeys:      []string{"sk-bench-tertiary"},
+		Priority:     3,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {EmbeddingSpaceID: "shared-space", Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		b.Fatalf("AddVectorsUpstream(tertiary) error = %v", err)
+	}
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:         "fallback-extra",
+		ServiceType:  "openai",
+		BaseURL:      fallbackServer.URL,
+		APIKeys:      []string{"sk-bench-extra"},
+		Priority:     4,
+		ModelMapping: map[string]string{"embed-public": "embedding-model-a"},
+		EmbeddingCapabilities: map[string]config.EmbeddingCapability{
+			"embedding-model-a": {EmbeddingSpaceID: "shared-space", Dimensions: 1536, Normalized: boolPtr(true)},
+		},
+	}); err != nil {
+		b.Fatalf("AddVectorsUpstream(fallback-extra) error = %v", err)
+	}
+
+	r := gin.New()
+	r.POST("/v1/embeddings", Handler(newVectorsTestEnvConfig(), cfgManager, newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())))
+
+	body := []byte(`{"model":"embed-public","input":"hello benchmark embedding payload","dimensions":1536}`)
+
+	b.SetBytes(int64(len(body)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-proxy-key")
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			b.Fatalf("expected 200, got %d, body=%s", w.Code, w.Body.String())
+		}
+	}
+}
+
+func newVectorsTestConfigManagerFromBench(b *testing.B) *config.ConfigManager {
+	b.Helper()
+	cfgFile := filepath.Join(b.TempDir(), "config.json")
+	if err := os.WriteFile(cfgFile, []byte(`{"upstream":[],"vectorsUpstream":[]}`), 0o600); err != nil {
+		b.Fatalf("write config: %v", err)
+	}
+	cfgManager, err := config.NewConfigManager(cfgFile, "")
+	if err != nil {
+		b.Fatalf("config manager: %v", err)
+	}
+	return cfgManager
 }

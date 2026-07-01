@@ -142,6 +142,19 @@ func (s *ChannelScheduler) SelectChannelWithOptions(ctx context.Context, opts Se
 	if err != nil {
 		return nil, err
 	}
+	if opts.CandidateFilter != nil {
+		activeChannels, err = opts.CandidateFilter(activeChannels, func(ch ChannelInfo) *config.UpstreamConfig {
+			return s.getUpstreamByIndex(ch.Index, kind)
+		}, func(ch ChannelInfo, upstream *config.UpstreamConfig) bool {
+			return s.channelAvailableForCandidateFilter(ch, upstream, kind)
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(activeChannels) == 0 {
+			return nil, fmt.Errorf("没有可用的 %s 渠道满足候选过滤条件", kindDisplayName(kind))
+		}
+	}
 
 	// 指定渠道名（X-Channel 头）：在模型、路由前缀与上下文过滤后直接定位。
 	if channelName != "" {
@@ -313,6 +326,16 @@ func (s *ChannelScheduler) SelectChannelWithOptions(ctx context.Context, opts Se
 
 	// 3. 所有健康渠道都失败，选择失败率最低的作为降级
 	return s.selectFallbackChannel(activeChannels, failedChannels, kind)
+}
+
+func (s *ChannelScheduler) channelAvailableForCandidateFilter(ch ChannelInfo, upstream *config.UpstreamConfig, kind ChannelKind) bool {
+	if ch.Status != "active" || upstream == nil || len(upstream.APIKeys) == 0 {
+		return false
+	}
+	if s.channelInRuntimeCooldown(kind, ch.Index) {
+		return false
+	}
+	return s.channelCircuitState(upstream, kind) != metrics.CircuitStateOpen
 }
 
 func (s *ChannelScheduler) channelCircuitState(upstream *config.UpstreamConfig, kind ChannelKind) metrics.CircuitState {

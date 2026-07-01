@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func Handler(
 		}
 		c.Set("requestBodyBytes", bodyBytes)
 
-		_, model, ok := parseEmbeddingsRequest(c, bodyBytes)
+		_, model, dimensions, ok := parseEmbeddingsRequest(c, bodyBytes)
 		if !ok {
 			return
 		}
@@ -55,39 +56,62 @@ func Handler(
 		common.SetRequestLogContextWithAgent(c, userID, 0, agentCtx)
 		common.LogOriginalRequest(c, bodyBytes, envCfg, "Vectors")
 
-		handleVectorsFailover(c, envCfg, cfgManager, channelScheduler, bodyBytes, model, userID, startTime)
+		handleVectorsFailover(c, envCfg, cfgManager, channelScheduler, bodyBytes, model, dimensions, userID, startTime)
 	})
 }
 
-func parseEmbeddingsRequest(c *gin.Context, bodyBytes []byte) (map[string]interface{}, string, bool) {
+func parseEmbeddingsRequest(c *gin.Context, bodyBytes []byte) (map[string]interface{}, string, int, bool) {
 	var reqMap map[string]interface{}
 	if len(bodyBytes) == 0 {
 		vectorsErrorResponse(c, http.StatusBadRequest, "request body is required", "invalid_request_error", "missing_body")
-		return nil, "", false
+		return nil, "", 0, false
 	}
 	decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
 	decoder.UseNumber()
 	if err := decoder.Decode(&reqMap); err != nil {
 		vectorsErrorResponse(c, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err), "invalid_request_error", "invalid_json")
-		return nil, "", false
+		return nil, "", 0, false
 	}
 	if reqMap == nil {
 		vectorsErrorResponse(c, http.StatusBadRequest, "request body must be a JSON object", "invalid_request_error", "invalid_json")
-		return nil, "", false
+		return nil, "", 0, false
 	}
 
 	model, _ := reqMap["model"].(string)
 	model = strings.TrimSpace(model)
 	if model == "" {
 		vectorsErrorResponse(c, http.StatusBadRequest, "model is required", "invalid_request_error", "missing_parameter")
-		return nil, "", false
+		return nil, "", 0, false
 	}
 	input, exists := reqMap["input"]
 	if !exists || !validEmbeddingsInput(input) {
 		vectorsErrorResponse(c, http.StatusBadRequest, "input is required", "invalid_request_error", "missing_parameter")
-		return nil, "", false
+		return nil, "", 0, false
 	}
-	return reqMap, model, true
+	dimensions, ok := parseEmbeddingsDimensions(c, reqMap)
+	if !ok {
+		return nil, "", 0, false
+	}
+	return reqMap, model, dimensions, true
+}
+
+func parseEmbeddingsDimensions(c *gin.Context, reqMap map[string]interface{}) (int, bool) {
+	raw, exists := reqMap["dimensions"]
+	if !exists || raw == nil {
+		return 0, true
+	}
+	number, ok := raw.(json.Number)
+	if !ok {
+		vectorsErrorResponse(c, http.StatusBadRequest, "dimensions must be a positive integer", "invalid_request_error", "invalid_parameter")
+		return 0, false
+	}
+	value, err := number.Int64()
+	maxInt := int64(^uint(0) >> 1)
+	if err != nil || value <= 0 || value > maxInt || strconv.FormatInt(value, 10) != number.String() {
+		vectorsErrorResponse(c, http.StatusBadRequest, "dimensions must be a positive integer", "invalid_request_error", "invalid_parameter")
+		return 0, false
+	}
+	return int(value), true
 }
 
 func validEmbeddingsInput(input interface{}) bool {
@@ -110,6 +134,7 @@ func handleVectorsFailover(
 	channelScheduler *scheduler.ChannelScheduler,
 	bodyBytes []byte,
 	model string,
+	dimensions int,
 	userID string,
 	startTime time.Time,
 ) {
@@ -118,7 +143,7 @@ func handleVectorsFailover(
 	if ac := common.AgentContextFromGin(c); ac != nil {
 		agentRole = ac.AgentRole
 	}
-	common.HandleMultiChannelFailover(
+	common.HandleMultiChannelFailoverWithSelectionFilter(
 		c,
 		envCfg,
 		channelScheduler,
@@ -126,7 +151,9 @@ func handleVectorsFailover(
 		"Vectors",
 		userID,
 		model,
+		nil,
 		agentRole,
+		newEmbeddingCompatibilityFilter(c, model, dimensions),
 		func(selection *scheduler.SelectionResult) common.MultiChannelAttemptResult {
 			upstream := selection.Upstream
 			channelIndex := selection.ChannelIndex

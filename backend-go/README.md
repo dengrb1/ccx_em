@@ -178,6 +178,8 @@ Images 与 Vectors 当前没有对应的 capability-test / snapshot 路由。
 - 通过 `/api/{type}/channels/:id/models` 由后端代理查询上游模型列表
 - `supportedModels` 支持空列表、精确匹配与通配符规则
 - 调度时会自动跳过不支持当前模型的渠道
+- Vectors 的 `supportedModels` 匹配客户端请求的原始模型名；Embedding 兼容性在 `modelMapping` 后按实际上游模型判断
+- Vectors 如需安全 fallback，应为兼容的实际 Embedding 模型配置相同 `embeddingSpaceId`、维度和 `normalized` 语义；未配置 `embeddingCapabilities` 的旧配置保持原有行为
 
 ### Promotion / Resume
 

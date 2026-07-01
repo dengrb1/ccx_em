@@ -109,9 +109,11 @@ Client
 - 模型过滤规则
 - 上下文窗口与最大输出能力
 
-实际选路顺序为：基础可用性过滤 > 模型过滤 > 路由前缀过滤 > 上下文能力过滤 > 手动排序 > Promotion 渠道 > Trace 亲和 > 普通 priority 顺序。Trace 亲和会让位给更高优先级且健康的候选渠道，因此普通置顶 / reorder 会把低优先级亲和流量迁移到置顶渠道；Promotion 则是临时强制优先，会在首次选择时绕过健康检查尝试促销渠道。
+实际选路顺序为：基础可用性过滤 > 模型过滤 > 路由前缀过滤 > 上下文能力过滤 > Vectors Embedding 兼容性过滤 > 手动排序 > Promotion 渠道 > Trace 亲和 > 普通 priority 顺序。Trace 亲和会让位给更高优先级且健康的候选渠道，因此普通置顶 / reorder 会把低优先级亲和流量迁移到置顶渠道；Promotion 则是临时强制优先，会在首次选择时绕过健康检查尝试促销渠道。
 
 失败场景下会执行故障转移，并结合熔断状态和定时恢复逻辑控制重试范围。
+
+Vectors 的 `/v1/embeddings` 在存在 `embeddingCapabilities` 元数据时会启用严格兼容过滤：候选渠道先按客户端原始 `model` 命中 `supportedModels`，再按各渠道 `modelMapping` 后的实际上游模型解析 Embedding 兼容元数据。fallback 只会在相同 `embeddingSpaceId`（未配置时使用实际模型名）、有效维度和归一化语义的候选之间发生；被过滤掉的候选不会发送上游请求，也不会计入失败或熔断指标。完全没有 Embedding 元数据的旧配置继续保持原有调度行为。
 
 ### 上下文路由
 
