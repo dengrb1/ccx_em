@@ -119,6 +119,7 @@
   "subscription.addingCopilotAccount": "正在加入账号到所选渠道...",
   "subscription.authorizeCopilot": "授权 GitHub Copilot",
   "subscription.authorizeAndAddAccount": "授权并加入新账号",
+  "subscription.addExistingAccount": "加入已授权账号",
   "subscription.copilotAuthorizationSavedOnly": "已获授权；当前未检测到 {target} 渠道，点击下方按钮即可添加。",
   "subscription.retryAddAccount": "重试加入账号",
   "subscription.accountsTitle": "{target} 已授权账号（{count}）",
