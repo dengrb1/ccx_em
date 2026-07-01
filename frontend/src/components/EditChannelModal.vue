@@ -520,7 +520,7 @@ const modelMappingHint = computed(() => {
     return t('addChannel.modelMappingHintChat')
   }
   if (props.channelType === 'vectors') {
-    return t('addChannel.modelMappingHintChat')
+    return t('addChannel.modelMappingHintVectors')
   }
   if (props.channelType === 'gemini') {
     return t('addChannel.modelMappingHintGemini')
@@ -540,7 +540,7 @@ const targetModelPlaceholder = computed(() => {
     return t('addChannel.targetModelPlaceholderChat')
   }
   if (props.channelType === 'vectors') {
-    return 'e.g. text-embedding-3-small'
+    return t('addChannel.targetModelPlaceholderVectors')
   }
   if (props.channelType === 'responses') {
     return t('addChannel.targetModelPlaceholderResponses')
