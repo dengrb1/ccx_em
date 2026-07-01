@@ -40,8 +40,11 @@ func AddUpstream(cfgManager *config.ConfigManager) gin.HandlerFunc {
 		}
 		if err := cfgManager.AddVectorsUpstream(upstream); err != nil {
 			status := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "仅支持 openai serviceType") || strings.Contains(err.Error(), "已存在") {
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "仅支持 openai serviceType") {
 				status = http.StatusBadRequest
+			} else if strings.Contains(errMsg, "已存在") {
+				status = http.StatusConflict
 			}
 			c.JSON(status, gin.H{"error": err.Error()})
 			return
@@ -321,7 +324,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 
 		if strings.TrimSpace(req.BaseURL) != "" {
 			if err := utils.ValidateBaseURL(req.BaseURL); err != nil {
-				log.Printf("[Vectors-Models] SSRF guard blocked baseUrl: %v", err)
+				log.Printf("[Vectors-Models] SSRF guard blocked baseUrl: caller=%s baseUrl=%s error=%v", c.ClientIP(), req.BaseURL, err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid baseUrl: %v", err)})
 				return
 			}

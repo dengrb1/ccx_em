@@ -417,3 +417,33 @@ func TestAddUpstreamRejectsUnsupportedServiceType(t *testing.T) {
 		t.Fatalf("unexpected body: %s", w.Body.String())
 	}
 }
+
+func TestAddUpstreamReturnsConflictForDuplicateName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:        "dup-vectors",
+		ServiceType: "openai",
+		BaseURL:     "https://example.com",
+		APIKeys:     []string{"sk-existing"},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream() error = %v", err)
+	}
+
+	r := gin.New()
+	r.POST("/api/vectors/channels", AddUpstream(cfgManager))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/vectors/channels", strings.NewReader(`{"name":"dup-vectors","serviceType":"openai","baseUrl":"https://example.org","apiKeys":["sk-new"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "已存在") {
+		t.Fatalf("unexpected body: %s", w.Body.String())
+	}
+}
