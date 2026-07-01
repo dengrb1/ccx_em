@@ -4,7 +4,8 @@ import {
   extractChannelNamePrefix,
   filterValidSupportedModelPatterns,
   isValidSupportedModelPattern,
-  parseSupportedModelInput
+  parseSupportedModelInput,
+  syncBaseUrlsFormState
 } from './channel-dialog-state'
 
 describe('extractChannelNamePrefix', () => {
@@ -29,6 +30,15 @@ describe('extractChannelNamePrefix', () => {
   it('无效 URL 应回退到通用前缀', () => {
     expect(extractChannelNamePrefix('not a url')).toBe('channel')
     expect(extractChannelNamePrefix('')).toBe('channel')
+  })
+})
+
+describe('syncBaseUrlsFormState', () => {
+  it('Copilot Base URL 不应因空版本前缀被清空', () => {
+    expect(syncBaseUrlsFormState('https://api.githubcopilot.com', 'copilot')).toEqual({
+      baseUrl: 'https://api.githubcopilot.com',
+      baseUrls: [],
+    })
   })
 })
 
