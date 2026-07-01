@@ -1,8 +1,10 @@
 package vectors
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -445,5 +447,59 @@ func TestAddUpstreamReturnsConflictForDuplicateName(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "已存在") {
 		t.Fatalf("unexpected body: %s", w.Body.String())
+	}
+}
+
+func TestGetChannelModelsSSRFLogDoesNotLeakRequestSecrets(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	var logs bytes.Buffer
+	origWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() {
+		log.SetOutput(origWriter)
+	})
+
+	r := gin.New()
+	r.POST("/api/vectors/channels/:id/models", GetChannelModels(cfgManager))
+
+	const sensitiveBaseURL = "http://user:sk-secret-in-url@169.254.169.254/latest/meta-data?api_key=sk-secret-in-query"
+	body, err := json.Marshal(GetModelsRequest{
+		Key:     "sk-request-key-do-not-log",
+		BaseURL: sensitiveBaseURL,
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/vectors/channels/0/models", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer sk-auth-header-do-not-log")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d, body=%s", w.Code, w.Body.String())
+	}
+
+	logText := logs.String()
+	if !strings.Contains(logText, "SSRF guard blocked") {
+		t.Fatalf("expected SSRF log, got: %s", logText)
+	}
+	if !strings.Contains(logText, "caller=") {
+		t.Fatalf("expected caller in SSRF log, got: %s", logText)
+	}
+	for _, leaked := range []string{
+		sensitiveBaseURL,
+		"sk-secret-in-url",
+		"sk-secret-in-query",
+		"sk-request-key-do-not-log",
+		"sk-auth-header-do-not-log",
+	} {
+		if strings.Contains(logText, leaked) {
+			t.Fatalf("SSRF log leaked %q: %s", leaked, logText)
+		}
 	}
 }

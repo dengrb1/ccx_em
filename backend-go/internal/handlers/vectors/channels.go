@@ -324,7 +324,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 
 		if strings.TrimSpace(req.BaseURL) != "" {
 			if err := utils.ValidateBaseURL(req.BaseURL); err != nil {
-				log.Printf("[Vectors-Models] SSRF guard blocked baseUrl: caller=%s baseUrl=%s error=%v", c.ClientIP(), req.BaseURL, err)
+				log.Printf("[Vectors-Models] SSRF guard blocked baseUrl: caller=%s error=%v", c.ClientIP(), err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid baseUrl: %v", err)})
 				return
 			}
