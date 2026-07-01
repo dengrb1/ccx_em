@@ -1269,7 +1269,7 @@ const sourceModelPresetOptions = computed(() => {
     return ['gpt-image-2', 'gpt-image-1', 'dall-e-3', 'dall-e-2']
   }
   if (props.channelType === 'vectors') {
-    return ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']
+    return []
   }
   if (props.channelType === 'gemini') {
     return ['gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2']

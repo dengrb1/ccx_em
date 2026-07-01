@@ -105,6 +105,8 @@ CORS_ORIGIN=*                          # CORS 允许的源
 | `imagesUpstream` | OpenAI Images 渠道 |
 | `vectorsUpstream` | OpenAI 兼容 Embeddings 渠道，`serviceType` 固定为 `openai` |
 
+Vectors 渠道不内置默认模型候选。模型名以你的上游 Embeddings 服务为准：可以在配置界面填写 Base URL 和 API Key 后从 `/models` 拉取，也可以手动输入，并可通过 Vectors 渠道的模型映射把客户端请求中的 `model` 改写到实际上游模型。
+
 运行时配置文件中的 `circuitBreaker` 还支持流式健康检测字段：
 
 | 字段 | 默认值 | 范围 | 说明 |

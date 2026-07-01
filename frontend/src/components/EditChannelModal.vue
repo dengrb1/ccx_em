@@ -459,11 +459,7 @@ const allSourceModelOptions = computed(() => {
     ]
   }
   if (props.channelType === 'vectors') {
-    return [
-      { title: 'text-embedding-3-small', value: 'text-embedding-3-small' },
-      { title: 'text-embedding-3-large', value: 'text-embedding-3-large' },
-      { title: 'text-embedding-ada-002', value: 'text-embedding-ada-002' }
-    ]
+    return []
   }
   if (props.channelType === 'gemini') {
     // Gemini API 常用模型别名

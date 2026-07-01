@@ -100,6 +100,8 @@ Runtime channel configuration is grouped by channel type:
 | `imagesUpstream` | OpenAI Images channels |
 | `vectorsUpstream` | OpenAI-compatible Embeddings channels; `serviceType` is fixed to `openai` |
 
+Vectors channels do not include built-in default model candidates. Model names should come from your upstream Embeddings service: enter the Base URL and API key in the configuration UI to load `/models`, or type the model manually. Vectors model mapping can also redirect the client-provided `model` to the actual upstream model.
+
 The runtime config file also supports stream health fields under `circuitBreaker`:
 
 | Field | Default | Range | Description |
