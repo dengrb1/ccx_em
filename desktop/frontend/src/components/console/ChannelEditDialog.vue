@@ -526,7 +526,15 @@ const generatedChannelName = computed(() => {
   return `${prefix}-${randomSuffix.value}`
 })
 
+function isFixedOpenAIChannel() {
+  return props.channelType === 'images' || props.channelType === 'vectors'
+}
+
 watch(detectedServiceType, (serviceType) => {
+  if (isFixedOpenAIChannel()) {
+    form.serviceType = 'openai'
+    return
+  }
   if (isEditMode.value || quickServiceTypeTouched.value || !serviceType) return
   form.serviceType = serviceType
 })
@@ -614,7 +622,7 @@ function defaultServiceTypeForChannel() {
 function populateFromChannel(ch: Channel) {
   form.name = ch.name || ''
   form.description = ch.description || ''
-  form.serviceType = ch.serviceType || defaultServiceTypeForChannel()
+  form.serviceType = isFixedOpenAIChannel() ? 'openai' : (ch.serviceType || defaultServiceTypeForChannel())
   form.authHeader = ch.authHeader || 'auto'
   // baseUrls 多 URL 时已包含主 URL；否则回退单个 baseUrl。form.baseUrl 由 watch 派生
   form.baseUrlsText = (ch.baseUrls?.length ? ch.baseUrls : [ch.baseUrl].filter(Boolean)).join('\n')
@@ -780,7 +788,11 @@ function handleQuickPaste(text: string) {
   if (result.detectedApiKeys.length) {
     existingApiKeys.value = [...new Set([...existingApiKeys.value, ...result.detectedApiKeys])]
   }
-  if (result.detectedServiceType && !quickServiceTypeTouched.value) form.serviceType = result.detectedServiceType
+  if (isFixedOpenAIChannel()) {
+    form.serviceType = 'openai'
+  } else if (result.detectedServiceType && !quickServiceTypeTouched.value) {
+    form.serviceType = result.detectedServiceType
+  }
   if (!form.serviceType) form.serviceType = defaultServiceTypeForChannel()
 }
 
@@ -1114,6 +1126,7 @@ const serviceTypeOptions = computed(() => {
     : props.channelType === 'gemini' ? 'gemini'
     : 'openai'
   if (props.channelType === 'images') return [{ label: 'OpenAI Images', value: 'openai' }]
+  if (props.channelType === 'vectors') return [{ label: 'OpenAI Embeddings', value: 'openai' }]
   const primary = all.find(o => o.value === first)
   const rest = all.filter(o => o.value !== first)
   return primary ? [primary, ...rest] : all
@@ -1135,13 +1148,16 @@ const headerServiceTypeItems = computed(() => {
   )
 })
 
-const supportsOpenAIAdvanced = computed(() => supportsAdvancedChannelOptions(form.serviceType))
-const supportsOpenAIAdvancedOptions = computed(() => supportsAdvancedChannelOptions(form.serviceType))
-const supportsReasoningMappingOptions = computed(() => supportsReasoningMapping(form.serviceType))
+const supportsOpenAIAdvanced = computed(() => props.channelType !== 'vectors' && supportsAdvancedChannelOptions(form.serviceType))
+const supportsOpenAIAdvancedOptions = computed(() => props.channelType !== 'vectors' && supportsAdvancedChannelOptions(form.serviceType))
+const supportsReasoningMappingOptions = computed(() => props.channelType !== 'vectors' && supportsReasoningMapping(form.serviceType))
 const supportsChatRoleNormalization = computed(() => {
   return props.channelType === 'chat' || (props.channelType === 'responses' && form.serviceType === 'openai')
 })
 const modelMappingHint = computed(() => {
+  if (props.channelType === 'vectors') {
+    return t('addChannel.modelMappingHintVectors')
+  }
   if (props.channelType === 'chat' || props.channelType === 'images') {
     return t('addChannel.modelMappingHintChat')
   }
@@ -1154,6 +1170,9 @@ const modelMappingHint = computed(() => {
   return t('addChannel.modelMappingHintMessages')
 })
 const targetModelPlaceholder = computed(() => {
+  if (props.channelType === 'vectors') {
+    return t('addChannel.targetModelPlaceholderVectors')
+  }
   if (props.channelType === 'chat' || props.channelType === 'images') {
     return t('addChannel.targetModelPlaceholderChat')
   }
@@ -1249,6 +1268,9 @@ const sourceModelPresetOptions = computed(() => {
   if (props.channelType === 'images') {
     return ['gpt-image-2', 'gpt-image-1', 'dall-e-3', 'dall-e-2']
   }
+  if (props.channelType === 'vectors') {
+    return ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']
+  }
   if (props.channelType === 'gemini') {
     return ['gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2']
   }
@@ -1279,7 +1301,7 @@ const targetModelDatalist = computed(() => {
   return sortModelNamesDesc(Array.from(byLowercaseModel.values()))
 })
 
-const commonSupportedModelFilters = ['claude-*', 'gpt-5*', 'gpt-image-2', 'grok-4*', 'gemini-3*', '!*image*']
+const commonSupportedModelFilters = ['claude-*', 'gpt-5*', 'text-embedding-3*', 'gpt-image-2', 'grok-4*', 'gemini-3*', '!*image*']
 const normalizedSupportedModelState = computed(() => {
   const parsedPatterns = parseSupportedModelInput(form.supportedModelsText)
   return filterValidSupportedModelPatterns(parsedPatterns)
@@ -1372,11 +1394,13 @@ async function fetchTargetModels() {
   try {
     console.log('[fetchTargetModels] 开始请求 API')
     // 直接调用 API，不依赖于 persistCurrentDraft（避免表单验证失败导致无法获取模型）
-    const effectiveServiceType = props.channelType === 'images'
+    const effectiveServiceType = props.channelType === 'images' || props.channelType === 'vectors'
       ? 'openai'
       : (form.serviceType || defaultServiceTypeForChannel())
     let modelsApiType: ManagedChannelType
-    if (props.channelType === 'images') {
+    if (props.channelType === 'vectors') {
+      modelsApiType = 'vectors'
+    } else if (props.channelType === 'images') {
       modelsApiType = 'images'
     } else if (effectiveServiceType === 'gemini') {
       modelsApiType = 'gemini'
@@ -1664,7 +1688,7 @@ async function handleTestCapability() {
 }
 
 async function handleDiagnoseCompat() {
-  if (!props.channel || props.channelType === 'images') return
+  if (!props.channel || props.channelType === 'images' || props.channelType === 'vectors') return
   diagnosingCompat.value = true
   error.value = ''
   success.value = ''
@@ -1963,7 +1987,7 @@ void toggleSupportedModelFilter
                         @append-supported-model-filter="toggleSupportedModelFilter"
                       />
                       <ModelCapabilityPanel
-                        v-if="channelType !== 'images'"
+                        v-if="channelType !== 'images' && channelType !== 'vectors'"
                         class="mt-6"
                         :rows="modelCapabilityRows"
                         :target-models="targetModelDatalist"

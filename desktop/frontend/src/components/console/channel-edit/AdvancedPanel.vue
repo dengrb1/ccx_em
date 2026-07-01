@@ -151,7 +151,15 @@ function updateTextVerbosity(value: string) {
             <ShieldCheck class="h-3 w-3" />
             {{ t('channelEditor.compat.title') }}
           </div>
-          <Button type="button" variant="secondary" size="sm" class="h-6 gap-1 px-2 text-[10px]" :disabled="diagnosing" @click="$emit('diagnose')">
+          <Button
+            v-if="channelType !== 'images' && channelType !== 'vectors'"
+            type="button"
+            variant="secondary"
+            size="sm"
+            class="h-6 gap-1 px-2 text-[10px]"
+            :disabled="diagnosing"
+            @click="$emit('diagnose')"
+          >
             <Loader2 v-if="diagnosing" class="h-3 w-3 animate-spin" />
             <Stethoscope v-else class="h-3 w-3" />
             {{ t('channelEditor.compat.diagnose') }}
@@ -289,7 +297,7 @@ function updateTextVerbosity(value: string) {
             </div>
             <Switch :model-value="form.stripEmptyTextBlocks" @update:model-value="updateField('stripEmptyTextBlocks', $event)" />
           </div>
-          <div v-if="channelType !== 'images'" class="flex items-center justify-between gap-3">
+          <div v-if="channelType !== 'images' && channelType !== 'vectors'" class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1 space-y-0.5">
               <Label class="text-xs font-medium">{{ t('channelEditor.compat.historicalImageLimit.label') }}</Label>
               <p class="text-[10px] leading-4 text-muted-foreground">{{ t('channelEditor.compat.historicalImageLimit.hint') }}</p>

@@ -54,7 +54,7 @@ func shouldRetryWithNextKeyFuzzy(statusCode int, bodyBytes []byte, apiType strin
 	// 内容审核类错误（sensitive_words_detected 等）任何状态码都不应 failover
 	// 换渠道/换 Key 不会改变请求内容本身
 	if len(bodyBytes) > 0 && isContentModerationError(bodyBytes) {
-		LogWithTag(logTag, "[%s-Failover-Fuzzy] 检测到内容审核错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, truncateErrorSummary(string(bodyBytes)))
+		LogWithTag(logTag, "[%s-Failover-Fuzzy] 检测到内容审核错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, errorBodySummaryForLog(apiType, statusCode, bodyBytes))
 		return false, false
 	}
 
@@ -62,7 +62,7 @@ func shouldRetryWithNextKeyFuzzy(statusCode int, bodyBytes []byte, apiType strin
 	// 仅对 4xx 客户端错误生效，5xx 服务端错误应始终允许 failover
 	if statusCode >= 400 && statusCode < 500 && len(bodyBytes) > 0 {
 		if isNonRetryableError(bodyBytes, apiType) {
-			LogWithTag(logTag, "[%s-Failover-Fuzzy] 检测到不可重试错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, truncateErrorSummary(string(bodyBytes)))
+			LogWithTag(logTag, "[%s-Failover-Fuzzy] 检测到不可重试错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, errorBodySummaryForLog(apiType, statusCode, bodyBytes))
 			return false, false
 		}
 	}
@@ -92,14 +92,14 @@ func shouldRetryWithNextKeyNormal(statusCode int, bodyBytes []byte, apiType stri
 	// 内容审核类错误（sensitive_words_detected 等）任何状态码都不应 failover
 	// 换渠道/换 Key 不会改变请求内容本身
 	if len(bodyBytes) > 0 && isContentModerationError(bodyBytes) {
-		LogWithTag(logTag, "[%s-Failover-Debug] 检测到内容审核错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, truncateErrorSummary(string(bodyBytes)))
+		LogWithTag(logTag, "[%s-Failover-Debug] 检测到内容审核错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, errorBodySummaryForLog(apiType, statusCode, bodyBytes))
 		return false, false
 	}
 
 	// 检查是否为参数校验类不可重试错误（invalid_request 等）
 	// 仅对 4xx 客户端错误生效，5xx 服务端错误应始终允许 failover
 	if statusCode >= 400 && statusCode < 500 && len(bodyBytes) > 0 && isNonRetryableError(bodyBytes, apiType) {
-		LogWithTag(logTag, "[%s-Failover-Debug] 检测到不可重试错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, truncateErrorSummary(string(bodyBytes)))
+		LogWithTag(logTag, "[%s-Failover-Debug] 检测到不可重试错误 (statusCode=%d)，不进行 failover, body=%s", apiType, statusCode, errorBodySummaryForLog(apiType, statusCode, bodyBytes))
 		return false, false
 	}
 
@@ -115,7 +115,7 @@ func shouldRetryWithNextKeyNormal(statusCode int, bodyBytes []byte, apiType stri
 		}
 		// 否则，仍检查消息体是否包含 quota 相关关键词
 		// 这样 403 + "预扣费额度" 消息 → isQuotaRelated=true
-		LogWithTag(logTag, "[%s-Failover-Debug] 调用 classifyByErrorMessage, body=%s", apiType, string(bodyBytes))
+		LogWithTag(logTag, "[%s-Failover-Debug] 调用 classifyByErrorMessage, body=%s", apiType, errorBodySummaryForLog(apiType, statusCode, bodyBytes))
 		_, msgQuota := classifyByErrorMessageWithLogTag(bodyBytes, apiType, logTag)
 		LogWithTag(logTag, "[%s-Failover-Debug] classifyByErrorMessage 返回: msgQuota=%v", apiType, msgQuota)
 		if msgQuota {
@@ -1375,4 +1375,47 @@ func truncateErrorSummary(msg string) string {
 		return string(runes[:maxLen]) + "...(truncated)"
 	}
 	return msg
+}
+
+func errorBodySummaryForLog(apiType string, statusCode int, bodyBytes []byte) string {
+	if strings.EqualFold(apiType, "Vectors") {
+		return vectorsErrorSummaryForLog(statusCode, bodyBytes)
+	}
+	msg := strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(string(bodyBytes)), "\n", " "), "\r", " ")
+	return truncateErrorSummary(msg)
+}
+
+func vectorsErrorSummaryForLog(statusCode int, bodyBytes []byte) string {
+	parts := []string{fmt.Sprintf("status=%d", statusCode)}
+	errType, _ := extractErrorInfo(bodyBytes)
+	errCode := extractErrorCode(bodyBytes)
+	if errType != "" {
+		parts = append(parts, "type="+errType)
+	}
+	if errCode != "" && errCode != errType {
+		parts = append(parts, "code="+errCode)
+	}
+	if param := extractErrorParam(bodyBytes); param != "" {
+		parts = append(parts, "param="+param)
+	}
+	if len(parts) == 1 {
+		parts = append(parts, "body=omitted")
+	}
+	return strings.Join(parts, " ")
+}
+
+func extractErrorParam(bodyBytes []byte) string {
+	var resp map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
+		return ""
+	}
+	if errObj, ok := resp["error"].(map[string]interface{}); ok {
+		if param, ok := errObj["param"].(string); ok {
+			return strings.TrimSpace(param)
+		}
+	}
+	if param, ok := resp["param"].(string); ok {
+		return strings.TrimSpace(param)
+	}
+	return ""
 }

@@ -399,6 +399,62 @@ func TestHandlerVectors422DoesNotFailoverOrAffectBreaker(t *testing.T) {
 	}
 }
 
+func TestHandlerVectorsNonRetryableErrorDoesNotLogEmbeddingInput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfgManager := newVectorsTestConfigManager(t)
+	defer cfgManager.Close()
+
+	const sensitiveInput = "secret customer embedding text"
+	errorBody := `{"error":{"message":"embedding input ` + sensitiveInput + ` was rejected","type":"invalid_request_error","code":"invalid_request","param":"input"},"input":"` + sensitiveInput + `"}`
+	upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(errorBody))
+	}))
+	defer upstreamServer.Close()
+
+	if err := cfgManager.AddVectorsUpstream(config.UpstreamConfig{
+		Name:        "safe-log-vectors",
+		ServiceType: "openai",
+		BaseURL:     upstreamServer.URL,
+		APIKeys:     []string{"sk-primary"},
+	}); err != nil {
+		t.Fatalf("AddVectorsUpstream() error = %v", err)
+	}
+
+	var logs bytes.Buffer
+	origWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() {
+		log.SetOutput(origWriter)
+	})
+
+	sch := newVectorsTestScheduler(cfgManager, metrics.NewMetricsManager())
+	w := serveVectorsEmbeddingRequest(cfgManager, sch, `{"model":"text-embedding-3-small","input":"`+sensitiveInput+`"}`)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d, body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), sensitiveInput) {
+		t.Fatalf("client response should still pass through upstream body, got: %s", w.Body.String())
+	}
+	if strings.Contains(logs.String(), sensitiveInput) {
+		t.Fatalf("server log leaked embedding input: %s", logs.String())
+	}
+
+	metricsKey := metrics.GenerateMetricsIdentityKey(upstreamServer.URL, "sk-primary", "openai")
+	channelLogs := sch.GetChannelLogStore(scheduler.ChannelKindVectors).Get(metricsKey)
+	if len(channelLogs) != 1 {
+		t.Fatalf("channel logs count = %d, want 1", len(channelLogs))
+	}
+	if strings.Contains(channelLogs[0].ErrorInfo, sensitiveInput) {
+		t.Fatalf("channel log leaked embedding input: %s", channelLogs[0].ErrorInfo)
+	}
+	if !strings.Contains(channelLogs[0].ErrorInfo, "status=422") || !strings.Contains(channelLogs[0].ErrorInfo, "param=input") {
+		t.Fatalf("unexpected channel log error info: %s", channelLogs[0].ErrorInfo)
+	}
+}
+
 func TestAddUpstreamRejectsUnsupportedServiceType(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfgManager := newVectorsTestConfigManager(t)
