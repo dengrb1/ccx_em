@@ -14,6 +14,12 @@ import type { Channel, ChannelsResponse } from '@/services/admin-api'
 import type { ProviderKeyAsset } from '@/types'
 
 type CopilotTarget = 'messages' | 'chat' | 'responses' | 'gemini'
+type SubscriptionProvider = 'github-copilot'
+type CopilotKnownAccount = {
+  target: CopilotTarget
+  key: string
+  name?: string
+}
 
 const { t } = useLanguage()
 const adminApi = useAdminApi()
@@ -22,6 +28,7 @@ const { verifyAccount, addAccount, removeAccount } = useCopilotAccounts()
 
 const copilotApiKeys = ref<string[]>([])
 const copilotProxyUrl = ref('')
+const selectedSubscription = ref<SubscriptionProvider>('github-copilot')
 const selectedCopilotTarget = ref<CopilotTarget>('responses')
 const copilotCreateError = ref('')
 const accountActionError = ref('')
@@ -67,6 +74,37 @@ const copilotAccountCounts = computed<Record<CopilotTarget, number>>(() => ({
   responses: existingCopilotChannels.value.responses ? buildBaseConfigs(existingCopilotChannels.value.responses).length : 0,
   gemini: existingCopilotChannels.value.gemini ? buildBaseConfigs(existingCopilotChannels.value.gemini).length : 0,
 }))
+const copilotTotalAccountCount = computed(() =>
+  Object.values(copilotAccountCounts.value).reduce((total, count) => total + count, 0),
+)
+const copilotKnownAccounts = computed<CopilotKnownAccount[]>(() => {
+  const accounts: CopilotKnownAccount[] = []
+  for (const target of copilotTargetOptions.value) {
+    const channel = existingCopilotChannels.value[target.value]
+    if (!channel) continue
+    accounts.push(...buildBaseConfigs(channel).map(account => ({
+      target: target.value,
+      key: account.key,
+      name: account.name,
+    })))
+  }
+  return accounts
+})
+const reusableCopilotAccount = computed<CopilotKnownAccount | null>(() => {
+  const selectedKeys = new Set(copilotAccounts.value.map(account => account.key))
+  const selectedNames = new Set(copilotAccounts.value.map(account => account.name).filter(Boolean))
+  const accountFromOtherChannel = copilotKnownAccounts.value.find(account => (
+    account.target !== selectedCopilotTarget.value
+    && account.key
+    && (!selectedKeys.has(account.key) || (account.name && !selectedNames.has(account.name)))
+  ))
+  if (accountFromOtherChannel) return accountFromOtherChannel
+  const saved = availableCopilotToken.value
+  if (saved && !selectedKeys.has(saved)) {
+    return { target: selectedCopilotTarget.value, key: saved }
+  }
+  return null
+})
 const copilotBusy = computed(() =>
   copilotOAuthLoading.value || copilotPolling.value || creating.value || addingCopilotChannel.value || verifyingAccount.value || checkingCopilotChannel.value,
 )
@@ -80,6 +118,7 @@ const selectedCopilotTargetOption = computed(() =>
   copilotTargetOptions.value.find(item => item.value === selectedCopilotTarget.value) || copilotTargetOptions.value[2],
 )
 const copilotPrimaryActionLabel = computed(() =>
+  reusableCopilotAccount.value ? t('subscription.addExistingAccount') :
   hasCopilotChannel.value ? t('subscription.authorizeAndAddAccount') : t('subscription.authorizeCopilot'),
 )
 
@@ -136,6 +175,11 @@ async function startCopilotAuthorization() {
 }
 
 function handleCopilotPrimaryAction() {
+  if (reusableCopilotAccount.value && channelStatusLoaded.value && !copilotBusy.value && !checkingCopilotChannel.value) {
+    savedTokenFailed.value = false
+    void processNewToken(reusableCopilotAccount.value.key)
+    return
+  }
   // 已有保存的授权 token 且当前 target 无渠道时，先尝试直接复用。
   // 必须等渠道状态检查完成且加载成功，避免误判为无渠道而覆盖已有配置。
   // savedTokenFailed 标记上一次复用失败（token 过期等），避免无限重试同一失效 token。
@@ -189,6 +233,7 @@ async function processNewToken(token: string): Promise<boolean> {
     // 已有渠道时不传 proxyUrl，避免用页面陈旧值覆盖渠道当前代理配置。
     // 新建渠道时 proxyUrl 已在 createChannel 调用中设置。
     await addAccount(target, channel, token, login)
+    await syncExistingCopilotAccountToken(target, token, login)
     await refreshSavedCopilotAsset()
     await refreshCopilotChannelStatus()
     return true
@@ -199,6 +244,20 @@ async function processNewToken(token: string): Promise<boolean> {
     verifyingAccount.value = false
     addingCopilotChannel.value = false
   }
+}
+
+async function syncExistingCopilotAccountToken(sourceTarget: CopilotTarget, token: string, login: string) {
+  const updates = copilotTargetOptions.value
+    .filter(({ value }) => value !== sourceTarget)
+    .map(({ value }) => {
+      const channel = existingCopilotChannels.value[value]
+      if (!channel) return null
+      const hasSameLogin = buildBaseConfigs(channel).some(account => account.name === login)
+      return hasSameLogin ? { target: value, channel } : null
+    })
+    .filter((item): item is { target: CopilotTarget; channel: Channel } => Boolean(item))
+
+  await Promise.all(updates.map(({ target, channel }) => addAccount(target, channel, token, login)))
 }
 
 // 加入失败后用已授权 token 重试，避免重新走 OAuth。
@@ -254,34 +313,32 @@ onMounted(() => {
     <div class="grid grid-cols-1 gap-4 md:min-h-0 md:flex-1 md:overflow-hidden md:grid-cols-[280px_1fr]">
       <div class="space-y-1.5 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-1">
         <button
-          v-for="target in copilotTargetOptions"
-          :key="target.value"
           type="button"
           :class="[
             'w-full rounded-xl border p-3 text-left transition-colors duration-200',
-            selectedCopilotTarget === target.value
+            selectedSubscription === 'github-copilot'
               ? 'border-border bg-secondary/60 dark:border-white/10 dark:bg-white/[0.04]'
               : 'border-border bg-card/40 hover:bg-card/70 dark:hover:bg-white/[0.03]',
           ]"
-          @click="selectedCopilotTarget = target.value"
+          @click="selectedSubscription = 'github-copilot'"
         >
           <div class="flex items-start gap-3">
             <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary ring-1 ring-border">
-              <ShieldCheck class="h-4 w-4 text-foreground" />
+              <Github class="h-4 w-4 text-foreground" />
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2">
-                <span class="font-semibold text-foreground">{{ target.label }}</span>
+                <span class="font-semibold text-foreground">GitHub Copilot</span>
                 <span
-                  v-if="existingCopilotChannels[target.value]"
+                  v-if="copilotOAuthSuccess || hasSavedCopilotAuthorization || copilotTotalAccountCount > 0"
                   class="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400"
                 >
-                  {{ t('subscription.channelExists') }}
+                  {{ t('subscription.authorized') }}
                 </span>
               </div>
-              <p class="mt-1 truncate text-xs text-muted-foreground">{{ target.description }}</p>
-              <p v-if="copilotAccountCounts[target.value] > 0" class="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
-                {{ t('subscription.accountCountShort', { count: String(copilotAccountCounts[target.value]) }) }}
+              <p class="mt-1 truncate text-xs text-muted-foreground">{{ t('subscription.copilotDescription') }}</p>
+              <p v-if="copilotTotalAccountCount > 0" class="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+                {{ t('subscription.accountCountShort', { count: String(copilotTotalAccountCount) }) }}
               </p>
             </div>
           </div>
@@ -313,7 +370,39 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div class="space-y-2">
+          <Label class="text-xs text-muted-foreground">{{ t('subscription.targetLabel') }}</Label>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              v-for="target in copilotTargetOptions"
+              :key="target.value"
+              type="button"
+              :class="[
+                'rounded-lg border px-3 py-2 text-left transition-colors',
+                selectedCopilotTarget === target.value
+                  ? 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border bg-background/70 text-foreground hover:bg-secondary/60',
+              ]"
+              @click="selectedCopilotTarget = target.value"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-semibold">{{ target.label }}</span>
+                <span
+                  v-if="existingCopilotChannels[target.value]"
+                  class="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400"
+                >
+                  {{ t('subscription.channelExists') }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-muted-foreground">{{ target.description }}</p>
+              <p v-if="copilotAccountCounts[target.value] > 0" class="mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
+                {{ t('subscription.accountCountShort', { count: String(copilotAccountCounts[target.value]) }) }}
+              </p>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
           <div class="space-y-1.5">
             <Label class="text-xs text-muted-foreground">{{ t('channelEditor.transport.proxyUrl.label') }}</Label>
             <Input
@@ -322,12 +411,6 @@ onMounted(() => {
               :placeholder="t('channelEditor.transport.proxyUrl.placeholder')"
             />
             <p class="text-xs text-muted-foreground">{{ t('channelEditor.transport.proxyUrl.hint') }}</p>
-          </div>
-
-          <div class="rounded-xl border border-border bg-secondary/50 p-3 text-xs text-muted-foreground">
-            <Label class="text-xs text-muted-foreground">{{ t('subscription.targetLabel') }}</Label>
-            <p class="mt-1 text-sm font-medium text-foreground">{{ selectedCopilotTargetOption.label }}</p>
-            <p class="mt-1">{{ selectedCopilotTargetOption.description }}</p>
           </div>
         </div>
 

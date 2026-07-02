@@ -173,6 +173,8 @@ export function useChannelTargetModels(options: ChannelTargetModelsOptions) {
         modelsApiType = 'vectors'
       } else if (options.channelType() === 'images') {
         modelsApiType = 'images'
+      } else if (effectiveServiceType === 'copilot') {
+        modelsApiType = 'responses'
       } else if (effectiveServiceType === 'gemini') {
         modelsApiType = 'gemini'
       } else if (effectiveServiceType === 'responses') {
@@ -191,6 +193,7 @@ export function useChannelTargetModels(options: ChannelTargetModelsOptions) {
           const resp = await typeApi.getChannelModels(channel.index, {
             key,
             baseUrl: options.form.baseUrl,
+            serviceType: effectiveServiceType,
             proxyUrl: options.form.proxyUrl,
             insecureSkipVerify: options.form.insecureSkipVerify,
             customHeaders: Object.keys(customHeaders).length ? customHeaders : undefined,

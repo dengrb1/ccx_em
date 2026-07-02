@@ -119,6 +119,7 @@
   "subscription.addingCopilotAccount": "Adding account to the selected channel...",
   "subscription.authorizeCopilot": "Authorize GitHub Copilot",
   "subscription.authorizeAndAddAccount": "Authorize and add another account",
+  "subscription.addExistingAccount": "Add authorized account",
   "subscription.copilotAuthorizationSavedOnly": "Authorized. No {target} channel detected — click the button below to add it.",
   "subscription.retryAddAccount": "Retry adding account",
   "subscription.accountsTitle": "{target} authorized accounts ({count})",

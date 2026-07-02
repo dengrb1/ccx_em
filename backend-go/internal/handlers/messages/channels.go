@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BenedictKing/ccx/internal/config"
+	"github.com/BenedictKing/ccx/internal/copilot"
 	handlers "github.com/BenedictKing/ccx/internal/handlers"
 	"github.com/BenedictKing/ccx/internal/handlers/common"
 	"github.com/BenedictKing/ccx/internal/httpclient"
@@ -325,6 +326,7 @@ type GetModelsRequest struct {
 	Key                string            `json:"key"`
 	BaseURL            string            `json:"baseUrl"`
 	BaseURLs           []string          `json:"baseUrls"`
+	ServiceType        string            `json:"serviceType"`
 	ProxyURL           string            `json:"proxyUrl"`
 	InsecureSkipVerify *bool             `json:"insecureSkipVerify"`
 	CustomHeaders      map[string]string `json:"customHeaders"`
@@ -352,6 +354,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 		// 3. 获取 baseUrl（优先使用请求体中的临时 baseUrl，用于新增渠道场景）
 		var baseURL string
 		var channelName string
+		var serviceType string
 		var insecureSkipVerify bool
 		var proxyURL string
 		var authHeader string
@@ -366,6 +369,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 			}
 			baseURL = req.BaseURL
 			channelName = "临时渠道"
+			serviceType = req.ServiceType
 			insecureSkipVerify = false
 			proxyURL = ""
 			if req.InsecureSkipVerify != nil {
@@ -387,6 +391,7 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 			channel := cfg.Upstream[id]
 			baseURL = channel.BaseURL
 			channelName = channel.Name
+			serviceType = channel.ServiceType
 			insecureSkipVerify = channel.InsecureSkipVerify
 			proxyURL = channel.ProxyURL
 			authHeader = channel.AuthHeader
@@ -407,6 +412,9 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 			if req.AuthHeader != "" {
 				authHeader = req.AuthHeader
 			}
+			if req.ServiceType != "" {
+				serviceType = req.ServiceType
+			}
 		}
 
 		// 4. 验证 API Key
@@ -420,6 +428,20 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 
 		// 5. 使用候选 URL 列表发起请求（messages 渠道自动尝试兼容路径）
 		candidateURLs := buildClaudeCompatibleModelsURLs(baseURL)
+		var copilotRuntimeToken string
+		if serviceType == "copilot" {
+			var copilotBaseURL string
+			copilotRuntimeToken, copilotBaseURL, err = copilot.ResolveTokenWithProxy(c.Request.Context(), apiKey, proxyURL)
+			if err != nil {
+				c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to exchange Copilot token: %v", err)})
+				return
+			}
+			targetBaseURL := strings.TrimSuffix(strings.TrimSuffix(baseURL, "#"), "/")
+			if copilotBaseURL != "" {
+				targetBaseURL = strings.TrimRight(copilotBaseURL, "/")
+			}
+			candidateURLs = []string{targetBaseURL + "/models"}
+		}
 
 		client := httpclient.GetManager().GetStandardClient(10*time.Second, insecureSkipVerify, proxyURL)
 		if req.BaseURL != "" && req.ProxyURL != "" {
@@ -434,9 +456,17 @@ func GetChannelModels(cfgManager *config.ConfigManager) gin.HandlerFunc {
 				log.Printf("[Messages-Models] 创建请求失败: channel=%s, url=%s, error=%v", channelName, candidateURL, err)
 				continue
 			}
-			utils.SetAuthenticationHeaderWithOverride(httpReq.Header, apiKey, authHeader)
+			if serviceType == "copilot" {
+				copilot.ApplyRuntimeHeaders(httpReq.Header, copilotRuntimeToken)
+			} else {
+				utils.SetAuthenticationHeaderWithOverride(httpReq.Header, apiKey, authHeader)
+			}
 			httpReq.Header.Set("Content-Type", "application/json")
-			utils.ApplyCustomHeaders(httpReq.Header, req.CustomHeaders)
+			if serviceType == "copilot" {
+				utils.ApplyCustomHeadersProtected(httpReq.Header, req.CustomHeaders, utils.CopilotProtectedHeaders)
+			} else {
+				utils.ApplyCustomHeaders(httpReq.Header, req.CustomHeaders)
+			}
 
 			resp, err := client.Do(httpReq)
 			if err != nil {
